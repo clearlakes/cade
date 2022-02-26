@@ -16,7 +16,7 @@ token = str(config.get("server", "token"))
 intents = discord.Intents.all()
 
 # set activity status
-activity = discord.Activity(type=discord.ActivityType.watching, name="!help")
+activity = discord.Activity(type=discord.ActivityType.watching, name="food battle 2014")
 
 # set the bot's prefix and intents
 client = commands.Bot(command_prefix=commands.when_mentioned_or("."), intents=intents, activity=activity)
