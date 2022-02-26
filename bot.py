@@ -15,8 +15,11 @@ token = str(config.get("server", "token"))
 
 intents = discord.Intents.all()
 
+# set activity status
+activity = discord.Activity(type=discord.ActivityType.watching, name="!help")
+
 # set the bot's prefix and intents
-client = commands.Bot(command_prefix=commands.when_mentioned_or("."), intents=intents)
+client = commands.Bot(command_prefix=commands.when_mentioned_or("."), intents=intents, activity=activity)
 client.remove_command('help')
 
 @client.event
