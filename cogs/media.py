@@ -272,13 +272,11 @@ class media(commands.Cog):
     @commands.command(aliases=["img"])
     async def imgaudio(self, ctx: commands.Context, length = None):
         """ Creates a video of a set length with a given image and audio source """
-        global audio_type; audio_type = None
-        global audio; audio = None
+        global audio; global audio_type
 
         def check_audio(author):
             def check_inner(message):
-                global audio_type
-                global audio
+                global audio; global audio_type
 
                 mp3_types = ["mpeg", "mp3"]
 
@@ -290,17 +288,18 @@ class media(commands.Cog):
 
                 # if the message contains an mp3 file
                 if msg.attachments and any(x in msg.attachments[0].content_type for x in mp3_types):
-                    audio_type = "video"
+                    audio_type = "file"
                     audio = msg.attachments[0]
 
                 # if the message contains a youtube url
                 elif youtube_rx.match(msg.content):
                     url = youtube_rx.match(msg.content).group(0)
-                    audio_type = "audio"
+                    audio_type = "url"
                     audio = url
 
                 else:
                     # failed to get anything
+                    audio_type = None
                     audio = None
 
                 return message.author == author
@@ -342,10 +341,9 @@ class media(commands.Cog):
 
         # wait for a youtube url or mp3 file using the check_audio function
         try:
-            response = await self.client.wait_for('message', check = check_audio(ctx.author))
+            response = await self.client.wait_for('message', check = check_audio(ctx.author), timeout=300)
         except asyncio.TimeoutError:
-            await wait_msg.delete()
-            return await ctx.send("**Error:** timed out")
+            return await wait_msg.edit(content="**Error:** timed out")
 
         await response.delete()
 
@@ -357,9 +355,7 @@ class media(commands.Cog):
         await wait_msg.edit(content = f"{self.client.loading} Getting {audio_type} information...")
 
         # if a video link was given
-        if audio_type == "video":
-            await wait_msg.edit(content = f"{self.client.loading} Getting video information...")
-
+        if audio_type == "url":
             # get video information
             try:
                 video = pafy.new(audio)
@@ -374,7 +370,7 @@ class media(commands.Cog):
             audio_source = video_title
         
         # if an mp3 file was given
-        if audio_type == "audio":
+        if audio_type == "file":
             # download the video as a temporary file and get its duration
             with create_temp(suffix="mp3") as temp:
                 await audio.save(temp.name)
@@ -397,6 +393,12 @@ class media(commands.Cog):
         
         # create two temporary files to use later on, with one being a video and the other being an image
         with create_temp(suffix='.mp4') as temp, create_temp(suffix='.png') as image:
+            async def command_error(cmd):
+                # if the ffmpeg command fails using the stream url, it might be because it's age restricted
+                extra = ", make sure that the youtube video is not age restricted just in case" if cmd == "p" else ''
+
+                await ctx.send(f"**Error:** failed to create the video{extra} (more details: ||command `{cmd}` failed with audio type `{audio_type}`||)")
+
             # write the given image into the temporary image file
             image.write(img_file[0].getvalue())
             return_code = 0
@@ -407,7 +409,10 @@ class media(commands.Cog):
                 # the final video is written into the temporary video file
                 command = shlex.split(f'{FFMPEG} -loop 1 -i {image.name} -i {stream_url} -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p -shortest {temp.name}')
                 p = subprocess.Popen(command)
-                p.wait(); return_code += p.returncode
+                p.wait()
+
+                # if there was an error
+                if p.returncode != 0: return await command_error("p")
 
             if audio_type == "file":
                 # create another temporary file as input for the second command
@@ -417,12 +422,19 @@ class media(commands.Cog):
                     # the second command adds audio from the mp3 file using its bytes, and the final video is saved into the original temporary video file
                     second_command = shlex.split(f'{FFMPEG} -i {second_input.name} -f mp3 -i pipe: -map 0:v -map 1:a -c:v copy -shortest {temp.name}')
 
+                    # run the first command
                     p1 = subprocess.Popen(first_command)
-                    p1.wait(); return_code += p1.returncode
+                    p1.wait()
 
+                    # check for errors
+                    if p1.returncode != 0: return await command_error("p1")
+
+                    # run the second command and send the mp3 file as bytes
                     p2 = subprocess.Popen(second_command, stdin=subprocess.PIPE)
                     p2.communicate(input=audio_bytes)
-                    p2.wait(); return_code += p2.returncode
+                    p2.wait()
+
+                    if p2.returncode != 0: return await command_error("p2")
 
             # if there was an issue with any command
             if return_code > 0:

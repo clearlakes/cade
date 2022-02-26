@@ -40,12 +40,17 @@ class ReplyView(discord.ui.View):
             for future in done:
                 msg_or_interaction = future.result()
 
-            # if there was a button press
+            # if a button press was received
             if isinstance(msg_or_interaction, discord.interactions.Interaction):
                 if view.canceled: 
                     return await interaction.edit_original_message(content = "(canceled)", view = None)
-
-            message = msg_or_interaction
+            
+            # if a message was received instead
+            if isinstance(msg_or_interaction, discord.Message):
+                message = msg_or_interaction
+            else:
+                # got unexpected response
+                return await interaction.edit_original_message(content = "**Error:** got a weird response for some reason, please try again (or don't if you wanted to cancel)", view = None)
         except asyncio.TimeoutError:
             await interaction.edit_original_message(content = "**Error:** timed out", view = None)
 
@@ -65,7 +70,7 @@ class ReplyView(discord.ui.View):
         # send the reply
         new_status = api.update_status(status=status, media_ids=media_ids, in_reply_to_status_id=self.reply_id, auto_populate_reply_metadata=True)
 
-        await interaction.edit_original_message(content = "Replied!")
+        await interaction.edit_original_message(content = "Replied!", view = None)
 
         # reply to the original message containing the tweet
         new_msg = await self.msg.reply(f"<@{interaction.user.mention}> replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")

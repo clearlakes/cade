@@ -358,10 +358,15 @@ class PlaylistView(discord.ui.View):
 
                 # check if bot received interaction
                 if isinstance(msg_or_interaction, discord.interactions.Interaction):
-                    if cancel_view.canceled: break
-                    else: continue
+                    if cancel_view.canceled: break # if they canceled
+                    else: continue # unexpected interaction
 
-                message = msg_or_interaction
+                # check if bot recieved message
+                if isinstance(msg_or_interaction, discord.Message):
+                    message = msg_or_interaction
+                else:
+                    # got something else unexpected
+                    continue
 
                 # make the bot ignore itself
                 if message.author == self.client.user: continue
@@ -892,7 +897,7 @@ class Music(commands.Cog):
                 try:
                     user_msg = await self.client.wait_for('message', check=check(ctx), timeout=300)
                 except asyncio.TimeoutError:
-                    await bot_msg.edit(content = "**Error:** timed out of song selection", embed = None)
+                    return await bot_msg.edit(content = "**Error:** timed out of song selection", embed = None)
 
                 # if the received message is not a number
                 if not user_msg.content.isnumerical():
