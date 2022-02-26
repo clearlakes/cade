@@ -86,7 +86,7 @@ class funny(commands.Cog):
     async def cog_check(self, ctx):
         # check if command is sent from funny museum
         if ctx.guild.id != 783166876784001075:
-            await ctx.send("**Error: that command only works in funny museum")
+            await ctx.send("**Error:** that command only works in funny museum")
         else:
             return True
     
