@@ -5,7 +5,6 @@ from datetime import timedelta
 import traceback
 import aiohttp
 import random
-import psutil
 import time
 import json
 import git
@@ -162,7 +161,7 @@ class general(commands.Cog):
         # make embed
         embed = discord.Embed(
             description = f"made for the funny museum\nuse `.help` or `.help [command]` for help\nCreated <t:1596846209:R>!",
-            color = 0xf7d8b2
+            color = 0xdec2a0
         )
 
         # link to github
@@ -196,10 +195,11 @@ class general(commands.Cog):
         # embed.add_field(name="Creation Date", value=f"August 7, 2020\n<t:1596846209:R>")
         
         # get cade repo commit details
-        repo = git.Repo(".")
-        commit = repo.head.commit
+        commit = git.Repo(".").head.commit
+        commit_url = f"https://github.com/source64/cade/commit/{commit.hexsha}"
+        commit_timestamp = int(commit.committed_datetime.timestamp())
 
-        embed.add_field(name="Latest update (from github):", value=f"<t:{int(commit.committed_datetime.timestamp())}:R> #{commit.count()} - {commit.message}", inline=False)
+        embed.add_field(name="Latest update (from github):", value=f"<t:{commit_timestamp}:R> [`#{commit.count()}`]({commit_url}) - {commit.message}", inline=False)
         
         embed.set_footer(text=f"version 3 • by steve859")
         embed.set_thumbnail(url=cat)
@@ -266,7 +266,7 @@ class general(commands.Cog):
         
         # repeat the message in the given channel
         try:
-            file_array = [x.to_file() for x in ctx.message.attachments]
+            file_array = [await x.to_file() for x in ctx.message.attachments]
             await channel.send(msg, files=file_array)
         except discord.Forbidden:
             return await ctx.send("**Error:** i can't do that, missing permissions")

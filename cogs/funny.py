@@ -26,6 +26,7 @@ class ReplyView(discord.ui.View):
     async def reply(self, button: discord.ui.Button, interaction: discord.Interaction):
         view = CancelView()
         view.children[0].label = "Cancel"
+        view.children[0].style = discord.ButtonStyle.secondary
 
         await interaction.response.send_message("Send a message to use as the reply.", view = view, ephemeral = True)
         
@@ -73,7 +74,7 @@ class ReplyView(discord.ui.View):
         await interaction.edit_original_message(content = "Replied!", view = None)
 
         # reply to the original message containing the tweet
-        new_msg = await self.msg.reply(f"<@{interaction.user.mention}> replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
+        new_msg = await self.msg.reply(f"{interaction.user.mention} replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
 
         view = ReplyView(self.client, new_msg, new_status.id)
         await new_msg.edit(view = view)
@@ -88,12 +89,12 @@ class funny(commands.Cog):
     def __init__(self, client):
         self.client = client
     
-    async def cog_check(self, ctx):
-        # check if command is sent from funny museum
-        if ctx.guild.id != 783166876784001075:
-            await ctx.send("**Error:** that command only works in funny museum")
-        else:
-            return True
+    #async def cog_check(self, ctx):
+    #    # check if command is sent from funny museum
+    #    if ctx.guild.id != 783166876784001075:
+    #        await ctx.send("**Error:** that command only works in funny museum")
+    #    else:
+    #        return True
     
     async def get_attachment(self, ctx: commands.Context, interaction: discord.Interaction = None):
         """ Get the attachment to use for the tweet """
@@ -177,11 +178,17 @@ class funny(commands.Cog):
         # chooses between either uploading multiple images or just one video/gif
         if result == "image":
             for image in media:
-                res = api.media_upload(image)
-                media_ids.append(res.media_id)
+                # create temporary file to store image data in
+                with create_temp() as temp:
+                    temp.write(image)
+                    res = api.media_upload(temp.name)
+                    media_ids.append(res.media_id)
         else:
-            res = api.chunked_upload(media, media_category=f"tweet_{result}")
-            media_ids.append(res.media_id)
+            # store media data in a temporary file
+            with create_temp() as temp:
+                temp.write(media.getvalue())
+                res = api.chunked_upload(temp.name, media_category=f"tweet_{result}")
+                media_ids.append(res.media_id)
 
         return media_ids
 
@@ -195,7 +202,7 @@ class funny(commands.Cog):
             media_ids = self.get_media_ids(content_given)
         else:
             if status is None:
-                return await ctx.send("**Error:** usage: `.tweet [message]`")
+                raise commands.BadArgument()
 
             media_ids = None
         
@@ -222,7 +229,7 @@ class funny(commands.Cog):
         else:
             # if nothing is given, and the message isn't a reply
             if reply_to is None:
-                return await ctx.send("**Error:** usage: `.reply [tweet-id/url]/latest [message]`")
+                raise commands.BadArgument()
         
         # if reply_to is not numeric, treat it as a url
         if not reply_to.isnumeric():
@@ -270,7 +277,7 @@ class funny(commands.Cog):
     async def profile(self, ctx: commands.Context, kind: str = None):
         """ Changes the twitter account's profile picture/banner """
         if kind is None:
-            return await ctx.send("**Error:** usage: `.profile p/b (image)`")
+            raise commands.BadArgument()
 
         att = await self.get_attachment_obj(ctx)
 
@@ -293,7 +300,7 @@ class funny(commands.Cog):
                         img = img.convert('RGBA').resize((512, 512))
 
                         img.save(temp.name, format="PNG")
-                        api.update_profile_image(filename=att.filename, file=temp.name)
+                        api.update_profile_image(filename=temp.name)
 
                     # resize into a rectangle for banner
                     elif any(kind == x for x in ["b", "banner"]):
@@ -302,12 +309,13 @@ class funny(commands.Cog):
                         img = img.convert('RGBA').resize((1500, 500))
 
                         img.save(temp.name, format="PNG")
-                        api.update_profile_banner(filename=att.filename, file=temp.name)
+                        api.update_profile_banner(filename=temp.name)
 
                     else:
                         await processing.delete()
-                        return await ctx.send("**Error:** usage: `.profile p/b (image)`")
+                        raise commands.BadArgument()
             except Exception as e:
+                await processing.delete()
                 return await ctx.send(f"**Error:** could not set profile {kind} (full error: ||{escape_ansii(e)}||)")
 
             await processing.delete()

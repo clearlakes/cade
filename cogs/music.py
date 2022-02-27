@@ -278,11 +278,13 @@ class PlaylistView(discord.ui.View):
         async def update_embed(button, interaction, title = None, url = None, position = None):
             # if adding a track
             if button.custom_id == "add":
-                new_embed = self.msg.embeds[0]
+                # fetch the original message embed again in case it changed (fixes visual glitch)
+                fetched_msg = await self.msg.channel.fetch_message(self.msg.id)
+                new_embed = fetched_msg.embeds[0]
                 new_track = f"\n**{position}.** [{title}]({url}) - {interaction.user.mention}"
 
                 # add the track to the embed
-                new_embed.description = new_embed.description.replace("(this playlist is empty)", "").replace(new_track, "") + new_track
+                new_embed.description = new_embed.description.replace("(this playlist is empty)", "") + new_track
                 
                 # enable the play/remove track buttons if they were disabled
                 self.children[1].disabled = False
@@ -361,7 +363,7 @@ class PlaylistView(discord.ui.View):
                     if cancel_view.canceled: break # if they canceled
                     else: continue # unexpected interaction
 
-                # check if bot recieved message
+                # check if bot received message
                 if isinstance(msg_or_interaction, discord.Message):
                     message = msg_or_interaction
                 else:
@@ -408,7 +410,7 @@ class PlaylistView(discord.ui.View):
                 # update self.playlists to include the new playlist track
                 self.playlists = db.find_one({"guild_id": self.ctx.guild.id, "playlists": {"$ne": None}})['playlists']
 
-                list_of_tracks += f"\n_ _ **- {title}**"
+                list_of_tracks += f"\n_ _ - **{title}**"
                 embed.description = description_text + f"\n_ _ - **Added `{title}`**"
                 await interaction.edit_original_message(embed = embed)
 
@@ -453,7 +455,7 @@ class PlaylistView(discord.ui.View):
                 # update self.playlists to include the updated playlist
                 self.playlists = db.find_one({"guild_id": self.ctx.guild.id, "playlists": {"$ne": None}})['playlists']
                 
-                list_of_tracks += f"\n_ _ **- {title}**"
+                list_of_tracks += f"\n_ _ - **{title}**"
                 embed.description = description_text + f"\n_ _ - **Removed `{title}`**"
                 await interaction.edit_original_message(embed = embed)
 
@@ -689,7 +691,7 @@ class Music(commands.Cog):
         is_spotify = False
 
         if query is None:
-            return await ctx.send("**Error:** specify something to search or a url to play")
+            raise commands.BadArgument()
 
         def get_id(which: str, url):
             start = url.find(f'{which}/') + len(f'{which}/')
@@ -900,7 +902,7 @@ class Music(commands.Cog):
                     return await bot_msg.edit(content = "**Error:** timed out of song selection", embed = None)
 
                 # if the received message is not a number
-                if not user_msg.content.isnumerical():
+                if not user_msg.content.isnumeric():
                     return await bot_msg.edit(content = "**Error:** invalid index", embed = None)
                 
                 # if the user wants to cancel by sending 0

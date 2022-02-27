@@ -459,7 +459,7 @@ class media(commands.Cog):
 
         # if nothing is given (if both values are still "auto")
         if width == "auto" and height == "auto":
-            return await ctx.send("**Error:** missing width and height")
+            raise commands.BadArgument()
 
         if width == "auto" or height == "auto":
             auto = True
@@ -544,7 +544,7 @@ class media(commands.Cog):
         """ Captions the given image/gif """
         # if nothing is given
         if text is None:
-            return await ctx.send("**Error:** missing caption")
+            raise commands.BadArgument()
 
         # remove emojis from the given caption
         text = text.encode('ascii', 'ignore').decode('ascii')
@@ -667,16 +667,22 @@ class media(commands.Cog):
     @commands.command()
     async def get(self, ctx: commands.Context, url: str = None, start = None, end = None):
         """ Downloads either the audio or video of a given youtube video """
-        # if nothing is given, check if the message is replying to another message that has the url
         if url is None:
-            if ctx.message.reference and url_rx.match(ctx.message.reference.resolved.content):
-                url = url_rx.match(ctx.message.reference.resolved.content).group(0)
+            raise commands.BadArgument()
+
+        # if the given url is not a link (probably sent as ".get 1:00 2:00"), try to get the url from the message being replied to
+        if not youtube_rx.match(url):
+            # check if there is a reply and that the message being replied to contains a yt link
+            if ctx.message.reference and youtube_rx.match(ctx.message.reference.resolved.content):
+                # check if an end time (which would be "start" in this case) was not given
+                if start is None:
+                    return await ctx.send("**Error**: missing end timestamp")
+
+                end = start
+                start = url
+                url = youtube_rx.match(ctx.message.reference.resolved.content).group(0)
             else:
-                return await ctx.send("**Error:** missing youtube url")
-        
-        # if the given url is not from youtube
-        if not youtube_rx.fullmatch(url):
-            return await ctx.send("**Error:** can't download from a non-youtube url")
+                return await ctx.send("**Error:** invalid url")
 
         # if a start time is given but not an end time
         if start is not None and end is None:
@@ -688,10 +694,13 @@ class media(commands.Cog):
             time_format = "%H:%M:%S" if s_colons == 2 else "%M:%S"
         
             try:
-                time.strptime(start, time_format)
-                time.strptime(end, time_format)
+                a = time.strptime(start, time_format)
+                b = time.strptime(end, time_format)
             except ValueError:
                 return await ctx.send(f"**Error:** invalid timestamps (must be M:S or H:M:S)")
+
+            if time.strftime(time_format, a) <= time.strftime(time_format, b):
+                return await ctx.send(f"**Error:** the start time must come before the end time")
         
         # send a message with the "video"/"audio" buttons from ChoiceView
         view = ChoiceView(ctx)
