@@ -689,6 +689,7 @@ class Music(commands.Cog):
         global api_client
         global sp_credentials
         is_spotify = False
+        track_selection = False
 
         if query is None:
             raise commands.BadArgument()
@@ -704,6 +705,15 @@ class Music(commands.Cog):
 
         # remove leading and trailing <> (<> may be used to suppress embedding links in Discord)
         query = query.strip('<>')
+
+        # if the user wants to select a track
+        if query.endswith("*"):
+            # remove the asterisk from the query
+            query = query[:-1]
+            track_selection = True
+
+            # just in case, check if the query is now nothing
+            if query == '': raise commands.BadArgument()
 
         # if the user is not in a vc
         if not ctx.author.voice:
@@ -867,8 +877,8 @@ class Music(commands.Cog):
             embed.set_author(name=f"Added Playlist to Queue ({len(tracks)} tracks)", icon_url=ctx.author.display_avatar)
             await ctx.send(embed = embed)
         else:
-            # if the user wants to select tracks (using an asterisk)
-            if query.endswith("*"):
+            # get a list of results if track selection is enabled
+            if track_selection:
                 song_list = ''
                 count = 0
 
