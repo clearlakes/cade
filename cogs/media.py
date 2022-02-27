@@ -14,7 +14,6 @@ import random
 import string
 import shlex
 import pafy
-import json
 import time
 import io
 import os
@@ -105,7 +104,7 @@ class media(commands.Cog):
                     # get the gif's information using the gif id and tenor api key
                     async with aiohttp.ClientSession() as session:
                         async with session.get(f'https://g.tenor.com/v1/gifs?ids={url_id}&key={tenor_key}') as r:
-                            res = json.loads(r.content)
+                            res = await r.json()
 
                     # get the actual gif url
                     content_url = res['results'][0]['media'][0]['gif']['url']
