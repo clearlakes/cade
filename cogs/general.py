@@ -104,33 +104,19 @@ class general(commands.Cog):
         if welcome_doc is None:
             return
             
-        att, welcome_msg, channel_id = welcome_doc['welcome']
+        welcome_msg, channel_id = welcome_doc['welcome']
 
         # if the welcome message was disabled
-        if welcome_msg is None and att == [None, None]:
+        if welcome_msg is None:
             return
 
         # get channel from id stored in 'welcome'
         channel = await self.client.fetch_channel(channel_id)
 
-        att_url, att_name = att
-
-        if att_url and att_name:
-            # read attachment data from the stored url
-            async with aiohttp.ClientSession() as session:
-                async with session.get(att_url) as r:
-                    b = await r.read()
-                    att_bytes = io.BytesIO(b)
-
-            att_file = discord.File(att_bytes, att_name)
-        else:
-            att_file = None
-
         # insert mentions into message
-        if welcome_msg is not None:
-            welcome_msg: str = welcome_msg.replace(r"{user}", member.mention)
+        welcome_msg: str = welcome_msg.replace(r"{user}", member.mention)
         
-        await channel.send(welcome_msg, file = att_file)
+        await channel.send(welcome_msg)
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
@@ -398,27 +384,20 @@ class general(commands.Cog):
         if channel is None:
             raise commands.BadArgument()
 
-        # if nothing is given, disable welcome message
+        # if nothing is given, disable the welcome message by setting it as None
         if not msg and not ctx.message.attachments:
-            db.update_one(g_id(ctx), {'$set': {'welcome': [[None, None], None, None]}}, upsert = True)
+            db.update_one(g_id(ctx), {'$set': {'welcome': [None, None]}}, upsert = True)
             return await ctx.send(f"{self.client.ok} disabled welcome message")
 
+        # get attachment url if there is one
         if ctx.message.attachments:
             att = ctx.message.attachments[0]
+            msg = msg + '\n' + att.url if msg else att.url
 
-            # if attachment is larger than 8 mb
-            if att.size >= 8388608:
-                return await ctx.send("**Error:** attachment is too large")
-
-            # split attachment into it's url and filename to use later
-            attachment = [att.url, att.filename]
-        else:
-            attachment = [None, None]
-
-        # update 'welcome' with the given attachment/message and channel id
-        db.update_one(g_id(ctx), {'$set': {'welcome': [attachment, msg, channel.id]}}, upsert = True)
+        # update 'welcome' with the given message and channel id
+        db.update_one(g_id(ctx), {'$set': {'welcome': [msg, channel.id]}}, upsert = True)
         
-        await ctx.send(f"{self.client.ok} set the welcome message and channel")        
+        await ctx.send(f"{self.client.ok} set the welcome message and channel")
 
 def setup(bot):
     bot.add_cog(general(bot))
