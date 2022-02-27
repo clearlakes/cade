@@ -314,7 +314,7 @@ class general(commands.Cog):
             # if an attachment is given
             if att_url != False:
                 if tag_name not in data.keys():
-                    db.update(g_id(ctx), {'$set': {f'tags.{tag_name}': att_url}}, upsert = True)
+                    db.update_one(g_id(ctx), {'$set': {f'tags.{tag_name}': att_url}}, upsert = True)
                     return await ctx.send(f"{self.client.ok} Added tag `{tag_name}`")
 
             # post the tag if it exists, or if the tag was found from the last if statement
@@ -334,7 +334,7 @@ class general(commands.Cog):
                 else:
                     new_tag = f"{att_url} {tag_content}"
 
-                db.update(g_id(ctx), {'$set': {f'tags.{tag_name}': new_tag}}, upsert = True)
+                db.update_one(g_id(ctx), {'$set': {f'tags.{tag_name}': new_tag}}, upsert = True)
                 return await ctx.send(f"{self.client.ok} Added tag `{tag_name}`")
             else:
                 return await ctx.send(f"**Error:** the tag `{tag_name}` already exists")
@@ -360,8 +360,8 @@ class general(commands.Cog):
             return await ctx.send("**Error:** tag not found")
         
         # remove the tag
-        db.update(g_id(ctx), {'$unset': {f'tags.{tag}': 1}})
-        db.update(g_id(ctx), {'$pull': {f'tags.{tag}': None}})
+        db.update_one(g_id(ctx), {'$unset': {f'tags.{tag}': 1}})
+        db.update_one(g_id(ctx), {'$pull': {f'tags.{tag}': None}})
 
         await ctx.send(f"{self.client.ok} Removed tag `{tag}`")
     
@@ -397,7 +397,7 @@ class general(commands.Cog):
         """ Sets the welcome message of the server """
         # if nothing is given, disable welcome message
         if not msg and not ctx.message.attachments:
-            db.update(g_id(ctx), {'$set': {'welcome': [[None, None], None, None]}}, upsert = True)
+            db.update_one(g_id(ctx), {'$set': {'welcome': [[None, None], None, None]}}, upsert = True)
             return await ctx.send(f"{self.client.ok} disabled welcome message")
 
         if ctx.message.attachments:
@@ -413,7 +413,7 @@ class general(commands.Cog):
             attachment = [None, None]
 
         # update 'welcome' with the given attachment/message and channel id
-        db.update(g_id(ctx), {'$set': {'welcome': [attachment, msg, ctx.channel.id]}}, upsert = True)
+        db.update_one(g_id(ctx), {'$set': {'welcome': [attachment, msg, ctx.channel.id]}}, upsert = True)
         
         await ctx.send(f"{self.client.ok} set new welcome message and channel")        
 

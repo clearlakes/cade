@@ -399,11 +399,11 @@ class PlaylistView(discord.ui.View):
                 
                 # update the playlist with the new track
                 if self.pl in self.playlists.keys():
-                    db.update(g_id(self.ctx), {'$push': {f'playlists.{self.pl}': new_track}})
+                    db.update_one(g_id(self.ctx), {'$push': {f'playlists.{self.pl}': new_track}})
                     position = len(db.find_one(g_id(self.ctx))['playlists'][self.pl])
                 else:
                     # create the playlist if it doesn't exist
-                    db.update(g_id(self.ctx), {'$set': {f'playlists.{self.pl}': [new_track]}}, upsert = True)
+                    db.update_one(g_id(self.ctx), {'$set': {f'playlists.{self.pl}': [new_track]}}, upsert = True)
                     position = 1
 
                 num += 1
@@ -445,11 +445,11 @@ class PlaylistView(discord.ui.View):
 
                 # delete the track
                 if len(self.playlists[self.pl]) > 1:
-                    db.update(g_id(self.ctx), {'$unset': {f'playlists.{self.pl}.{track_id}': 1}})
-                    db.update(g_id(self.ctx), {'$pull': {f'playlists.{self.pl}': None}})
+                    db.update_one(g_id(self.ctx), {'$unset': {f'playlists.{self.pl}.{track_id}': 1}})
+                    db.update_one(g_id(self.ctx), {'$pull': {f'playlists.{self.pl}': None}})
                 else:
                     # remove the playlist from the database if the track being deleted was the only track
-                    db.update(g_id(self.ctx), {'$unset': {f'playlists.{self.pl}': ""}})
+                    db.update_one(g_id(self.ctx), {'$unset': {f'playlists.{self.pl}': ""}})
 
                 num += 1
                 # update self.playlists to include the updated playlist
@@ -1251,12 +1251,12 @@ class Music(commands.Cog):
             
             # update the playlist with the new track
             if pl_name in playlists.keys():
-                db.update(g_id(ctx), {'$push': {f'playlists.{pl_name}': new_track}})
+                db.update_one(g_id(ctx), {'$push': {f'playlists.{pl_name}': new_track}})
                 position = len(db.find_one(g_id(ctx))['playlists'][pl_name])
                 return await ctx.send(f"{self.client.ok} Added track **{title}** (`#{position}`)")
             else:
                 # create the playlist if it doesn't exist
-                db.update(g_id(ctx), {'$set': {f'playlists.{pl_name}': [new_track]}}, upsert = True)
+                db.update_one(g_id(ctx), {'$set': {f'playlists.{pl_name}': [new_track]}}, upsert = True)
                 return await ctx.send(f"{self.client.ok} Created playlist **{pl_name}** and added track **{title}**")
 
         # if the user is trying to remove a track
@@ -1267,7 +1267,7 @@ class Music(commands.Cog):
 
             # if the user does not give an index, or if the index is "all", remove the playlist entirely
             if res is None or res.lower() == "all":
-                db.update(g_id(ctx), {'$unset': {f'playlists.{pl_name}': ""}})
+                db.update_one(g_id(ctx), {'$unset': {f'playlists.{pl_name}': ""}})
                 return await ctx.send(f"{self.client.ok} Removed **{pl_name}**")
             
             # check if the given index is numeric
@@ -1283,11 +1283,11 @@ class Music(commands.Cog):
 
                 # remove the track from the playlist
                 if len(playlists[pl_name]) > 1:
-                    db.update(g_id(ctx), {'$unset': {f'playlists.{pl_name}.{track_id}': 1}})
-                    db.update(g_id(ctx), {'$pull': {f'playlists.{pl_name}': None}})
+                    db.update_one(g_id(ctx), {'$unset': {f'playlists.{pl_name}.{track_id}': 1}})
+                    db.update_one(g_id(ctx), {'$pull': {f'playlists.{pl_name}': None}})
                 else:
                     # remove the playlist completely if there was only one track left
-                    db.update(g_id(ctx), {'$unset': {f'playlists.{pl_name}': ""}})
+                    db.update_one(g_id(ctx), {'$unset': {f'playlists.{pl_name}': ""}})
 
                 return await ctx.send(f"{self.client.ok} Removed track **{title}**")
             else:
