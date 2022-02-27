@@ -89,12 +89,12 @@ class funny(commands.Cog):
     def __init__(self, client):
         self.client = client
     
-    #async def cog_check(self, ctx):
-    #    # check if command is sent from funny museum
-    #    if ctx.guild.id != 783166876784001075:
-    #        await ctx.send("**Error:** that command only works in funny museum")
-    #    else:
-    #        return True
+    async def cog_check(self, ctx):
+        # check if command is sent from funny museum
+        if ctx.guild.id != 783166876784001075:
+            await ctx.send("**Error:** that command only works in funny museum")
+        else:
+            return True
     
     async def get_attachment(self, ctx: commands.Context, interaction: discord.Interaction = None):
         """ Get the attachment to use for the tweet """
