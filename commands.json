@@ -31,8 +31,8 @@
             "alt": ["tags"]
         },
         "welcome": {
-            "usage": "[message]",
-            "desc": "sets the welcome message of the server. the welcome message will be disabled if no message is given (use `{user}` wherever you want the bot to mention the new member) (this command can only be ran by admins)",
+            "usage": "[channel] [message]",
+            "desc": "sets the welcome message for the server, and the channel that the message will be sent in (use `{user}` in place of where you want the bot to mention the person who's joining)",
             "alt": null
         }
     },
