@@ -393,7 +393,7 @@ class general(commands.Cog):
     
     @commands.command()
     @commands.has_permissions(administrator = True)
-    async def welcome(self, ctx: commands.Context, *, msg: str = None):
+    async def welcome(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str = None):
         """ Sets the welcome message of the server """
         # if nothing is given, disable welcome message
         if not msg and not ctx.message.attachments:
@@ -413,9 +413,9 @@ class general(commands.Cog):
             attachment = [None, None]
 
         # update 'welcome' with the given attachment/message and channel id
-        db.update_one(g_id(ctx), {'$set': {'welcome': [attachment, msg, ctx.channel.id]}}, upsert = True)
+        db.update_one(g_id(ctx), {'$set': {'welcome': [attachment, msg, channel.id]}}, upsert = True)
         
-        await ctx.send(f"{self.client.ok} set new welcome message and channel")        
+        await ctx.send(f"{self.client.ok} set the welcome message and channel")        
 
 def setup(bot):
     bot.add_cog(general(bot))
