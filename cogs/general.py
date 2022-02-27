@@ -393,8 +393,11 @@ class general(commands.Cog):
     
     @commands.command()
     @commands.has_permissions(administrator = True)
-    async def welcome(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str = None):
+    async def welcome(self, ctx: commands.Context, channel: discord.TextChannel = None, *, msg: str = None):
         """ Sets the welcome message of the server """
+        if channel is None:
+            raise commands.BadArgument()
+            
         # if nothing is given, disable welcome message
         if not msg and not ctx.message.attachments:
             db.update_one(g_id(ctx), {'$set': {'welcome': [[None, None], None, None]}}, upsert = True)
