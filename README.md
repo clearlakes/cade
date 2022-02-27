@@ -26,8 +26,8 @@
   - me <img src="https://static-cdn.jtvnw.net/emoticons/v2/1/default/dark/1.0" width="25">
   <br>
   - image of freddy fazbear (used in testing)
-  <img src="https://i.imgur.com/AKEtv19.png" width="30" height="50">
+  <img src="https://static.wikia.nocookie.net/five-nights-at-freddys-fanon/images/3/3a/Freddy_Fazbear_en_Fiesta_Full_Body.png/revision/latest/scale-to-width-down/180?cb=20201016162646" width="30" height="50">
   <br>
-  - tod (in my house)
   <img src="https://i.imgur.com/eCHkJ10.jpg">
+  - tod (in my house)
 </p>
