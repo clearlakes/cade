@@ -1,14 +1,14 @@
 import discord
-from discord.errors import Forbidden
+from bot_vars import db, g_id, url_rx
 from discord.ext import commands
 from datetime import timedelta
-from bot_vars import db, g_id, url_rx
 import traceback
 import aiohttp
 import random
 import psutil
 import time
 import json
+import git
 import io
 
 class Dropdown(discord.ui.Select):
@@ -161,10 +161,12 @@ class general(commands.Cog):
 
         # make embed
         embed = discord.Embed(
-            title = "cade bot",
-            description = f"{self.client.user.mention} - **version 3**\nmade for the funny museum\nuse `.help` or `.help [command]` for help",
-            color = 0xffb580
+            description = f"made for the funny museum\nuse `.help` or `.help [command]` for help\nCreated <t:1596846209:R>!",
+            color = 0xf7d8b2
         )
+
+        # link to github
+        embed.set_author(name="cade bot", url="https://github.com/source64/cade")
 
         # get the uptime by subtracting the current time by the time that was stored in client.initial
         current_time = time.time()
@@ -177,19 +179,29 @@ class general(commands.Cog):
         # get random picture from the client.cats list
         cat = random.choice(self.client.cats)
 
-        # get the number of commands, as well as cpu/ram usage in percent
+        # get the number of commands
         num_of_commands = len(self.client.commands)
-        cpu_usage = psutil.cpu_percent(3)
-        ram_usage = psutil.virtual_memory()[2]
+
+        # unused - cpu/ram usage in percent
+        # cpu_usage = psutil.cpu_percent(3)
+        # ram_usage = psutil.virtual_memory()[2]
         
         # add fields to embed
         embed.add_field(name="Uptime", value=f"`{uptime_str}`")
         embed.add_field(name="Ping (ms)", value=f"`{ping}`")
         embed.add_field(name="Commands", value=f"`{num_of_commands}`")
-        embed.add_field(name="System", value=f"CPU Usage: `{cpu_usage}%`\nRAM Usage: `{ram_usage}%`")
-        embed.add_field(name="Creation Date", value=f"August 7, 2020\n<t:1596846209:R>")
+
+        # unused
+        # embed.add_field(name="System", value=f"CPU Usage: `{cpu_usage}%`\nRAM Usage: `{ram_usage}%`")
+        # embed.add_field(name="Creation Date", value=f"August 7, 2020\n<t:1596846209:R>")
         
-        embed.set_footer(text=f"made by steve859")
+        # get cade repo commit details
+        repo = git.Repo(".")
+        commit = repo.head.commit
+
+        embed.add_field(name="Latest update (from github):", value=f"<t:{int(commit.committed_datetime.timestamp())}:R> #{commit.count()} - {commit.message}", inline=False)
+        
+        embed.set_footer(text=f"version 3 • by steve859")
         embed.set_thumbnail(url=cat)
 
         await wait.delete()
@@ -256,7 +268,7 @@ class general(commands.Cog):
         try:
             file_array = [x.to_file() for x in ctx.message.attachments]
             await channel.send(msg, files=file_array)
-        except Forbidden:
+        except discord.Forbidden:
             return await ctx.send("**Error:** i can't do that, missing permissions")
         
         # react with ok

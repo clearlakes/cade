@@ -24,7 +24,7 @@ client.remove_command('help')
 
 @client.event
 async def on_ready():
-    # list of cats for help command
+    # list of cats for info command
     client.cats = [
         "https://i.imgur.com/1WCgVB5.jpg", 
         "https://i.imgur.com/o2Mv3id.gif",
@@ -52,7 +52,7 @@ async def on_ready():
 
     print("cade ready to rumble")
 
-@client.command()
+@client.command(aliases=["re"])
 @commands.is_owner()
 async def reload(ctx, cog_to_reload: str = None):
     processing = await ctx.send(f"{client.loading}")
