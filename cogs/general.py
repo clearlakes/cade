@@ -98,7 +98,7 @@ class general(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        welcome_doc = db.find_one({"guild_id": member.guild.id, "welcome": {"$ne": None}})
+        welcome_doc = db.find_one({"guild_id": member.guild.id, "welcome": {"$exists": True}})
 
         # if the 'welcome' field wasn't found
         if welcome_doc is None:
@@ -397,7 +397,7 @@ class general(commands.Cog):
         """ Sets the welcome message of the server """
         if channel is None:
             raise commands.BadArgument()
-            
+
         # if nothing is given, disable welcome message
         if not msg and not ctx.message.attachments:
             db.update_one(g_id(ctx), {'$set': {'welcome': [[None, None], None, None]}}, upsert = True)
