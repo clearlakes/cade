@@ -671,16 +671,16 @@ class Music(commands.Cog):
             # edit the original "now playing" message with the embed
             await np_msg.edit(embed = played)
     
-    @lavalink.listener(lavalink.events.QueueEndEvent)
-    async def on_queue_end(self, event: lavalink.events.QueueEndEvent):
-        """ Event handler for when the queue ends """
-        guild_id = int(event.player.guild_id)
-        guild = await self.client.fetch_guild(guild_id)
+    # @lavalink.listener(lavalink.events.QueueEndEvent)
+    # async def on_queue_end(self, event: lavalink.events.QueueEndEvent):
+        # """ Event handler for when the queue ends """
+        # guild_id = int(event.player.guild_id)
+        # guild = await self.client.fetch_guild(guild_id)
 
-        # automatically disconnect the bot if it isn't playing anything
-        await asyncio.sleep(300)
-        if not event.player.is_playing and event.player.is_connected:
-            await guild.voice_client.disconnect(force=False)
+        # automatically disconnect the bot if it isn't playing anything - unused
+        #await asyncio.sleep(300)
+        #if not event.player.is_playing and event.player.is_connected:
+        #    await guild.voice_client.disconnect(force=False)
 
     @commands.command(aliases=['p'])
     async def play(self, ctx: commands.Context, *, query: str = None):
