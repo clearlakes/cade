@@ -11,7 +11,7 @@ import git
 import io
 
 class Dropdown(discord.ui.Select):
-    def __init__(self):
+    def __init__(self, ctx):
         # dropdown options
         options = [
             discord.SelectOption(
@@ -25,12 +25,17 @@ class Dropdown(discord.ui.Select):
             discord.SelectOption(
                 label="Media",
                 description="image and audio commands"
-            ),
-            discord.SelectOption(
-                label="Funny Museum",
-                description="made for funny"
             )
         ]
+        
+        # add funny museum commands if guild matches the id
+        if ctx.guild == 783166876784001075:
+            options.extend([
+                discord.SelectOption(
+                    label="Funny Museum",
+                    description="made for funny"
+                )
+            ])
 
         # placeholder and setup
         super().__init__(
@@ -70,11 +75,11 @@ class Dropdown(discord.ui.Select):
         await interaction.response.edit_message(embed = em)
 
 class DropdownView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, ctx):
         super().__init__()
 
         # build the dropdown list
-        self.add_item(Dropdown())
+        self.add_item(Dropdown(ctx))
 
 class general(commands.Cog):
     def __init__(self, client):
@@ -87,7 +92,7 @@ class general(commands.Cog):
             'guild_id': guild.id,
             'tags': {},
             'playlists': {},
-            'welcome': {[[None, None], None, None]}
+            'welcome': {[None, None]}
         })
         print(f"added new guild to database ({guild.id}")
 
@@ -219,7 +224,7 @@ class general(commands.Cog):
             embed.description = "Use the dropdown menu to select a command category.\n(command options that have an asterisk in front of them are optional)"
 
             # send message with dropdown
-            view = DropdownView()
+            view = DropdownView(ctx)
             return await ctx.send(embed = embed, view = view)
 
         cmd = cmd.lower()
