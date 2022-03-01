@@ -1,14 +1,13 @@
 import discord
-from bot_vars import db, g_id, url_rx
+from bot_vars import db, g_id, url_rx, escape_ansii
 from discord.ext import commands
 from datetime import timedelta
+import subprocess
 import traceback
-import aiohttp
 import random
 import time
 import json
 import git
-import io
 
 class Dropdown(discord.ui.Select):
     def __init__(self, ctx):
@@ -148,6 +147,45 @@ class general(commands.Cog):
         else:
             # print the error
             traceback.print_exception(type(error), error, error.__traceback__)
+    
+    @commands.command(aliases=["re"])
+    @commands.is_owner()
+    async def reload(self, ctx, cog_to_reload: str = None):
+        processing = await ctx.send(f"{self.client.loading}")
+
+        try:
+            # reload all cogs if nothing is specified
+            if cog_to_reload is None:
+                for cog in ["funny", "general", "media", "music"]:
+                    self.client.reload_extension(f"cogs.{cog}")
+            else:
+                # reload the specified extension
+                self.client.reload_extension(f"cogs.{cog_to_reload.lower()}")
+        except:
+            return await ctx.send(f"**Error:** could not reload")
+        
+        await processing.delete()
+        await ctx.message.add_reaction(self.client.ok)
+
+    @commands.command(aliases=["u"])
+    @commands.is_owner()
+    async def update(self, ctx):
+        processing = await ctx.send(f"{self.client.loading} trying to update..")
+
+        # get the latest update from the github repo
+        # this might be a bad idea but if it works it would be pretty cool
+        p = subprocess.Popen(["git", "pull", "origin", "main"], stdout=subprocess.PIPE)
+        stdout = p.communicate()[0].decode('UTF-8')
+        p.wait()
+
+        if p.returncode != 0:
+            return await ctx.send(f"**Error:** issue running update command")
+
+        # reload cogs after update
+        for cog in ["funny", "general", "media", "music"]:
+            self.client.reload_extension(f"cogs.{cog}")
+
+        await processing.edit(content=f"```{stdout}```")
 
     @commands.command()
     async def info(self, ctx: commands.Context):

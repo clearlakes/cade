@@ -1,3 +1,5 @@
+from asyncio import subprocess
+from sys import stdout
 import discord
 from discord.utils import get
 from discord.ext import commands
@@ -51,24 +53,5 @@ async def on_ready():
         client.load_extension(f"cogs.{cog}")
 
     print("cade ready to rumble")
-
-@client.command(aliases=["re"])
-@commands.is_owner()
-async def reload(ctx, cog_to_reload: str = None):
-    processing = await ctx.send(f"{client.loading}")
-
-    try:
-        # reload all cogs if nothing is specified
-        if cog_to_reload is None:
-            for cog in ["funny", "general", "media", "music"]:
-                client.reload_extension(f"cogs.{cog}")
-        else:
-            # reload the specified extension
-            client.reload_extension(f"cogs.{cog_to_reload.lower()}")
-    except:
-        return await ctx.send(f"**Error:** could not reload")
-    
-    await processing.delete()
-    await ctx.message.add_reaction(client.ok)
 
 client.run(token)
