@@ -229,15 +229,14 @@ class general(commands.Cog):
         # embed.add_field(name="Creation Date", value=f"August 7, 2020\n<t:1596846209:R>")
         
         # get latest update made locally
-        repo = git.Repo(".")
-        commit = repo.head.commit
-        commit_url = f"https://github.com/source64/cade/commit/{commit.hexsha}"
-        commit_timestamp = int(commit.committed_datetime.timestamp())
+        with git.Repo(".") as repo:
+            commit = repo.head.commit
+            commit_url = f"https://github.com/source64/cade/commit/{commit.hexsha}"
+            commit_timestamp = int(commit.committed_datetime.timestamp())
 
-        # check if the bot is behind on updates
-        commits_diff = repo.git.rev_list('--left-right', '--count', f'main...main@{{u}}')
-        num_behind = int(commits_diff.split('\t')[1])
-        print(commits_diff)
+            # check if the bot is behind on updates
+            commits_diff = repo.git.rev_list('--left-right', '--count', f'main...origin/main')
+            num_behind = int(commits_diff.split('\t')[1])
 
         if num_behind > 0:
             extra = f"(the bot is {num_behind} update(s) behind)"

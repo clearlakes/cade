@@ -1,5 +1,3 @@
-from asyncio import subprocess
-from sys import stdout
 import discord
 from discord.utils import get
 from discord.ext import commands
