@@ -185,7 +185,7 @@ class general(commands.Cog):
         for cog in ["funny", "general", "media", "music"]:
             self.client.reload_extension(f"cogs.{cog}")
 
-        await processing.edit(content=f"```{stdout}```")
+        await processing.edit(content=f"```ansi\n{stdout}```")
 
     @commands.command()
     async def info(self, ctx: commands.Context):
@@ -194,7 +194,7 @@ class general(commands.Cog):
 
         # make embed
         embed = discord.Embed(
-            description = f"made for the funny museum\nuse `.help` or `.help [command]` for help\nCreated <t:1596846209:R>!",
+            description = f"made in the funny museum\nuse `.help` or `.help [command]` for help\nCreated <t:1596846209:R>!",
             color = 0xdec2a0
         )
 
@@ -237,6 +237,7 @@ class general(commands.Cog):
         # check if the bot is behind on updates
         commits_diff = repo.git.rev_list('--left-right', '--count', f'main...main@{{u}}')
         num_behind = int(commits_diff.split('\t')[1])
+        print(commits_diff)
 
         if num_behind > 0:
             extra = f"(the bot is {num_behind} update(s) behind)"
