@@ -193,7 +193,7 @@ class general(commands.Cog):
 
         # check if the bot is behind on updates
         commits_diff = repo.git.rev_list('--left-right', '--count', f'main...main@{{u}}')
-        num_behind = commits_diff.split('\t')[1]
+        num_behind = int(commits_diff.split('\t')[1])
 
         if num_behind > 0:
             extra = f"(the bot is {num_behind} update(s) behind)"
