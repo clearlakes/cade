@@ -52,11 +52,12 @@ class Dropdown(discord.ui.Select):
                 about = data[cat][key]["desc"]
                 usage = data[cat][key]["usage"]
                 
-                if usage is not None: usage_str = '`' + '` `'.join(usage.split()) + '`' if usage != '' else ''
+                # add backticks to each word in 'usage' if the usage isn't nothing
+                if usage is not None: usage_str = ' `' + '` `'.join(usage.split()) + '`' if usage != '' else ''
                 else: usage_str = ""
 
                 # add the command to the description
-                desc += f"**.{key}** {usage_str} - {about}\n"
+                desc += f"**.{key}**{usage_str} - {about}\n"
             return desc
         
         selection = self.values[0]
@@ -134,7 +135,11 @@ class general(commands.Cog):
                 
             usage = data[cat][cmd]["usage"]
 
-            return await ctx.send(f"**Error:** usage: `.{cmd} {usage}`")
+            # add space if usage is not empty
+            if usage is not None: usage = f" {usage}"
+            else: usage = ""
+
+            return await ctx.send(f"**Error:** usage: `.{cmd}{usage}`")
         else:
             # print the error
             traceback.print_exception(type(error), error, error.__traceback__)
@@ -180,12 +185,22 @@ class general(commands.Cog):
         # embed.add_field(name="System", value=f"CPU Usage: `{cpu_usage}%`\nRAM Usage: `{ram_usage}%`")
         # embed.add_field(name="Creation Date", value=f"August 7, 2020\n<t:1596846209:R>")
         
-        # get cade repo commit details
-        commit = git.Repo(".").head.commit
+        # get latest update made locally
+        repo = git.Repo(".")
+        commit = repo.head.commit
         commit_url = f"https://github.com/source64/cade/commit/{commit.hexsha}"
         commit_timestamp = int(commit.committed_datetime.timestamp())
 
-        embed.add_field(name="Latest update (from github):", value=f"<t:{commit_timestamp}:R> [`#{commit.count()}`]({commit_url}) - {commit.message}", inline=False)
+        # check if the bot is behind on updates
+        commits_diff = repo.git.rev_list('--left-right', '--count', f'main...main@{{u}}')
+        num_behind = commits_diff.split('\t')[1]
+
+        if num_behind > 0:
+            extra = f"(the bot is {num_behind} update(s) behind)"
+        else:
+            extra = ''
+
+        embed.add_field(name="Latest update (from github):", value=f"<t:{commit_timestamp}:R> [`#{commit.count()}`]({commit_url}) - {commit.message} {extra}", inline=False)
         
         embed.set_footer(text=f"version 3 • by steve859")
         embed.set_thumbnail(url=cat)
