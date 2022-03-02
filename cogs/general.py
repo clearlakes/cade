@@ -1,13 +1,13 @@
 import discord
-from bot_vars import db, g_id, url_rx, escape_ansii
+from bot_vars import db, g_id, url_rx
 from discord.ext import commands
 from datetime import timedelta
 import subprocess
 import traceback
 import random
+import shlex
 import time
 import json
-import git
 
 class Dropdown(discord.ui.Select):
     def __init__(self, ctx):
@@ -170,22 +170,24 @@ class general(commands.Cog):
     @commands.command(aliases=["u"])
     @commands.is_owner()
     async def update(self, ctx):
-        processing = await ctx.send(f"{self.client.loading} trying to update..")
+        processing = await ctx.send(f"{self.client.loading} looking for update...")
 
         # get the latest update from the github repo
-        # this might be a bad idea but if it works it would be pretty cool
-        p = subprocess.Popen(["git", "pull", "origin", "main"], stdout=subprocess.PIPE)
-        stdout = p.communicate()[0].decode('UTF-8')
-        p.wait()
+        update = subprocess.Popen(["git", "pull"], stdout=subprocess.PIPE).communicate()[0].decode('UTF-8')
 
-        if p.returncode != 0:
-            return await ctx.send(f"**Error:** issue running update command")
+        if "Already up to date." in update:
+            return await processing.edit("**Already up to date!**")
 
         # reload cogs after update
         for cog in ["funny", "general", "media", "music"]:
             self.client.reload_extension(f"cogs.{cog}")
 
-        await processing.edit(content=f"```ansi\n{stdout}```")
+        # get information about new update
+        get_commit_data = shlex.split(r"git log -1 --pretty=format:%h%x09%s")
+        commit_data = subprocess.Popen(get_commit_data, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').split('\t')
+        url = f"https://github.com/source64/cade/commit/{commit_data[0]}"
+
+        await processing.edit(content=f"**Updated to [`{commit_data[0]}`]({url}):\n```{commit_data[1]}```\n```{update}```**")
 
     @commands.command()
     async def info(self, ctx: commands.Context):
@@ -194,8 +196,8 @@ class general(commands.Cog):
 
         # make embed
         embed = discord.Embed(
-            description = f"made in the funny museum\nuse `.help` or `.help [command]` for help\nCreated <t:1596846209:R>!",
-            color = 0xdec2a0
+            description = f"made in the funny museum\nuse `.help` or `.help [command]` for help.\ncreated <t:1596846209:R>!",
+            color = 0xd9ba93
         )
 
         # link to github
@@ -211,42 +213,46 @@ class general(commands.Cog):
 
         # get random picture from the client.cats list
         cat = random.choice(self.client.cats)
+        embed.set_thumbnail(url=cat)
 
         # get the number of commands
         num_of_commands = len(self.client.commands)
-
-        # unused - cpu/ram usage in percent
-        # cpu_usage = psutil.cpu_percent(3)
-        # ram_usage = psutil.virtual_memory()[2]
         
         # add fields to embed
         embed.add_field(name="Uptime", value=f"`{uptime_str}`")
         embed.add_field(name="Ping (ms)", value=f"`{ping}`")
         embed.add_field(name="Commands", value=f"`{num_of_commands}`")
-
-        # unused
-        # embed.add_field(name="System", value=f"CPU Usage: `{cpu_usage}%`\nRAM Usage: `{ram_usage}%`")
-        # embed.add_field(name="Creation Date", value=f"August 7, 2020\n<t:1596846209:R>")
         
-        # get latest update made locally
-        with git.Repo(".") as repo:
-            commit = repo.head.commit
-            commit_url = f"https://github.com/source64/cade/commit/{commit.hexsha}"
-            commit_timestamp = int(commit.committed_datetime.timestamp())
+        # the commands below are used to get information about the latest (local) commit:
+        # commit_num - get the total number of commits so far
+        # commit_data - get the commit hash, timestamp, and message
+        # commit_diff - get the number of commits that the bot hasn't pulled yet from the remote repo
 
-            # check if the bot is behind on updates
-            commits_diff = repo.git.rev_list('--left-right', '--count', f'main...origin/main')
-            num_behind = int(commits_diff.split('\t')[1])
+        # split commands for use in subprocess
+        get_commit_data = shlex.split(r"git log -1 --pretty=format:%h%x09%at%x09%s")
+        get_commit_diff = shlex.split(r"git rev-list --left-right --count origin/main...main")
+        get_commit_num = shlex.split(r"git rev-list --all --count")
 
-        if num_behind > 0:
-            extra = f"(the bot is {num_behind} update(s) behind)"
+        # get latest metadata
+        subprocess.Popen(["git", "fetch"])
+
+        # get subprocess result, turn it into a regular string, and split the string every time '\t' (tab character) is found
+        commit_num = subprocess.Popen(get_commit_num, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').replace('\n', '')
+        commit_data = subprocess.Popen(get_commit_data, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').split('\t')
+        commit_diff = int(subprocess.Popen(get_commit_diff, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').split('\t')[0])
+        
+        # url that links to the commit
+        commit_url = f"https://github.com/source64/cade/commit/{commit_data[0]}"
+
+        # check if the bot is behind on updates
+        if commit_diff > 0:
+            extra = f"({commit_diff} update behind)" if commit_diff == 1 else f"({commit_diff} updates behind)"
         else:
-            extra = ''
+            extra = '(up to date)'
 
-        embed.add_field(name="Latest update (from github):", value=f"<t:{commit_timestamp}:R> [`#{commit.count()}`]({commit_url}) - {commit.message} {extra}", inline=False)
+        embed.add_field(name="Latest update (from github):", value=f"<t:{commit_data[1]}:R> [`#{commit_num}`]({commit_url}) - {commit_data[2]}", inline=False)
         
-        embed.set_footer(text=f"version 3 • by steve859")
-        embed.set_thumbnail(url=cat)
+        embed.set_footer(text=f"version 3 • by steve859\n{extra}")
 
         await wait.delete()
         await ctx.send(embed = embed)
