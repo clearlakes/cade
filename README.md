@@ -17,7 +17,7 @@ a funny discord bot that can play music, edit images, download videos, etc.
   - jacktender (brofist)<br>
   - tatertot (used .img a lot)<br>
   - me <img src="https://static-cdn.jtvnw.net/emoticons/v2/1/default/dark/1.0" width="25"><br>
-  - image of freddy fazbear (used in testing) <img src="https://static.wikia.nocookie.net/five-nights-at-freddys-fanon/images/3/3a/Freddy_Fazbear_en_Fiesta_Full_Body.png/revision/latest/scale-to-width-down/180?cb=20201016162646" width="150"><br>
+  - image of freddy fazbear (used in testing) <img src="https://static.wikia.nocookie.net/five-nights-at-freddys-fanon/images/3/3a/Freddy_Fazbear_en_Fiesta_Full_Body.png/revision/latest/scale-to-width-down/180?cb=20201016162646" width="130"><br>
   <img src="https://i.imgur.com/eCHkJ10.jpg" width="500" title="he's in my house"><br>
   - tod (in my house)
 </p>
