@@ -172,6 +172,9 @@ class general(commands.Cog):
     async def update(self, ctx):
         processing = await ctx.send(f"{self.client.loading} looking for update...")
 
+        # get the last update's information
+        previous = subprocess.Popen(shlex.split(r"git rev-parse --short HEAD"), stdout=subprocess.PIPE).communicate()[0].decode('UTF_8')
+
         # get the latest update from the github repo
         update = subprocess.Popen(["git", "pull"], stdout=subprocess.PIPE).communicate()[0].decode('UTF-8')
 
@@ -185,9 +188,14 @@ class general(commands.Cog):
         # get information about new update
         get_commit_data = shlex.split(r"git log -1 --pretty=format:%h%x09%s")
         commit_data = subprocess.Popen(get_commit_data, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').split('\t')
-        url = f"https://github.com/source64/cade/commit/{commit_data[0]}"
+        
+        url = "https://github.com/source64/cade/commit/{}"
 
-        await processing.edit(content=f"**Updated to [`{commit_data[0]}`]({url}):\n```{commit_data[1]}```\n```{update}```**")
+        embed = discord.Embed(
+            description = f"{self.client.ok} **Updated bot: [`{previous}`]({url.format(previous)}) -> [`{commit_data[0]}`]({url.format(commit_data[0])})\n```fix\n{update}```"
+        )
+
+        await processing.edit(embed = embed)
 
     @commands.command()
     async def info(self, ctx: commands.Context):
