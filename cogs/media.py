@@ -310,8 +310,14 @@ class media(commands.Cog):
                 length = int(length)
             except ValueError:
                 return await ctx.send("**Error:** length must be in seconds")
+        
+        # embed that will show the progress
+        embed = discord.Embed(
+            title = f"{self.client.loading} Processing...",
+            color = self.client.gray
+        )
 
-        wait_msg = await ctx.send(f"{self.client.loading} Processing...")
+        wait_msg = await ctx.send(embed = embed)
 
         # get the image attachment
         img_file, res = await self.get_media(ctx, ["image"])
@@ -336,13 +342,16 @@ class media(commands.Cog):
         alpha_composite.save(img_byte_arr, format='PNG')
         img_file[0] = io.BytesIO(img_byte_arr.getvalue())
 
-        await wait_msg.edit(content = f"{self.client.wait} Send either a youtube url or mp3 file (or reply to a message containing it)")
+        # edit the embed to ask for audio
+        embed.title = f"{self.client.wait} Send either a youtube url or an mp3 file to use as the audio."
+        embed.set_footer(text="(you may also reply to a message that contains it)")
+        await wait_msg.edit(embed = embed)
 
         # wait for a youtube url or mp3 file using the check_audio function
         try:
             response = await self.client.wait_for('message', check = check_audio(ctx.author), timeout=300)
         except asyncio.TimeoutError:
-            return await wait_msg.edit(content="**Error:** timed out")
+            return await wait_msg.edit(content="**Error:** timed out", embed=None)
 
         await response.delete()
 
@@ -351,7 +360,10 @@ class media(commands.Cog):
             await wait_msg.delete()
             return await ctx.send("**Error:** could not find audio file or url")
 
-        await wait_msg.edit(content = f"{self.client.loading} Getting {audio_type} information...")
+        # edit the embed to show that it's in step 1
+        embed.title = f"{self.client.loading} Getting {audio_type} information..."
+        embed.set_footer()
+        await wait_msg.edit(embed = embed)
 
         # if a video link was given
         if audio_type == "url":
@@ -388,7 +400,12 @@ class media(commands.Cog):
             else:
                 length = duration
 
-        await wait_msg.edit(content = f"{self.client.loading} Generating video...\n - Audio: **{audio_source}** `{duration_text}`\n- Length: `{length} seconds`")
+        audio_str = f"[{audio_source}]({audio})" if audio_type == "url" else audio_source
+
+        # edit the embed to show that it's in step 2
+        embed.title = f"{self.client.loading} Generating video..."
+        embed.description = f"- Audio: **{audio_str}** `{duration_text}`\n- Length: `{length} seconds`"
+        await wait_msg.edit(embed = embed)
         
         # create two temporary files to use later on, with one being a video and the other being an image
         with create_temp(suffix='.mp4') as temp, create_temp(suffix='.png') as image:
@@ -396,11 +413,11 @@ class media(commands.Cog):
                 # if the ffmpeg command fails using the stream url, it might be because it's age restricted
                 extra = ", make sure that the youtube video is not age restricted just in case" if cmd == "p" else ''
 
+                await wait_msg.delete()
                 await ctx.send(f"**Error:** failed to create the video{extra} (more details: ||command `{cmd}` failed with audio type `{audio_type}`||)")
 
             # write the given image into the temporary image file
             image.write(img_file[0].getvalue())
-            return_code = 0
 
             # if the audio source is a url, only a single command needs to run
             if audio_type == "url":
@@ -435,21 +452,20 @@ class media(commands.Cog):
 
                     if p2.returncode != 0: return await command_error("p2")
 
-            # if there was an issue with any command
-            if return_code > 0:
-                await wait_msg.delete()
-                return await ctx.send("**Error:** an issue occurred during video creation, try running the command again")
-
             video_file = io.BytesIO(temp.read())
 
-            await wait_msg.edit(content = f"{self.client.loading} Sending video...\n - Audio: **{audio_source}** `{duration_text}`\n- Length: `{length} seconds`")
+            embed.title = f"{self.client.loading} Sending video..."
+            await wait_msg.edit(embed = embed)
 
             # send the completed video
             try:
                 await ctx.send(ctx.author.mention, file = discord.File(video_file, f"{img_file[2]}.mp4"))
-                await wait_msg.edit(content = f"{self.client.ok} Completed\n - Audio: **{audio_source}** `{duration_text}`\n- Length: `{length} seconds`")
+                
+                embed.title = f"{self.client.ok} Completed"
+                embed.color = discord.Color.brand_green()
+                await wait_msg.edit(embed = embed)
             except:
-                await wait_msg.edit(content = "**Error:** could not send video (probably too large)")
+                await wait_msg.edit(content = "**Error:** could not send video (probably too large)", embed = None)
     
     @commands.command()
     async def resize(self, ctx: commands.Context, width = "auto", height = "auto"):
