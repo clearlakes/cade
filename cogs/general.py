@@ -173,10 +173,13 @@ class general(commands.Cog):
         processing = await ctx.send(f"{self.client.loading} looking for update...")
 
         # get the last update's information
-        previous = subprocess.Popen(shlex.split(r"git rev-parse --short HEAD"), stdout=subprocess.PIPE).communicate()[0].decode('UTF_8')
+        # .communicate()[0] - get response (in bytes)
+        # .decode('UTF-8') - convert byte string to regular text
+        # .replace('\n', '') - replace newlines with an empty space
+        previous = subprocess.Popen(shlex.split(r"git rev-parse --short HEAD"), stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').replace('\n', '')
 
         # get the latest update from the github repo
-        update = subprocess.Popen(["git", "pull"], stdout=subprocess.PIPE).communicate()[0].decode('UTF-8')
+        update = subprocess.Popen(["git", "pull"], stdout=subprocess.PIPE).communicate()[0].decode('UTF-8').replace("=", "-")
 
         if "Already up to date." in update:
             return await processing.edit("**Already up to date!**")
@@ -192,10 +195,11 @@ class general(commands.Cog):
         url = "https://github.com/source64/cade/commit/{}"
 
         embed = discord.Embed(
-            description = f"{self.client.ok} **Updated bot: [`{previous}`]({url.format(previous)}) -> [`{commit_data[0]}`]({url.format(commit_data[0])})\n```fix\n{update}```"
+            description = f"{self.client.ok} **Updated bot: [`{previous}`]({url.format(previous)}) -> [`{commit_data[0]}`]({url.format(commit_data[0])})**\n```fix\n{update}```"
         )
 
-        await processing.edit(embed = embed)
+        await processing.delete()
+        await ctx.send(embed = embed)
 
     @commands.command()
     async def info(self, ctx: commands.Context):
