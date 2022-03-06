@@ -1,5 +1,5 @@
 import discord
-from bot_vars import db, g_id, url_rx
+from utils.bot_vars import db, g_id, url_rx
 from discord.ext import commands
 from datetime import timedelta
 import subprocess

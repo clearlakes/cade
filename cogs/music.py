@@ -8,7 +8,7 @@ import discord
 from discord.ext import commands, pages
 from async_spotify.authentification.authorization_flows import ClientCredentialsFlow
 from async_spotify import SpotifyApiClient
-from bot_vars import db, g_id, url_rx, youtube_rx, spotify_keys, lavalink_opts, check, btn_check, CancelView
+from utils.bot_vars import db, g_id, url_rx, youtube_rx, spotify_keys, lavalink_opts, check, btn_check, CancelView
 import lavalink
 
 playing_color = 0x4e42f5
@@ -230,11 +230,13 @@ class PlaylistView(discord.ui.View):
         for track in self.playlists[self.pl]:
             count += 1
 
+            if extended:
+                continue
+
             # if more than ten tracks are counted, skip them and continue updating the counter from 0
-            if count > 10:
-                if extended is False:
-                    count = 0
-                    extended = True
+            if count == 10:
+                count = 0
+                extended = True
                 continue
 
             title = track["title"]

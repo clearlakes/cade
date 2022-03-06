@@ -2,7 +2,7 @@ import discord
 from typing import Union
 from discord.ext import commands
 from tempfile import NamedTemporaryFile as create_temp
-from bot_vars import CancelView, twitter_rx, twitter_keys, handle, check, btn_check, escape_ansii, FFMPEG
+from utils.bot_vars import CancelView, twitter_rx, twitter_keys, handle, check, btn_check, escape_ansii, FFMPEG
 from PIL import Image
 import subprocess
 import asyncio

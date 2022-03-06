@@ -1,14 +1,13 @@
 import discord
 import aiohttp
 from discord.ext import commands
-from PIL import Image, ImageDraw, ImageFont
 from tempfile import NamedTemporaryFile as create_temp
-from bot_vars import url_rx, tenor_rx, youtube_rx, tenor_key, escape_ansii, FFMPEG
+from utils.bot_vars import url_rx, tenor_rx, youtube_rx, tenor_key, escape_ansii, FFMPEG
 from mutagen.mp3 import MP3
+from utils import img_edit
 import subprocess
 import mimetypes
 import datetime
-import textwrap
 import asyncio
 import random
 import string
@@ -145,92 +144,6 @@ class media(commands.Cog):
             types = "/".join(x for x in media_type)
             return await ctx.send(f"**Error:** wrong attachment type (looking for {types})"), False
 
-    def analyseImage(self, file: Image.Image):
-        # determine if the gif's mode is full (changes whole frame) or additive (changes parts of the frame)
-        # taken from https://gist.github.com/rockkoca/30357703f42f9d17c6fa121cf4dd1d8e
-        results = {'size': file.size, 'mode': 'full'}
-
-        try:
-            while True:
-                if file.tile:
-                    tile = file.tile[0]
-                    update_region = tile[1]
-                    update_region_dimensions = update_region[2:]
-
-                    if update_region_dimensions != file.size:
-                        results['mode'] = 'partial'
-                        break
-
-                # move to next frame    
-                file.seek(file.tell() + 1)
-        except EOFError:
-            pass
-
-        return results
-
-    def edit_gif(self, file: Image.Image, edit_type: int, size: tuple = None, caption: Image.Image = None):
-        """ Function for editing gifs (and either resize or caption them) """
-        analyse = self.analyseImage(file)
-
-        i = 0
-        frame_num = 0
-        last_frame = file.convert('RGBA')
-
-        frames = []
-        durations = []
-
-        try:
-            # loop over frames in the gif
-            while True:
-                new_frame = Image.new('RGBA', file.size)
-                
-                if analyse['mode'] == 'partial':
-                    new_frame.paste(last_frame)
-                
-                new_frame.paste(file, (0,0), file.convert('RGBA'))
-
-                # if the frame is to be resized
-                if edit_type == 1:
-                    new_frame = new_frame.resize(size)
-                    frames.append(new_frame)
-
-                # if the frame is to be captioned
-                if edit_type == 2:
-                    final_caption = Image.new('RGB', (new_frame.width, new_frame.height + caption.height))
-
-                    final_caption.paste(caption, (0, 0))
-                    final_caption.paste(new_frame, (0, caption.height))
-
-                    frames.append(final_caption)
-
-                # add the frame's duration to a list
-                durations.append(file.info["duration"])
-
-                i += 1
-                frame_num += 1
-                last_frame = new_frame
-                file.seek(frame_num)
-        except EOFError:
-            pass
-
-        img_byte_arr = io.BytesIO()
-
-        # create a new gif using the lists of created frames and their durations
-        frames[0].save(
-            img_byte_arr, 
-            format = 'gif',
-            save_all = True, 
-            append_images = frames[1:], 
-            duration = durations,
-            optimize = True,
-            loop = 0
-        )
-
-        # get the gif's data in bytes
-        img_byte_arr = io.BytesIO(img_byte_arr.getvalue())
-
-        return img_byte_arr
-
     @commands.command()
     async def jpeg(self, ctx: commands.Context):
         """ Decreases the quality of a given image """
@@ -240,24 +153,7 @@ class media(commands.Cog):
         attachment, res = await self.get_media(ctx, ["image"])
         if res is False: return await processing.delete()
 
-        file_rgba = Image.open(attachment[0]).convert('RGBA')
-
-        # shrink the image to 80% of it's original size
-        orig_w, orig_h = file_rgba.size
-        small_w = round(0.8 * orig_w)
-        small_h = round(0.8 * orig_h)
-        small = (small_w, small_h)
-        file_rgba = file_rgba.resize(small)
-
-        # create a black background behind the image (useful if it's a transparent png)
-        background = Image.new('RGBA', small, (0, 0, 0))
-        alpha_composite = Image.alpha_composite(background, file_rgba)
-        file_rgb = alpha_composite.convert('RGB') # converting to RGB for jpeg output
-
-        # save the image as a bytes object
-        img_byte_arr = io.BytesIO()
-        file_rgb.save(img_byte_arr, format='JPEG', quality = 4) # "quality = 4" lowers the quality
-        result = io.BytesIO(img_byte_arr.getvalue())
+        result = await self.client.loop.run_in_executor(None, lambda: img_edit.jpeg(attachment[0]))
 
         filename = f"{attachment[2]}.jpg"
 
@@ -323,24 +219,7 @@ class media(commands.Cog):
         img_file, res = await self.get_media(ctx, ["image"])
         if res is False: return await wait_msg.delete()
 
-        image = Image.open(img_file[0]).convert('RGBA')
-        width, height = image.size
-
-        # add 1 to the width or height if it's odd
-        # this is necessary for when ffmpeg uses it later on to make an mp4 file
-        if width % 2 != 0: width += 1
-        if height % 2 != 0: height += 1
-
-        image = image.resize((width, height))
-
-        # adds a black background to the image if it's transparent
-        background = Image.new('RGBA', (width, height), (0, 0, 0))
-        alpha_composite = Image.alpha_composite(background, image)
-
-        # save the new image as bytes
-        img_byte_arr = io.BytesIO()
-        alpha_composite.save(img_byte_arr, format='PNG')
-        img_file[0] = io.BytesIO(img_byte_arr.getvalue())
+        img_file[0] = await self.client.loop.run_in_executor(None, lambda: img_edit.size_check(img_file[0]))
 
         # edit the embed to ask for audio
         embed.title = f"{self.client.wait} Send either a youtube url or an mp3 file to use as the audio."
@@ -494,7 +373,7 @@ class media(commands.Cog):
             await processing.edit(content=f"{self.client.loading} Resizing video...")
 
             # create a temporary file to use with the ffmpeg command
-            with create_temp as temp:
+            with create_temp() as temp:
                 temp.write(attachment[0].getvalue())
 
                 # resize the video using the given size (and replace "auto" with -2, which means the same thing for ffmpeg)
@@ -517,33 +396,29 @@ class media(commands.Cog):
             await processing.delete()
             return await ctx.send(file = discord.File(result, filename))
 
-        file = Image.open(attachment[0])
+        orig_width, orig_height = await self.client.loop.run_in_executor(None, lambda: img_edit.get_size(attachment[0]))
 
-        await processing.edit(content=f"{self.client.loading} Processing... ({file.width}x{file.height} **-->** {width}x{height})".replace("auto", "`auto`"))
+        await processing.edit(content=f"{self.client.loading} Processing... ({orig_width}x{orig_height} **-->** {width}x{height})".replace("auto", "`auto`"))
 
         if auto is True:
-            # calculate the height
             if width != "auto":
-                wpercent = (int(width) / float(file.size[0]))
-                height = int((float(file.size[1]) * float(wpercent)))
+                # calculate the height
+                wpercent = (int(width) / float(orig_width))
+                height = int((float(orig_height) * float(wpercent)))
             else:
                 # calculate the width
-                hpercent = (int(height) / float(file.size[1]))
-                width = int((float(file.size[0]) * float(hpercent)))
+                hpercent = (int(height) / float(orig_height))
+                width = int((float(orig_width) * float(hpercent)))
 
-        width, height = int(width), int(height)
+        new_size = (width, height)
 
         # if the attachment is a gif, resize it using the edit_gif function
         if attachment[1].lower().endswith("gif"):
-            result = self.edit_gif(file, edit_type=1, size=(width, height))
+            result = await self.client.loop.run_in_executor(None, lambda: img_edit.gif(attachment[0], edit_type=1, size=new_size))
             filename = f"{attachment[2]}.gif"
         else:
             # resize it using PIL if it's an image
-            file = file.resize((width, height))
-
-            img_byte_arr = io.BytesIO()
-            file.save(img_byte_arr, format='png')
-            result = io.BytesIO(img_byte_arr.getvalue())
+            result = await self.client.loop.run_in_executor(None, lambda: img_edit.resize(attachment[0], size=new_size))
             filename = f"{attachment[2]}.png"
 
         # send the resized attachment
@@ -574,101 +449,24 @@ class media(commands.Cog):
         attachment, res = await self.get_media(ctx, ["image"], allow_gifs=True, allow_tenor=True)
         if res is False: return await processing.delete()
 
-        file = Image.open(attachment[0])
+        width, height = await self.client.loop.run_in_executor(None, lambda: img_edit.get_size(attachment[0]))
 
         # this command freezes for some reason if the file is too small
         # checking if the file size is less than 50 pixels is just a guess at what the issue is
-        if file.width <= 50 or file.height <= 50:
+        if width <= 50 or height <= 50:
             await processing.delete()
             return await ctx.send("**Error:** file too small")
 
         # now we start generating the caption image
-
-        # wrap the caption text
-        wrap_length = 25
-        caption_lines = textwrap.wrap(text, wrap_length, break_long_words=True)
-        caption = "\n".join(caption_lines)
-
-        width = file.width
-        white = (255,255,255)
-
-        # function for getting the font size using the given width ratio
-        # from https://stackoverflow.com/a/66091387
-        def find_font_size(text, font, image, target_width_ratio):
-            tested_font = ImageFont.truetype(font, 1)
-            observed_width, observed_height = get_text_size(text, image, tested_font)
-            estimated_font_size = 1 / ((observed_width) / image.width) * target_width_ratio
-            return round(estimated_font_size)
-
-        # function for getting the text size by seeing what the output is when text is drawn on the image
-        def get_text_size(text, image, font):
-            im = Image.new('RGB', (image.width, image.height))
-            draw = ImageDraw.Draw(im)
-            return draw.textsize(text, font)
-
-        # get the appropriate width ratio to use depending on how many lines of text there are
-        if len(caption_lines) == 1:
-            width_ratio = 0.7
-        elif len(caption_lines) == 2:
-            width_ratio = 0.8
-        elif len(caption_lines) >= 3:
-            width_ratio = 1.1
-
-        # calculate the height of the caption image
-        height = (round(width / 5) + ((round(width / (5 + width_ratio)) * (len(caption_lines) - 1))))
-
-        # "c" is the caption image itself, using the variables from above
-        c = Image.new('RGB', (width, height), white)
-
-        # get the font
-        font_path = "fonts/roboto.otf"
-        font_size = find_font_size(caption, font_path, c, width_ratio)
-
-        editable_img = ImageDraw.Draw(c)
-        image_w, image_h = c.size
-
-        # shrink the font size if the text height is larger than the image's height
-        while True:
-            font = ImageFont.truetype(font_path, font_size)
-            text_w, text_h = editable_img.textsize(caption, font = font)
-
-            if text_h >= (image_h - 10):
-                font_size -= 1
-
-                font = ImageFont.truetype(font_path, font_size)
-                text_w, text_h = editable_img.textsize(caption, font = font)
-            else:
-                break
-        
-        # decrease the wrap length if the text width is larger than the image's width
-        while True:
-            font = ImageFont.truetype(font_path, font_size)
-            text_w, text_h = editable_img.textsize(caption, font = font)
-
-            if text_w >= (image_w - 20):
-                wrap_length -= 1
-                caption_lines = textwrap.wrap(caption, wrap_length, break_long_words=True)
-                caption = "\n".join(caption_lines)
-            else:
-                break
-        
-        # draw the text onto the image
-        xy = (image_w) // 2, (image_h) // 2
-        editable_img.text(xy, caption, font=font, fill=(0,0,0), anchor="mm", align="center")
+        caption = await self.client.loop.run_in_executor(None, lambda: img_edit.create_caption(text, width))
 
         # if the attachment is a gif, use the edit_gif function to caption each frame
         if attachment[1].lower().endswith("gif"):
-            result = self.edit_gif(file, edit_type=2, caption=c)
+            result = await self.client.loop.run_in_executor(None, lambda: img_edit.gif(attachment[0], edit_type=2, caption=caption))
             filename = f"{attachment[2]}.gif"
         else:
             # if it's an image, add the caption image to the top of it
-            new_img = Image.new('RGB', (file.width, file.height + c.height))
-            new_img.paste(c, (0,0))
-            new_img.paste(file, (0, c.height))
-
-            img_byte_arr = io.BytesIO()
-            new_img.save(img_byte_arr, format='png')
-            result = io.BytesIO(img_byte_arr.getvalue())
+            result = await self.client.loop.run_in_executor(None, lambda: img_edit.add_caption(attachment[0], caption=caption))
             filename = f"{attachment[2]}.png"
 
         # send the completed caption
