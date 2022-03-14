@@ -192,6 +192,41 @@ class funny(commands.Cog):
 
         return media_ids
 
+    def get_reaction_role(self, emoji: discord.PartialEmoji, guild: discord.Guild):
+        if emoji.name == "1️⃣":
+            # selected "he/him"
+            role = guild.get_role(820126482684313620)
+        if emoji.name == "2️⃣":
+            # selected "she/her"
+            role = guild.get_role(820126584442322984)
+        if emoji.name == "3️⃣":
+            # selected "they/them"
+            role = guild.get_role(820126629945933874)
+
+        return role
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, event: discord.RawReactionActionEvent):
+        # check if the message being reacted to is the one from funny museum
+        if event.message_id == 820147742382751785:
+            guild: discord.Guild = self.client.get_guild(event.guild_id)
+
+            # get the corresponding role from the reaction
+            role = self.get_reaction_role(event.emoji, guild)
+            await event.member.add_roles(role)
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, event: discord.RawReactionActionEvent):
+        # check if the message being reacted to is the one from funny museum
+        if event.message_id == 820147742382751785:
+            guild: discord.Guild = self.client.get_guild(event.guild_id)
+            
+            # get the corresponding role from the reaction
+            role = self.get_reaction_role(event.emoji, guild)
+
+            member = guild.get_member(event.user_id)
+            await member.remove_roles(role)
+
     @commands.command()
     async def tweet(self, ctx: commands.Context, *, status: str = None):
         """ Tweets any message from discord """
