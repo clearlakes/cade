@@ -410,7 +410,7 @@ class media(commands.Cog):
                 hpercent = (int(height) / float(orig_height))
                 width = int((float(orig_width) * float(hpercent)))
 
-        new_size = (width, height)
+        new_size = (int(width), int(height))
 
         # if the attachment is a gif, resize it using the edit_gif function
         if attachment[1].lower().endswith("gif"):
