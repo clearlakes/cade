@@ -1059,10 +1059,10 @@ class Music(commands.Cog):
             embed = discord.Embed(
                 title = title,
                 url = url,
-                description = f"Sent by {user.mention} | Duration: `{duration}`",
+                description = f"was played by {user.mention} | Duration: `{duration}`",
                 color = self.client.gray
             )
-            embed.set_author(name="Played Audio", icon_url=user.display_avatar)
+            
             await np_msg.edit(embed = embed)
 
             await ctx.message.add_reaction(self.client.ok)
