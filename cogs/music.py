@@ -59,7 +59,6 @@ class NowPlayingView(discord.ui.View):
     
     async def callback(self, button: discord.ui.Button, interaction: discord.Interaction):
         global repeat_single
-        global np_msg
 
         if interaction.user != self.ctx.author:
             return
@@ -75,27 +74,6 @@ class NowPlayingView(discord.ui.View):
 
         if button.custom_id == "skip":
             await interaction.response.defer()
-            
-            # disable loop
-            if repeat_single: 
-                repeat_single = False
-
-            # get current track information
-            title = self.player.current.title
-            url = f"https://youtube.com/watch?v={self.player.current.identifier}"
-            user = await self.client.fetch_user(current_track[1])
-            duration = self.player.current.duration // 1000
-            duration = Music.format_time(duration)
-
-            # update "now playing" message with new "track ended" embed
-            played = discord.Embed(
-                title = title,
-                url = url,
-                description = f"Sent by {user.mention} | Duration: `{duration}`",
-                color = self.client.gray
-            )
-            played.set_author(name="Played Audio", icon_url=user.display_avatar)
-            await np_msg.edit(embed = played)
 
             # update original message view
             button.disabled = True
@@ -612,6 +590,7 @@ class Music(commands.Cog):
     async def on_track_start(self, event: lavalink.events.TrackStartEvent):
         """ Event handler for when a track starts """
         global current_track
+        global repeat_single
         global np_msg
         
         if repeat_single is True:
@@ -643,6 +622,7 @@ class Music(commands.Cog):
     @lavalink.listener(lavalink.events.TrackEndEvent)
     async def on_track_end(self, event: lavalink.events.TrackEndEvent):
         """ Event handler for when a track ends """
+        global np_msg
         global loop_count
         global repeat_single
 
@@ -665,24 +645,12 @@ class Music(commands.Cog):
             played = discord.Embed(
                 title = title,
                 url = url,
-                description = f"Sent by {user.mention} | Duration: `{duration}`",
+                description = f"was played by {user.mention} | Duration: `{duration}`",
                 color = self.client.gray
             )
-            played.set_author(name="Played Audio", icon_url=user.display_avatar)
 
             # edit the original "now playing" message with the embed
             await np_msg.edit(embed = played)
-    
-    # @lavalink.listener(lavalink.events.QueueEndEvent)
-    # async def on_queue_end(self, event: lavalink.events.QueueEndEvent):
-        # """ Event handler for when the queue ends """
-        # guild_id = int(event.player.guild_id)
-        # guild = await self.client.fetch_guild(guild_id)
-
-        # automatically disconnect the bot if it isn't playing anything - unused
-        #await asyncio.sleep(300)
-        #if not event.player.is_playing and event.player.is_connected:
-        #    await guild.voice_client.disconnect(force=False)
 
     @commands.command(aliases=['p'])
     async def play(self, ctx: commands.Context, *, query: str = None):
@@ -1005,7 +973,8 @@ class Music(commands.Cog):
     async def disconnect(self, ctx: commands.Context):
         """ Disconnects the bot from the vc and clears the queue """
         # disable loop
-        global repeat_single; repeat_single = False
+        global repeat_single
+        repeat_single = False
 
         player = self.client.lavalink.player_manager.get(ctx.guild.id)
 
@@ -1028,9 +997,6 @@ class Music(commands.Cog):
     @commands.command(aliases=['s'])
     async def skip(self, ctx: commands.Context, index = None):
         """ Skips either the current track, a track in the queue, or the entire queue """
-        global repeat_single
-        global np_msg
-
         player = self.client.lavalink.player_manager.get(ctx.guild.id)
 
         if not player.is_connected:
@@ -1045,28 +1011,8 @@ class Music(commands.Cog):
 
         # if nothing is given, skip the current track
         if index is None:
-            if repeat_single:
-                repeat_single = False
-
-            # get the information of the current track
-            title = player.current.title
-            url = f"https://youtube.com/watch?v={player.current.identifier}"
-            user = await self.client.fetch_user(current_track[1])
-            duration = player.current.duration // 1000
-            duration = Music.format_time(duration)
-
-            # "track ended" embed
-            embed = discord.Embed(
-                title = title,
-                url = url,
-                description = f"was played by {user.mention} | Duration: `{duration}`",
-                color = self.client.gray
-            )
-            
-            await np_msg.edit(embed = embed)
-
+            await player.skip()
             await ctx.message.add_reaction(self.client.ok)
-            return await player.skip()
         
         # clear the queue if "all" is given
         if index == "all":
