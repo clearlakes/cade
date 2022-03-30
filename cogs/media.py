@@ -165,7 +165,7 @@ class media(commands.Cog):
             return await processing.edit("**Error:** could not send the image for some reason")
     
     @commands.command(aliases=["img"])
-    async def imgaudio(self, ctx: commands.Context, length = None):
+    async def imgaudio(self, ctx: commands.Context, length: int = None):
         """ Creates a video of a set length with a given image and audio source """
         global audio; global audio_type
 
