@@ -126,12 +126,12 @@ class general(commands.Cog):
         await channel.send(welcome_msg)
 
     @commands.Cog.listener()
-    async def on_message(self, message):
+    async def on_message(self, message: discord.Message):
         funnymuseum = 959643174094123098
         doghouse = 728380994754969660 # test id
 
         # if the message was from the bot
-        if message.author == self.client:
+        if message.author == message.guild.me:
             funnymuseum = await self.client.fetch_channel(funnymuseum)
 
             # if the bot sent a message in #grug-chat
