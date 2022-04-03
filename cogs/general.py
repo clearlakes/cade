@@ -1,3 +1,5 @@
+from http import client
+from re import fullmatch
 import discord
 from utils.bot_vars import db, g_id, url_rx
 from discord.ext import commands
@@ -122,6 +124,30 @@ class general(commands.Cog):
         welcome_msg: str = welcome_msg.replace(r"{user}", member.mention)
         
         await channel.send(welcome_msg)
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        funnymuseum = 959643174094123098
+        doghouse = 728380994754969660 # test id
+
+        # if the message was from the bot
+        if message.author == self.client:
+            funnymuseum = await self.client.fetch_channel(funnymuseum)
+
+            # if the bot sent a message in #grug-chat
+            if message.channel == funnymuseum:
+                doghouse = await self.client.fetch_channel(doghouse)
+
+                # send either the embed or plain text message
+                if message.embeds:
+                    embed = message.embeds[0]
+                    await doghouse.send(embed = embed)
+                else:
+                    await doghouse.send(message.content)
+                
+                return
+
+        await self.client.process_commands(message)
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
