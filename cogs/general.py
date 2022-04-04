@@ -125,29 +125,29 @@ class general(commands.Cog):
         
         await channel.send(welcome_msg)
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        funnymuseum = 959643174094123098
-        doghouse = 728380994754969660 # test id
+    #@commands.Cog.listener()
+    #async def on_message(self, message: discord.Message):
+    #    funnymuseum = 959643174094123098
+    #    doghouse = 728380994754969660 # test id
 
         # if the message was from the bot
-        if message.author == message.guild.me:
-            funnymuseum = await self.client.fetch_channel(funnymuseum)
+    #    if message.author == message.guild.me:
+    #        funnymuseum = await self.client.fetch_channel(funnymuseum)
 
             # if the bot sent a message in #grug-chat
-            if message.channel == funnymuseum:
-                doghouse = await self.client.fetch_channel(doghouse)
+    #        if message.channel == funnymuseum:
+    #            doghouse = await self.client.fetch_channel(doghouse)
 
                 # send either the embed or plain text message
-                if message.embeds:
-                    embed = message.embeds[0]
-                    await doghouse.send(embed = embed)
-                else:
-                    await doghouse.send(message.content)
+    #            if message.embeds:
+    #                embed = message.embeds[0]
+    #                await doghouse.send(embed = embed)
+    #            else:
+    #                await doghouse.send(message.content)
                 
-                return
+    #            return
 
-        await self.client.process_commands(message)
+    #    await self.client.process_commands(message)
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
