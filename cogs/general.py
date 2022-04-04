@@ -147,8 +147,6 @@ class general(commands.Cog):
                 
                 return
 
-        await self.client.process_commands(message)
-
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         # if the error was from an invalid argument
