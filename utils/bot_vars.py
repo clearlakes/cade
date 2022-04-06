@@ -101,3 +101,7 @@ url_rx = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0
 youtube_rx = re.compile(r'(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch|v|embed)(?:\.php)?(?:\?.*v=|\/))([a-zA-Z0-9\_-]+)')
 twitter_rx = re.compile(r'https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)') # group 1: handle, group 2: status id
 tenor_rx = re.compile(r'https?:\/\/tenor.com\/view\/(?:[a-zA-Z]+(?:-[a-zA-Z]+)+)-([0-9]+)') # group 1: tenor id
+emoji_rx = re.compile(r':(?P<name>[a-zA-Z0-9_]{2,32}):')
+
+# rendered emoji regex
+# emoji_rx = re.compile(r'<(?P<animated>a?):(?P<name>[a-zA-Z0-9_]{2,32}):(?P<id>[0-9]{18,22})>')

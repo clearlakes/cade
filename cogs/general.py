@@ -1,7 +1,6 @@
-from http import client
-from re import fullmatch
 import discord
-from utils.bot_vars import db, g_id, url_rx
+from discord.utils import get
+from utils.bot_vars import db, g_id, url_rx, emoji_rx
 from discord.ext import commands
 from datetime import timedelta
 import subprocess
@@ -10,6 +9,7 @@ import random
 import shlex
 import time
 import json
+import re
 
 class Dropdown(discord.ui.Select):
     def __init__(self, ctx):
@@ -128,7 +128,8 @@ class general(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         funnymuseum = 959643174094123098 # #grug-chat
-        doghouse = 960503568199200768 # doghouse thread
+        d_thread_id = 960503568199200768 # doghouse thread
+        d_guild_id = 832571902316511252 # doghouse guild
 
         # if the message was from the bot
         if message.author == message.guild.me:
@@ -136,14 +137,29 @@ class general(commands.Cog):
 
             # if the bot sent a message in #grug-chat
             if message.channel == funnymuseum:
-                doghouse = await self.client.fetch_channel(doghouse)
+                dog_thread = await self.client.fetch_channel(d_thread_id)
+                dog_guild = await self.client.fetch_guild(d_guild_id)
 
                 # send either the embed or plain text message
                 if message.embeds:
                     embed = message.embeds[0]
-                    await doghouse.send(embed = embed)
+                    await dog_thread.send(embed = embed)
                 else:
-                    await doghouse.send(message.content)
+                    # replace plain text emojis with doghouse emojis
+                    for match in re.finditer(emoji_rx, message.content):
+                        # get emoji by name
+                        emoji_name = match.group('name')
+                        emoji: discord.Emoji = get(dog_guild.emojis, name = emoji_name)
+                        
+                        # if no emoji is found, don't replace it
+                        if emoji is None:
+                            continue
+                        else:
+                            res = str(emoji)
+                        
+                        message.content = message.content.replace(match.group(0), res)
+
+                    await dog_thread.send(message.content)
                 
                 return
 
