@@ -30,7 +30,7 @@ class Dropdown(discord.ui.Select):
         ]
         
         # add funny museum commands if guild matches the id
-        if ctx.guild == 783166876784001075:
+        if ctx.guild.id == 783166876784001075:
             options.extend([
                 discord.SelectOption(
                     label="Funny Museum",
