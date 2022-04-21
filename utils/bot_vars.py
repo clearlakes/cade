@@ -98,7 +98,7 @@ class CancelView(discord.ui.View):
 url_rx = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)')
 
 # regex for different urls
-youtube_rx = re.compile(r'(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch|v|embed)(?:\.php)?(?:\?.*v=|\/))([a-zA-Z0-9\_-]+)')
+youtube_rx = re.compile(r'(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch|v|embed|shorts)(?:\.php)?(?:\?.*v=|\/))([a-zA-Z0-9\_-]+)')
 twitter_rx = re.compile(r'https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)') # group 1: handle, group 2: status id
 tenor_rx = re.compile(r'https?:\/\/tenor.com\/view\/(?:[a-zA-Z]+(?:-[a-zA-Z]+)+)-([0-9]+)') # group 1: tenor id
 emoji_rx = re.compile(r':(?P<name>[a-zA-Z0-9_]{2,32}):')

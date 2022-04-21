@@ -715,6 +715,10 @@ class Music(commands.Cog):
                 # if it's not youtube, send an error
                 if not youtube_rx.match(query):
                     return await ctx.send("**Error:** only youtube/spotify links can be used")
+                
+                # since youtube shorts urls are not recognized by lavalink yet, convert it into a regular url
+                if 'shorts' in query:
+                    query = f'https://youtube.com/watch?v={youtube_rx.match(query).group(1)}'
 
         # get the results from the lavalink server if it's not spotify
         if not is_spotify:
