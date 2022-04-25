@@ -1017,6 +1017,7 @@ class Music(commands.Cog):
         if index is None:
             await player.skip()
             await ctx.message.add_reaction(self.client.ok)
+            return
         
         # clear the queue if "all" is given
         if index == "all":

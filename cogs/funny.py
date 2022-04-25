@@ -180,7 +180,7 @@ class funny(commands.Cog):
             for image in media:
                 # create temporary file to store image data in
                 with create_temp() as temp:
-                    temp.write(image)
+                    temp.write(image.read())
                     res = api.media_upload(temp.name)
                     media_ids.append(res.media_id)
         else:
