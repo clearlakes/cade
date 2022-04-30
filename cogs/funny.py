@@ -260,15 +260,16 @@ class funny(commands.Cog):
     @commands.command()
     async def reply(self, ctx: commands.Context, reply_to: Union[str, int] = None, *, status: str = None):
         """ Replies to a given tweet """
-        # if the message is a reply, get the twitter link from the message it's replying to
-        # i know this checks if reply_to is none but that is because the status will start from there if the twitter link is coming from the reply. it's weird
-        if ctx.message.reference and reply_to is not None:
-            status = str(reply_to) + status
-            reply_to = ctx.message.reference.resolved
-        else:
-            # if nothing is given, and the message isn't a reply
-            if reply_to is None:
-                raise commands.BadArgument()
+        # checks if the user wants to reply to a tweet that is in a different message
+        if ctx.message.reference and not twitter_rx.match(reply_to):
+            # .reply hello there
+            #          ^ this is not intended to be used as the reply id, so add it to the existing status
+            status = f"{reply_to} {status}" if status else reply_to
+            reply_to = ctx.message.reference.resolved.content
+        
+        # if nothing is given at all
+        if reply_to is None:
+            raise commands.BadArgument()
         
         # if reply_to is not numeric, treat it as a url
         if not reply_to.isnumeric():
@@ -276,7 +277,7 @@ class funny(commands.Cog):
             if reply_to == "latest":
                 reply_id = api.user_timeline(screen_name = handle, count = 1)[0].id
             else:
-                url = twitter_rx.match(reply_to)
+                url = twitter_rx.search(reply_to)
                 
                 if url is None:
                     return await ctx.send("**Error:** could not find tweet url/id")
@@ -293,7 +294,7 @@ class funny(commands.Cog):
             media_ids = self.get_media_ids(content_given)
         else:
             if status is None:
-                return await ctx.send("**Error:** usage: `.reply [tweet-id/url]/latest [message]`")
+                return commands.BadArgument()
 
             media_ids = None
         
