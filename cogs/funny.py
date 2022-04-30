@@ -308,7 +308,7 @@ class funny(commands.Cog):
             msg = await ctx.send(f"{self.client.ok} **Reply sent:**\nhttps://twitter.com/{replied_to.user.screen_name}/status/{replied_to.id}\nhttps://twitter.com/{handle}/status/{new_status.id}")
         else:
             await ctx.message.delete()
-            await ctx.message.reference.resolved.reply(f"{ctx.author.mention} replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
+            msg = await ctx.message.reference.resolved.reply(f"{ctx.author.mention} replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
 
         view = ReplyView(self.client, msg, new_status.id)
         await msg.edit(view = view)
