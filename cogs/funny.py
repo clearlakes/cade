@@ -20,9 +20,9 @@ class ReplyView(discord.ui.View):
         self.msg = msg
         self.client = client
         self.reply_id = reply_id
-        super().__init__()
+        super().__init__(timeout = None)
 
-    @discord.ui.button(label="Reply", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Reply", style=discord.ButtonStyle.primary, custom_id="replyview:reply")
     async def reply(self, button: discord.ui.Button, interaction: discord.Interaction):
         view = CancelView()
         view.children[0].label = "Cancel"
@@ -78,12 +78,6 @@ class ReplyView(discord.ui.View):
 
         view = ReplyView(self.client, new_msg, new_status.id)
         await new_msg.edit(view = view)
-
-    # disable reply button on timeout
-    async def on_timeout(self):
-        self.children[0].style = discord.ButtonStyle.secondary
-        self.children[0].disabled = True
-        await self.msg.edit(view = self)
 
 class funny(commands.Cog):
     def __init__(self, client):
@@ -260,12 +254,15 @@ class funny(commands.Cog):
     @commands.command()
     async def reply(self, ctx: commands.Context, reply_to: Union[str, int] = None, *, status: str = None):
         """ Replies to a given tweet """
+        is_chain = False
+
         # checks if the user wants to reply to a tweet that is in a different message
         if ctx.message.reference and not twitter_rx.match(reply_to):
             # .reply hello there
             #          ^ this is not intended to be used as the reply id, so add it to the existing status
             status = f"{reply_to} {status}" if status else reply_to
             reply_to = ctx.message.reference.resolved.content
+            is_chain = True
         
         # if nothing is given at all
         if reply_to is None:
@@ -305,10 +302,13 @@ class funny(commands.Cog):
             return await ctx.send("**Error:** could not find tweet from the given url/id")
         except Exception as e:
             return await ctx.send(f"**Error:** could not send tweet (full error: ||{escape_ansii(e)}||)")
-            
-        replied_to = api.get_status(reply_id)
-
-        msg = await ctx.send(f"{self.client.ok} **Reply sent:**\nhttps://twitter.com/{replied_to.user.screen_name}/status/{replied_to.id}\nhttps://twitter.com/{handle}/status/{new_status.id}")
+        
+        if not is_chain:
+            replied_to = api.get_status(reply_id)
+            msg = await ctx.send(f"{self.client.ok} **Reply sent:**\nhttps://twitter.com/{replied_to.user.screen_name}/status/{replied_to.id}\nhttps://twitter.com/{handle}/status/{new_status.id}")
+        else:
+            await ctx.message.delete()
+            await ctx.message.reference.resolved.reply(f"{ctx.author.mention} replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
 
         view = ReplyView(self.client, msg, new_status.id)
         await msg.edit(view = view)
