@@ -179,8 +179,12 @@ class funny(commands.Cog):
         if result == "image":
             for image in media:
                 # create temporary file to store image data in
-                with create_temp() as temp:
-                    temp.write(image.read())
+                with create_temp(suffix='.png') as temp:
+                    # convert image into png in case of filetype conflicts
+                    im = Image.open(image)
+                    im.convert('RGBA')
+                    im.save(temp.name, format='PNG')
+
                     res = api.media_upload(temp.name)
                     media_ids.append(res.media_id)
         else:
