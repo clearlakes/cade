@@ -115,7 +115,7 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
                 files.append(temp_path)
             
             with create_temp(suffix = ".gif") as temp:
-                cmd = ["convert"] + [opt for d, f in zip(durations, files) for opt in ("-delay", f"{d // 10}", f)] + ["-loop", "0", "-layers", "optimize", temp.name]
+                cmd = ["./convert"] + [opt for d, f in zip(durations, files) for opt in ("-delay", f"{d // 10}", f)] + ["-loop", "0", "-layers", "optimize", temp.name]
 
                 subprocess.Popen(cmd).wait()
                 return io.BytesIO(temp.read())
