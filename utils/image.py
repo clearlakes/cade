@@ -1,14 +1,20 @@
+from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
 from PIL import Image, ImageFont, ImageDraw
+from pilmoji import Pilmoji
+import subprocess
 import textwrap
+import emoji
 import io
 
 def get_size(file: io.BytesIO):
+    """Returns the size of a file"""
     image = Image.open(file)
     size = image.width, image.height
     
     return size
 
 def size_check(file: io.BytesIO):
+    """Resizes a file so that it's width and height are even"""
     image = Image.open(file).convert('RGBA')
     width, height = image.size
 
@@ -25,16 +31,16 @@ def size_check(file: io.BytesIO):
 
     # save the new image as bytes
     img_byte_arr = io.BytesIO()
-    alpha_composite.save(img_byte_arr, format='PNG')
+    alpha_composite.save(img_byte_arr, format = 'PNG')
     result = io.BytesIO(img_byte_arr.getvalue())
 
     return result
 
 def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Image = None):
-    """ Function for editing gifs (and either resize or caption them) """
+    """Function for editing gifs (and either resize or caption them)"""
     file = Image.open(file)
     
-    def analyseImage(file: Image.Image):
+    def _analyse(file: Image.Image):
         # determine if the gif's mode is full (changes whole frame) or additive (changes parts of the frame)
         # taken from https://gist.github.com/rockkoca/30357703f42f9d17c6fa121cf4dd1d8e
         results = {'size': file.size, 'mode': 'full'}
@@ -57,7 +63,7 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
 
         return results
     
-    analyse = analyseImage(file)
+    analyse = _analyse(file)
 
     i = 0
     frame_num = 0
@@ -83,7 +89,7 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
 
             # if the frame is to be captioned
             if edit_type == 2:
-                final_caption = Image.new('RGB', (new_frame.width, new_frame.height + caption.height))
+                final_caption = Image.new('RGBA', (new_frame.width, new_frame.height + caption.height))
 
                 final_caption.paste(caption, (0, 0))
                 final_caption.paste(new_frame, (0, caption.height))
@@ -99,6 +105,20 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
             file.seek(frame_num)
     except EOFError:
         pass
+
+    if edit_type == 2:
+        with TemporaryDirectory() as dir:
+            files = []
+            for i, frame in enumerate(frames):
+                temp_path = f"{dir}/{i}.png"
+                frame.save(temp_path)
+                files.append(temp_path)
+            
+            with create_temp(suffix = ".gif") as temp:
+                cmd = ["convert"] + [opt for d, f in zip(durations, files) for opt in ("-delay", f"{d // 10}", f)] + ["-loop", "0", "-layers", "optimize", temp.name]
+
+                subprocess.Popen(cmd).wait()
+                return io.BytesIO(temp.read())
 
     img_byte_arr = io.BytesIO()
 
@@ -119,6 +139,7 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
     return result
 
 def jpeg(file: io.BytesIO):
+    """Returns a low quality version of the file"""
     file_rgba = Image.open(file).convert('RGBA')
 
     # shrink the image to 80% of it's original size
@@ -135,103 +156,70 @@ def jpeg(file: io.BytesIO):
 
     # save the image as a bytes object
     img_byte_arr = io.BytesIO()
-    file_rgb.save(img_byte_arr, format='JPEG', quality = 4) # "quality = 4" lowers the quality
+    file_rgb.save(img_byte_arr, format = 'JPEG', quality = 4) # "quality = 4" lowers the quality
     result = io.BytesIO(img_byte_arr.getvalue())
 
     return result
 
 def resize(file: io.BytesIO, size: tuple[int, int]):
-    # resize the file
-    file = Image.open(file)
+    """Resizes a file to a given size"""
+    file: Image.Image = Image.open(file)
     file = file.resize(size)
 
     img_byte_arr = io.BytesIO()
-    file.save(img_byte_arr, format='png')
+    file.save(img_byte_arr, format = 'png')
     result = io.BytesIO(img_byte_arr.getvalue())
 
     return result
 
 def create_caption(text: str, width: int):
-    # wrap the caption text
-    wrap_length = 25
-    caption_lines = textwrap.wrap(text, wrap_length, break_long_words=True)
-    caption_text = "\n".join(caption_lines)
-
-    # caption background color
-    white = (255,255,255)
-
-    # function for getting the font size using the given width ratio
-    # from https://stackoverflow.com/a/66091387
-    def find_font_size(text, font, image, target_width_ratio):
-        tested_font = ImageFont.truetype(font, 1)
-        observed_width, _ = get_text_size(text, image, tested_font)
-        estimated_font_size = 1 / ((observed_width) / image.width) * target_width_ratio
-        return round(estimated_font_size)
-
-    # function for getting the text size by seeing what the output is when text is drawn on the image
-    def get_text_size(text, image, font):
-        im = Image.new('RGB', (image.width, image.height))
-        draw = ImageDraw.Draw(im)
-        return draw.textsize(text, font)
-
-    # get the appropriate width ratio to use depending on how many lines of text there are
-    if len(caption_lines) == 1:
-        width_ratio = 0.7
-    elif len(caption_lines) == 2:
-        width_ratio = 0.8
-    elif len(caption_lines) >= 3:
-        width_ratio = 1.1
-
-    # calculate the height of the caption image
-    height = (round(width / 5) + ((round(width / (5 + width_ratio)) * (len(caption_lines) - 1))))
-
-    # "c" is the caption image itself, using the variables from above
-    caption = Image.new('RGB', (width, height), white)
-
-    # get the font
-    font_path = "fonts/roboto.otf"
-    font_size = find_font_size(caption_text, font_path, caption, width_ratio)
-
-    editable_img = ImageDraw.Draw(caption)
-    image_w, image_h = caption.size
-
-    # shrink the font size if the text height is larger than the image's height
-    while True:
-        font = ImageFont.truetype(font_path, font_size)
-        text_w, text_h = editable_img.textsize(caption_text, font = font)
-
-        if text_h >= (image_h - 10):
-            font_size -= 1
-        else:
-            break
+    """Creates the caption image (white background with black text)"""
+    spacing = width // 40
+    font_size = width // 10
+    white = (255, 255, 255)
     
-    # decrease the wrap length if the text width is larger than the image's width
-    while True:
-        font = ImageFont.truetype(font_path, font_size)
-        text_w, text_h = editable_img.textsize(caption_text, font = font)
+    # wrap caption text
+    caption_lines = textwrap.wrap(text, 22, break_long_words=True)
+    caption = '\n'.join(caption_lines)
 
-        if text_w >= (image_w - 20):
-            wrap_length -= 1
-            caption_lines = textwrap.wrap(caption_text, wrap_length, break_long_words=True)
-            caption_text = "\n".join(caption_lines)
-        else:
-            break
-    
-    # draw the text onto the image
-    xy = (image_w) // 2, (image_h) // 2
-    editable_img.text(xy, caption_text, font=font, fill=(0,0,0), anchor="mm", align="center")
+    font_path = 'fonts/futura.ttf'
+    font = ImageFont.truetype(font_path, font_size)
 
-    return caption
+    emojis = [char for char in caption if char in emoji.UNICODE_EMOJI_ENGLISH.keys()]
+
+    # get the size of the rendered text
+    if emojis:
+        with Pilmoji(Image.new('RGB', (1, 1))) as pilmoji:
+            text_size = pilmoji.getsize(caption, font, spacing = spacing, emoji_scale_factor = 1.25)
+    else:
+        text_size = font.getsize_multiline(caption, spacing = spacing)
+
+    # create a blank image using the given width and the text height
+    caption_img = Image.new('RGB', (width, text_size[1] + font_size), white)
+    x, y = caption_img.width // 2, caption_img.height // 2
+
+    # add the text
+    if emojis:
+        with Pilmoji(caption_img) as pilmoji:
+            x_offset, y_offset = (text_size[0] // -2, text_size[1] // -2)
+            pilmoji.text((x + x_offset, y + y_offset), caption, (0, 0, 0), font, spacing = spacing, emoji_scale_factor = 1.25)
+    else:
+        ImageDraw.Draw(caption_img).text((x, y), caption, (0, 0, 0), font, 'mm', spacing, 'center')
+
+    return caption_img
 
 def add_caption(file: io.BytesIO, caption: Image.Image):
-    file = Image.open(file)
-
-    new_img = Image.new('RGB', (file.width, file.height + caption.height))
+    """Adds a caption onto a given file"""
+    file: Image.Image = Image.open(file)
+    
+    # create a new image that contains both the caption and the original image
+    new_img = Image.new('RGBA', (file.width, file.height + caption.height))
     new_img.paste(caption, (0,0))
     new_img.paste(file, (0, caption.height))
 
+    # save the result
     img_byte_arr = io.BytesIO()
-    new_img.save(img_byte_arr, format='png')
+    new_img.save(img_byte_arr, format = 'png')
     result = io.BytesIO(img_byte_arr.getvalue())
 
     return result

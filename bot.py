@@ -1,6 +1,7 @@
 import discord
 from discord.utils import get
 from discord.ext import commands
+
 import configparser
 import time
 
@@ -12,7 +13,6 @@ config = configparser.ConfigParser()
 config.read("config.ini")
 
 token = str(config.get("server", "token"))
-
 intents = discord.Intents.all()
 
 # set activity status

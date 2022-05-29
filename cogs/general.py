@@ -1,117 +1,46 @@
 import discord
 from discord.utils import get
-from utils.bot_vars import db, g_id, url_rx, emoji_rx
 from discord.ext import commands
+
+from utils.views import DropdownView
+from utils.variables import Regex
+from utils import database
+
+from traceback import print_exception
+from subprocess import Popen, PIPE
 from datetime import timedelta
-import subprocess
-import traceback
-import random
-import shlex
-import time
-import json
-import re
+from random import choice
+from shlex import split
+from time import time
+from json import load
 
-class Dropdown(discord.ui.Select):
-    def __init__(self, ctx):
-        # dropdown options
-        options = [
-            discord.SelectOption(
-                label="General",
-                description="regular commands"
-            ),
-            discord.SelectOption(
-                label="Music",
-                description="so much groove"
-            ),
-            discord.SelectOption(
-                label="Media",
-                description="image and audio commands"
-            )
-        ]
-        
-        # add funny museum commands if guild matches the id
-        if ctx.guild.id == 783166876784001075:
-            options.extend([
-                discord.SelectOption(
-                    label="Funny Museum",
-                    description="made for funny"
-                )
-            ])
+re = Regex()
 
-        # placeholder and setup
-        super().__init__(
-            placeholder="select le category",
-            min_values=1,
-            max_values=1,
-            options=options,
-        )
-
-    # callback runs whenever something is selected
-    async def callback(self, interaction: discord.Interaction):
-        # get information from category
-        def get_help(cat):
-            with open("commands.json", "r") as f:
-                data = json.load(f)
-            
-            desc = ""
-            for key in data[cat]:
-                about = data[cat][key]["desc"]
-                usage = data[cat][key]["usage"]
-                
-                # add backticks to each word in 'usage' if the usage isn't nothing
-                if usage is not None: usage_str = ' `' + '` `'.join(usage.split()) + '`' if usage != '' else ''
-                else: usage_str = ""
-
-                # add the command to the description
-                desc += f"**.{key}**{usage_str} - {about}\n"
-            return desc
-        
-        selection = self.values[0]
-        em = discord.Embed(color = 0x2f3136)
-        em.title = f"Commands - {selection}"
-
-        # edit embed when selection is made
-        em.description = get_help(selection.lower())
-        
-        await interaction.response.edit_message(embed = em)
-
-class DropdownView(discord.ui.View):
-    def __init__(self, ctx):
-        super().__init__()
-
-        # build the dropdown list
-        self.add_item(Dropdown(ctx))
-
-class general(commands.Cog):
+class General(commands.Cog):
     def __init__(self, client):
         self.client = client
     
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
         # add guild to database on join
-        db.insert_one({
-            'guild_id': guild.id,
-            'tags': {},
-            'playlists': {},
-            'welcome': {[None, None]}
-        })
+        database.Guild(guild).add()
         print(f"added new guild to database ({guild.id}")
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
         # remove guild from database on leave
-        db.delete_one(g_id(guild.id))
+        database.Guild(guild).remove()
         print(f"removed guild from database ({guild.id})")
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        welcome_doc = db.find_one({"guild_id": member.guild.id, "welcome": {"$exists": True}})
+        doc = database.Guild(member.guild).get()
 
-        # if the 'welcome' field wasn't found
-        if welcome_doc is None:
+        # if the welcome field wasn't found
+        if doc.welcome is None:
             return
             
-        welcome_msg, channel_id = welcome_doc['welcome']
+        welcome_msg, channel_id = doc.welcome
 
         # if the welcome message was disabled
         if welcome_msg is None:
@@ -146,7 +75,7 @@ class general(commands.Cog):
                     await dog_thread.send(embed = embed)
                 else:
                     # replace plain text emojis with doghouse emojis
-                    for match in re.finditer(emoji_rx, message.content):
+                    for match in re.emoji.finditer(message.content):
                         # get emoji by name
                         emoji_name = match.group('name')
                         emoji: discord.Emoji = get(dog_guild.emojis, name = emoji_name)
@@ -164,11 +93,11 @@ class general(commands.Cog):
                 return
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx: commands.Context, error):
         # if the error was from an invalid argument
         if isinstance(error, commands.BadArgument):
             with open("commands.json", "r") as f:
-                data = json.load(f)
+                data = load(f)
             
             cmd = ctx.command.name
 
@@ -186,11 +115,11 @@ class general(commands.Cog):
             return await ctx.send(f"**Error:** usage: `.{cmd}{usage}`")
         else:
             # print the error
-            traceback.print_exception(type(error), error, error.__traceback__)
+            print_exception(type(error), error, error.__traceback__)
     
     @commands.command(aliases=["re"])
     @commands.is_owner()
-    async def reload(self, ctx, cog_to_reload: str = None):
+    async def reload(self, ctx: commands.Context, cog_to_reload: str = None):
         processing = await ctx.send(f"{self.client.loading}")
 
         try:
@@ -209,17 +138,17 @@ class general(commands.Cog):
 
     @commands.command(aliases=["u"])
     @commands.is_owner()
-    async def update(self, ctx):
+    async def update(self, ctx: commands.Context):
         processing = await ctx.send(f"{self.client.loading} looking for update...")
 
         # get the last update's information
         # .communicate()[0] - get response (in bytes)
         # .decode('UTF-8') - convert byte string to regular text
         # .replace('\n', '') - replace newlines with an empty space
-        previous = subprocess.Popen(shlex.split(r"git rev-parse --short HEAD"), stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').replace('\n', '')
+        previous = Popen(split(r"git rev-parse --short HEAD"), stdout = PIPE).communicate()[0].decode('UTF_8').replace('\n', '')
 
         # get the latest update from the github repo
-        update = subprocess.Popen(["git", "pull"], stdout=subprocess.PIPE).communicate()[0].decode('UTF-8').replace("=", "-")
+        update = Popen(["git", "pull"], stdout = PIPE).communicate()[0].decode('UTF-8').replace("=", "-")
 
         if "Already up to date." in update:
             return await processing.edit("**Already up to date!**")
@@ -229,8 +158,8 @@ class general(commands.Cog):
             self.client.reload_extension(f"cogs.{cog}")
 
         # get information about new update
-        get_commit_data = shlex.split(r"git log -1 --pretty=format:%h%x09%s")
-        commit_data = subprocess.Popen(get_commit_data, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').split('\t')
+        get_commit_data = split(r"git log -1 --pretty=format:%h%x09%s")
+        commit_data = Popen(get_commit_data, stdout = PIPE).communicate()[0].decode('UTF_8').split('\t')
         
         url = "https://github.com/source64/cade/commit/{}"
 
@@ -243,7 +172,7 @@ class general(commands.Cog):
 
     @commands.command()
     async def info(self, ctx: commands.Context):
-        """ Gets information about the bot """
+        """Gets information about the bot"""
         wait = await ctx.send(f"{self.client.loading} Loading information..")
 
         # make embed
@@ -256,7 +185,7 @@ class general(commands.Cog):
         embed.set_author(name="cade bot", url="https://github.com/source64/cade")
 
         # get the uptime by subtracting the current time by the time that was stored in client.initial
-        current_time = time.time()
+        current_time = time()
         difference = int(round(current_time - self.client.initial))
         uptime_str = str(timedelta(seconds=difference))
 
@@ -264,7 +193,7 @@ class general(commands.Cog):
         ping = round(self.client.latency * 1000, 3)
 
         # get random picture from the client.cats list
-        cat = random.choice(self.client.cats)
+        cat = choice(self.client.cats)
         embed.set_thumbnail(url=cat)
 
         # get the number of commands
@@ -281,17 +210,17 @@ class general(commands.Cog):
         # commit_diff - get the number of commits that the bot hasn't pulled yet from the remote repo
 
         # split commands for use in subprocess
-        get_commit_data = shlex.split(r"git log -1 --pretty=format:%h%x09%at%x09%s")
-        get_commit_diff = shlex.split(r"git rev-list --left-right --count origin/main...main")
-        get_commit_num = shlex.split(r"git rev-list --all --count")
+        get_commit_data = split(r"git log -1 --pretty=format:%h%x09%at%x09%s")
+        get_commit_diff = split(r"git rev-list --left-right --count origin/main...main")
+        get_commit_num = split(r"git rev-list --all --count")
 
         # get latest metadata
-        subprocess.Popen(["git", "fetch"])
+        Popen(["git", "fetch"])
 
         # get subprocess result, turn it into a regular string, and split the string every time '\t' (tab character) is found
-        commit_num = subprocess.Popen(get_commit_num, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').replace('\n', '')
-        commit_data = subprocess.Popen(get_commit_data, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').split('\t')
-        commit_diff = int(subprocess.Popen(get_commit_diff, stdout=subprocess.PIPE).communicate()[0].decode('UTF_8').split('\t')[0])
+        commit_num = Popen(get_commit_num, stdout = PIPE).communicate()[0].decode('UTF_8').replace('\n', '')
+        commit_data = Popen(get_commit_data, stdout = PIPE).communicate()[0].decode('UTF_8').split('\t')
+        commit_diff = int(Popen(get_commit_diff, stdout = PIPE).communicate()[0].decode('UTF_8').split('\t')[0])
         
         # url that links to the commit
         commit_url = f"https://github.com/source64/cade/commit/{commit_data[0]}"
@@ -311,7 +240,7 @@ class general(commands.Cog):
 
     @commands.command()
     async def help(self, ctx: commands.Context, cmd: str = None):
-        """ Gets information about commands """
+        """Gets information about commands"""
         embed = discord.Embed(color = self.client.gray)
 
         if cmd is None:
@@ -326,7 +255,7 @@ class general(commands.Cog):
         cmd = cmd.lower()
 
         with open("commands.json", "r") as f:
-            data = json.load(f)
+            data = load(f)
         
         try:
             # for every category and item in that category, if the item itself is equal to the command given, or if one of
@@ -357,7 +286,7 @@ class general(commands.Cog):
 
     @commands.command()
     async def echo(self, ctx: commands.Context, channel: discord.TextChannel, *, msg = None):
-        """ Sends a given message as itself """
+        """Sends a given message as itself"""
         # if nothing is given
         if msg is None and not ctx.message.attachments:
             return await ctx.send("**Error:** uhhh no message found")
@@ -378,8 +307,8 @@ class general(commands.Cog):
 
     @commands.command(aliases=['t'])
     async def tag(self, ctx: commands.Context, tag_name: str = None, *, tag_content: str = None):
-        """ Creates/sends a tag """
-        def get_attachment(ctx):
+        """Creates/sends a tag"""
+        def get_attachment(ctx: commands.Context):
             # use the replied message if it's there
             if ctx.message.attachments:
                 msg = ctx.message
@@ -390,8 +319,8 @@ class general(commands.Cog):
             
             # find a url if there are no attachments
             if not msg.attachments:
-                if url_rx.match(msg.content):
-                    return url_rx.match(msg.content).group(0)
+                if re.url.match(msg.content):
+                    return re.url.match(msg.content).group(0)
                 else:
                     return False
             else:
@@ -401,13 +330,11 @@ class general(commands.Cog):
         if tag_name is None:
             return await ctx.send("**Error:** usage: `.t [existing tag]` or `.t [new tag] [tag content]`")
         
-        tag_doc = db.find_one({"guild_id": ctx.guild.id, "tags": {"$ne": None}})
+        db = database.Guild(ctx.guild)
+        doc = db.get()
 
         # if 'tags' is not in guild database, use an empty dict
-        if tag_doc is None:
-            data = {}
-        else:
-            data = tag_doc['tags']        
+        data = doc.tags if doc.tags else {}  
         
         # if only the name of a tag is given
         if tag_content is None:
@@ -416,7 +343,7 @@ class general(commands.Cog):
             # if an attachment is given
             if att_url != False:
                 if tag_name not in data.keys():
-                    db.update_one(g_id(ctx), {'$set': {f'tags.{tag_name}': att_url}}, upsert = True)
+                    db.add_obj('tags', tag_name, att_url)
                     return await ctx.send(f"{self.client.ok} Added tag `{tag_name}`")
 
             # post the tag if it exists, or if the tag was found from the last if statement
@@ -436,47 +363,45 @@ class general(commands.Cog):
                 else:
                     new_tag = f"{att_url} {tag_content}"
 
-                db.update_one(g_id(ctx), {'$set': {f'tags.{tag_name}': new_tag}}, upsert = True)
+                db.add_obj('tags', tag_name, new_tag)
                 return await ctx.send(f"{self.client.ok} Added tag `{tag_name}`")
             else:
                 return await ctx.send(f"**Error:** the tag `{tag_name}` already exists")
 
     @commands.command(aliases=['tagdel', 'tdel'])
     async def tagdelete(self, ctx: commands.Context, tag: str = None):
-        """ Deletes a given tag """
+        """Deletes a given tag"""
         if tag is None:
             return await ctx.send("**Error:** missing tag name")
 
         tag = str(tag).lower()
 
-        tag_doc = db.find_one({"guild_id": ctx.guild.id, "tags": {"$ne": None}})
+        db = database.Guild(ctx.guild)
+        doc = db.get()
 
         # if 'tags' is not in guild database, use an empty dict
-        if tag_doc is None:
-            tags = {}
-        else:
-            tags = tag_doc['tags']
+        tags = doc.tags if doc.tags else {}
 
         # if the tag is not listed
         if tag not in tags:
             return await ctx.send("**Error:** tag not found")
         
         # remove the tag
-        db.update_one(g_id(ctx), {'$unset': {f'tags.{tag}': 1}})
-        db.update_one(g_id(ctx), {'$pull': {f'tags.{tag}': None}})
+        db.del_obj('tags', tag)
 
         await ctx.send(f"{self.client.ok} Removed tag `{tag}`")
     
     @commands.command(aliases=['tlist', 'tags'])
     async def taglist(self, ctx: commands.Context):
-        """ Lists every tag """
-        tag_doc = db.find_one({"guild_id": ctx.guild.id, "tags": {"$ne": None}})
+        """Lists every tag in the guild"""
+        db = database.Guild(ctx.guild)
+        doc = db.get()
 
         # if 'tags' is not in the guild database
-        if tag_doc is None:
+        if doc.tags is None:
             return await ctx.send("**Error:** no tags were found")
 
-        tags = tag_doc['tags']
+        tags = doc.tags
 
         # if 'tags' is there, but empty
         if tags == {}:
@@ -496,13 +421,15 @@ class general(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator = True)
     async def welcome(self, ctx: commands.Context, channel: discord.TextChannel = None, *, msg: str = None):
-        """ Sets the welcome message of the server """
+        """Sets the welcome message of the server"""
         if channel is None:
             raise commands.BadArgument()
 
+        db = database.Guild(ctx.guild)
+
         # if nothing is given, disable the welcome message by setting it as None
         if not msg and not ctx.message.attachments:
-            db.update_one(g_id(ctx), {'$set': {'welcome': [None, None]}}, upsert = True)
+            db.set('welcome', [None, None])
             return await ctx.send(f"{self.client.ok} disabled welcome message")
 
         # get attachment url if there is one
@@ -511,9 +438,9 @@ class general(commands.Cog):
             msg = msg + '\n' + att.url if msg else att.url
 
         # update 'welcome' with the given message and channel id
-        db.update_one(g_id(ctx), {'$set': {'welcome': [msg, channel.id]}}, upsert = True)
+        db.set('welcome', [msg, channel.id])
         
         await ctx.send(f"{self.client.ok} set the welcome message and channel")
 
 def setup(bot):
-    bot.add_cog(general(bot))
+    bot.add_cog(General(bot))

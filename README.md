@@ -7,7 +7,7 @@
 
 a funny discord bot that can play music, edit images, download videos, etc.
 
-**[bot invite](https://discord.com/api/oauth2/authorize?client_id=709214886969999379&permissions=3533888&scope=bot%20applications.commands) &nbsp; &nbsp; &nbsp; [funny museum discord](https://discord.gg/dyfGtUCkfz)**
+**[bot invite](https://discord.com/api/oauth2/authorize?client_id=709214886969999379&permissions=3533888&scope=bot%20applications.commands) &nbsp; &nbsp; &nbsp; [funny museum discord](https://discord.gg/zDUBVSyhqk)**
 
 --- 
 
