@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from async_spotify.authentification.authorization_flows import ClientCredentialsFlow
 from async_spotify import SpotifyApiClient
 import tweepy
@@ -31,6 +32,9 @@ class Keys:
         self.twitter = [str(config.get("twitter", x)) for x in config.options("twitter") if x != "handle"]
         self.lavalink = [config.get("lavalink", x) for x in config.options("lavalink")]
         self.spotify = [str(config.get("spotify", x)) for x in config.options("spotify")]
+        self.imoog_port = str(config.get("imoog", "port"))
+        self.imoog_domain = str(config.get("imoog", "domain"))
+        self.imoog_secret = str(config.get("imoog", "key"))
     
 class Clients:
     @classmethod

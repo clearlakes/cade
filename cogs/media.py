@@ -1,8 +1,8 @@
 import discord
 from discord.ext import commands
 
-from utils.functions import clean_error, get_media, format_time
-from utils.variables import Regex, FFMPEG
+from utils.functions import clean_error, get_media, format_time, upload_to_server
+from utils.variables import Keys, Regex, FFMPEG
 from utils.views import ChoiceView
 from utils import image
 
@@ -17,6 +17,7 @@ from shlex import split
 from io import BytesIO
 
 re = Regex()
+keys = Keys()
 
 class Media(commands.Cog):
     def __init__(self, client):
@@ -306,16 +307,8 @@ class Media(commands.Cog):
     @commands.command()
     async def caption(self, ctx: commands.Context, *, text: str = None):
         """Captions the given image/gif"""
-        # if nothing is given
         if text is None:
             raise commands.BadArgument()
-
-        # remove emojis from the given caption
-        #text = text.encode('ascii', 'ignore').decode('ascii')
-        
-        # check if the caption is empty again in case it was only made up of emojis for some reason
-        #if text == '':
-        #    return await ctx.send("**Error:** can't do emojis sorry")
 
         processing = await ctx.send(f"{self.client.loading} Processing...")
 
@@ -343,9 +336,20 @@ class Media(commands.Cog):
 
         # send the completed caption
         try:
-            await ctx.send(file = discord.File(result, filename))
+            await ctx.reply(file = discord.File(result, filename), mention_author = False)
         except:
-            await ctx.send("**Error:** the completed gif was too large to send")
+            if keys.imoog_port and keys.imoog_domain and keys.imoog_secret:
+                await processing.edit(content = f"{self.client.loading} File too large, uploading instead...")
+
+                url = await upload_to_server(result, "gif")
+
+                embed = discord.Embed(color = self.client.gray)
+                embed.set_image(url = url)
+                embed.set_footer(text = f"Uploaded to {keys.imoog_domain.replace('https://', '')} | Expires in 24h")
+
+                await ctx.reply(embed = embed)
+            else:
+                return await processing.edit(content = f"**Error:** the final result was too large to send")
 
         await processing.delete()
 
