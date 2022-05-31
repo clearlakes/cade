@@ -254,4 +254,4 @@ async def upload_to_server(b: BytesIO, file_ext: str):
     ext = resp['file_ext']
     domain = keys.imoog_domain
 
-    return f"{domain}/image/{id}.{ext}"
+    return f"{domain}/image/{id.upper()}.{ext}"
