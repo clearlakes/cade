@@ -339,9 +339,9 @@ class Media(commands.Cog):
             await ctx.reply(file = discord.File(result, filename), mention_author = False)
         except:
             if keys.imoog_port and keys.imoog_domain and keys.imoog_secret:
-                await processing.edit(content = f"{self.client.loading} File too large, uploading instead...")
+                await processing.edit(content = f"{self.client.loading} Uploading to the web...")
 
-                url = await upload_to_server(result, "gif")
+                url = await upload_to_server(result, res.type)
 
                 embed = discord.Embed(color = self.client.gray)
                 embed.set_image(url = url)

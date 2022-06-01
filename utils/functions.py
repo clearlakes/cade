@@ -242,9 +242,9 @@ def get_media_ids(content):
 
     return media_ids
 
-async def upload_to_server(b: BytesIO, file_ext: str):
+async def upload_to_server(b: BytesIO, mime: str):
     form = aiohttp.FormData()
-    form.add_field("file", b.read(), content_type=f"image/{file_ext}")
+    form.add_field("file", b.getvalue(), content_type = mime)
 
     async with aiohttp.ClientSession() as session:
         async with session.post(f'http://localhost:{keys.imoog_port}/upload', data = form, headers = {"Authorization": keys.imoog_secret}) as resp:
