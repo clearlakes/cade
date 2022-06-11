@@ -549,7 +549,7 @@ class TrackSelectView(discord.ui.View):
         )
 
         embed.set_author(name = f"Result {self.tracks.index(self.track) + 1} out of {len(self.tracks)}")
-        embed.set_thumbnail(url = f"http://img.youtube.com/vi/{self.track.identifier}/0.jpg")
+        embed.set_thumbnail(url = f"https://img.youtube.com/vi/{self.track.identifier}/0.jpg")
 
         embed.description = f"Author: **{self.track.author}** | Duration: `{format_time(self.track.duration // 1000)}`"
 

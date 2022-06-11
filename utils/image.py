@@ -47,14 +47,10 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
 
         try:
             while True:
-                if file.tile:
-                    tile = file.tile[0]
-                    update_region = tile[1]
-                    update_region_dimensions = update_region[2:]
-
-                    if update_region_dimensions != file.size:
-                        results['mode'] = 'partial'
-                        break
+                # check update region dimensions
+                if file.tile and file.tile[0][1][2:] != file.size:
+                    results['mode'] = 'partial'
+                    break
 
                 # move to next frame    
                 file.seek(file.tell() + 1)
@@ -66,7 +62,6 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
     analyse = _analyse(file)
 
     i = 0
-    frame_num = 0
     last_frame = file.convert('RGBA')
 
     frames = []
@@ -100,9 +95,8 @@ def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Ima
             durations.append(file.info["duration"])
 
             i += 1
-            frame_num += 1
             last_frame = new_frame
-            file.seek(frame_num)
+            file.seek(i)
     except EOFError:
         pass
 

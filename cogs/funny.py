@@ -1,8 +1,13 @@
 import discord
 from discord.ext import commands
 
+from utils.functions import (
+    clean_error, 
+    get_attachment, 
+    get_attachment_obj, 
+    get_media_ids
+)
 from utils.variables import Clients, Regex, HANDLE
-from utils.functions import clean_error
 from utils.views import ReplyView
 
 from tempfile import NamedTemporaryFile as create_temp
@@ -31,10 +36,10 @@ class Funny(commands.Cog):
         if emoji.name == "1️⃣":
             # selected "he/him"
             role = guild.get_role(820126482684313620)
-        if emoji.name == "2️⃣":
+        elif emoji.name == "2️⃣":
             # selected "she/her"
             role = guild.get_role(820126584442322984)
-        if emoji.name == "3️⃣":
+        elif emoji.name == "3️⃣":
             # selected "they/them"
             role = guild.get_role(820126629945933874)
 
@@ -65,11 +70,11 @@ class Funny(commands.Cog):
     @commands.command()
     async def tweet(self, ctx: commands.Context, *, status: str = None):
         """Tweets any message from discord"""
-        content_given = await self.get_attachment(ctx)
+        content_given = await get_attachment(ctx)
 
         # gets the media ids to use if an attachment is found
         if content_given != False:
-            media_ids = self.get_media_ids(content_given)
+            media_ids = get_media_ids(content_given)
         else:
             if status is None:
                 raise commands.BadArgument()
@@ -121,11 +126,11 @@ class Funny(commands.Cog):
             # if an id is given
             reply_id = int(reply_to)
 
-        content_given = await self.get_attachment(ctx)
+        content_given = await get_attachment(ctx)
 
         # check for attachments and create media ids
         if content_given != False:
-            media_ids = self.get_media_ids(content_given)
+            media_ids = get_media_ids(content_given)
         else:
             if status is None:
                 return commands.BadArgument()
@@ -156,11 +161,10 @@ class Funny(commands.Cog):
         if kind is None:
             raise commands.BadArgument()
 
-        att = await self.get_attachment_obj(ctx)
+        att = await get_attachment_obj(ctx)
 
-        if att is False:
-            embed = self.error_create("no image attachment was found")
-            return await ctx.send(embed = embed)
+        if not att:
+            return await ctx.send("no image attachment was found")
 
         # if an image is given
         if "image" in att.content_type and any(att.content_type != x for x in ["image/gif", "image/apng"]):

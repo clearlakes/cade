@@ -30,7 +30,8 @@ def _get_link(text: str):
         "https://cdn.discordapp",
         "https://media.discordapp",
         "https://i.imgur",
-        "https://c.tenor"
+        "https://c.tenor",
+        "https://grug.club"
     )
 
     if match := re.url.search(text):

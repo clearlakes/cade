@@ -93,7 +93,7 @@ class Music(commands.Cog):
 
         # add footer and thumbnail
         playing.set_author(name="Now Playing", icon_url = requester.display_avatar)
-        playing.set_thumbnail(url=f"http://img.youtube.com/vi/{event.track.identifier}/0.jpg")
+        playing.set_thumbnail(url=f"https://img.youtube.com/vi/{event.track.identifier}/0.jpg")
 
         np_msg = await channel.send(embed = playing)
     
@@ -350,7 +350,7 @@ class Music(commands.Cog):
                 )
 
                 embed.set_author(name = f"Result {tracks.index(track) + 1} out of {len(tracks)}")
-                embed.set_thumbnail(url = f"http://img.youtube.com/vi/{track.identifier}/0.jpg")
+                embed.set_thumbnail(url = f"https://img.youtube.com/vi/{track.identifier}/0.jpg")
 
                 embed.description = f"Author: **{track.author}** | Duration: `{format_time(track.duration // 1000)}`"
 
@@ -390,7 +390,7 @@ class Music(commands.Cog):
                 # set the footer, author, and thumbnail
                 embed.set_footer(text = f"Playing in {total_duration}")
                 embed.set_author(name = f"Queued - #{queue_length}", icon_url=ctx.author.display_avatar)
-                embed.set_thumbnail(url = f"http://img.youtube.com/vi/{track.identifier}/0.jpg")
+                embed.set_thumbnail(url = f"https://img.youtube.com/vi/{track.identifier}/0.jpg")
 
                 await ctx.send(embed=embed)
 
@@ -650,8 +650,9 @@ class Music(commands.Cog):
             # get track information from the url
             with YoutubeDL() as ydl:
                 video = ydl.extract_info(res, download = False)
+                title = video['title']
             
-            new_track = {"title": video['title'], "url": res, "user": ctx.author.id}
+            new_track = {"title": title, "url": res, "user": ctx.author.id}
             
             # update the playlist with the new track
             db.push(f'playlists.{pl_name}', new_track)
@@ -848,7 +849,7 @@ class Music(commands.Cog):
 
         embed.set_footer(text=f"{time_at} elapsed {line} {time_left} left")
         embed.set_author(name=f"Currently Playing", icon_url=requester.display_avatar)
-        embed.set_thumbnail(url=f"http://img.youtube.com/vi/{player.current.identifier}/0.jpg")
+        embed.set_thumbnail(url=f"https://img.youtube.com/vi/{player.current.identifier}/0.jpg")
 
         # edit the embed to show if the current track is paused
         if player.paused:
