@@ -7,7 +7,7 @@ from utils.functions import (
     get_attachment_obj, 
     get_media_ids
 )
-from utils.variables import Clients, Regex, HANDLE
+from utils.variables import Clients, Regex as re, handle
 from utils.views import ReplyView
 
 from tempfile import NamedTemporaryFile as create_temp
@@ -16,19 +16,16 @@ from typing import Union
 from io import BytesIO
 from PIL import Image
 
-api = Clients.twitter()
-handle = HANDLE
-
-re = Regex()
-
 class Funny(commands.Cog):
     def __init__(self, client):
         self.client = client
+        self.api = Clients().twitter()
     
     async def cog_check(self, ctx):
         # check if command is sent from funny museum
         if ctx.guild.id != 783166876784001075:
             await ctx.send("**Error:** that command only works in funny museum")
+            return False
         else:
             return True
 
@@ -83,14 +80,14 @@ class Funny(commands.Cog):
         
         # sends the tweet
         try:
-            new_status = api.update_status(status=status, media_ids=media_ids)
+            new_status = self.api.update_status(status=status, media_ids=media_ids)
         except Exception as e:
             return await ctx.send(f"**Error:** could not send tweet (full error: ||{clean_error(e)}||)")
         
         # tweet sent! so cool
         msg = await ctx.send(f"{self.client.ok} **Tweet sent:**\nhttps://twitter.com/{handle}/status/{new_status.id}")
 
-        view = ReplyView(self.client, msg, new_status.id)
+        view = ReplyView(ctx, msg, new_status.id)
         await msg.edit(view = view)
 
     @commands.command()
@@ -114,7 +111,7 @@ class Funny(commands.Cog):
         if not reply_to.isnumeric():
             # except if it's "latest", then use the latest tweet
             if reply_to == "latest":
-                reply_id = api.user_timeline(screen_name = handle, count = 1)[0].id
+                reply_id = self.api.user_timeline(screen_name = handle, count = 1)[0].id
             else:
                 url = re.twitter.search(reply_to)
                 
@@ -139,20 +136,20 @@ class Funny(commands.Cog):
         
         # send the reply
         try:
-            new_status = api.update_status(status=status, media_ids=media_ids, in_reply_to_status_id=reply_id, auto_populate_reply_metadata=True)
+            new_status = self.api.update_status(status=status, media_ids=media_ids, in_reply_to_status_id=reply_id, auto_populate_reply_metadata=True)
         except NotFound:
             return await ctx.send("**Error:** could not find tweet from the given url/id")
         except Exception as e:
             return await ctx.send(f"**Error:** could not send tweet (full error: ||{clean_error(e)}||)")
         
         if not is_chain:
-            replied_to = api.get_status(reply_id)
+            replied_to = self.api.get_status(reply_id)
             msg = await ctx.send(f"{self.client.ok} **Reply sent:**\nhttps://twitter.com/{replied_to.user.screen_name}/status/{replied_to.id}\nhttps://twitter.com/{handle}/status/{new_status.id}")
         else:
             await ctx.message.delete()
             msg = await ctx.message.reference.resolved.reply(f"{ctx.author.mention} replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
 
-        view = ReplyView(self.client, msg, new_status.id)
+        view = ReplyView(ctx, msg, new_status.id)
         await msg.edit(view = view)
         
     @commands.command(aliases=['pf'])
@@ -181,7 +178,7 @@ class Funny(commands.Cog):
                         img = img.convert('RGBA').resize((512, 512))
 
                         img.save(temp.name, format="PNG")
-                        api.update_profile_image(filename=temp.name)
+                        self.api.update_profile_image(filename=temp.name)
 
                     # resize into a rectangle for banner
                     elif any(kind == x for x in ["b", "banner"]):
@@ -190,7 +187,7 @@ class Funny(commands.Cog):
                         img = img.convert('RGBA').resize((1500, 500))
 
                         img.save(temp.name, format="PNG")
-                        api.update_profile_banner(filename=temp.name)
+                        self.api.update_profile_banner(filename=temp.name)
 
                     else:
                         await processing.delete()

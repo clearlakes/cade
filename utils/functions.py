@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from utils.variables import Clients, Regex, Keys, FFMPEG
+from utils.variables import Clients, Regex as re, Keys as keys, ffmpeg
 
 from tempfile import NamedTemporaryFile as create_temp
 from time import strftime, gmtime
@@ -12,10 +12,6 @@ from shlex import split
 from io import BytesIO
 from PIL import Image
 import aiohttp
-
-re = Regex()
-keys = Keys()
-api = Clients().twitter()
 
 class AttObj:
     def __init__(self, bytes, filename, filetype):
@@ -31,7 +27,7 @@ def _get_link(text: str):
         "https://media.discordapp",
         "https://i.imgur",
         "https://c.tenor",
-        "https://grug.club"
+        keys.imoog_domain   # allow content from the image server
     )
 
     if match := re.url.search(text):
@@ -181,7 +177,7 @@ async def get_attachment(ctx: commands.Context, interaction: discord.Interaction
                         processing = await interaction.edit_original_message(content = f"{client.loading} Processing...", view = None)
 
                     temp_mov.write(await att.read())
-                    command = split(f'{FFMPEG} -i {temp_mov.name} -qscale 0 {temp_mp4.name}')
+                    command = split(f'{ffmpeg} -i {temp_mov.name} -qscale 0 {temp_mp4.name}')
                     
                     p = Popen(command)
                     p.wait()
@@ -221,6 +217,7 @@ def get_media_ids(content):
     media_ids = []
     result = content[0]
     media = content[1]
+    api = Clients().twitter()
 
     # chooses between either uploading multiple images or just one video/gif
     if result == "image":
@@ -251,8 +248,8 @@ async def upload_to_server(b: BytesIO, mime: str):
         async with session.post(f'http://localhost:{keys.imoog_port}/upload', data = form, headers = {"Authorization": keys.imoog_secret}) as resp:
             resp = await resp.json()
 
-    id = resp['file_id']
-    ext = resp['file_ext']
+    id: str = resp['file_id']
+    ext: str = resp['file_ext']
     domain = keys.imoog_domain
 
     return f"{domain}/image/{id.upper()}.{ext}"

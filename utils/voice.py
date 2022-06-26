@@ -1,9 +1,11 @@
 import discord
+from discord.ext import commands
+from utils.variables import Keys
 import lavalink
 
 # class taken from https://github.com/Devoxin/Lavalink.py/blob/master/examples/music.py
 class LavalinkVoiceClient(discord.VoiceClient):
-    def __init__(self, client: discord.Client, channel: discord.abc.Connectable):
+    def __init__(self, client: commands.Bot, channel: discord.abc.Connectable):
         self.client = client
         self.channel = channel
 
@@ -12,12 +14,7 @@ class LavalinkVoiceClient(discord.VoiceClient):
             self.lavalink = self.client.lavalink
         else:
             self.client.lavalink = lavalink.Client(client.user.id)
-            self.client.lavalink.add_node(
-                    'localhost',
-                    3000,
-                    'youshallnotpass',
-                    'us',
-                    'default-node')
+            self.client.lavalink.add_node(*Keys.lavalink, name = "default-node")
             self.lavalink = self.client.lavalink
 
     async def on_voice_server_update(self, data):

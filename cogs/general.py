@@ -1,20 +1,16 @@
 import discord
-from discord.utils import get
 from discord.ext import commands
 
+from utils.variables import Colors, Regex as re
 from utils.views import DropdownView
-from utils.variables import Regex
 from utils import database
 
-from traceback import print_exception
 from subprocess import Popen, PIPE
 from datetime import timedelta
 from random import choice
 from shlex import split
 from time import time
 from json import load
-
-re = Regex()
 
 class General(commands.Cog):
     def __init__(self, client):
@@ -24,13 +20,11 @@ class General(commands.Cog):
     async def on_guild_join(self, guild: discord.Guild):
         # add guild to database on join
         database.Guild(guild).add()
-        print(f"added new guild to database ({guild.id}")
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
         # remove guild from database on leave
         database.Guild(guild).remove()
-        print(f"removed guild from database ({guild.id})")
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
@@ -53,69 +47,6 @@ class General(commands.Cog):
         welcome_msg: str = welcome_msg.replace(r"{user}", member.mention)
         
         await channel.send(welcome_msg)
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        funnymuseum = 959643174094123098 # #grug-chat
-        d_thread_id = 960503568199200768 # doghouse thread
-        d_guild_id = 832571902316511252 # doghouse guild
-
-        # if the message was from the bot
-        if message.author == message.guild.me:
-            funnymuseum = await self.client.fetch_channel(funnymuseum)
-
-            # if the bot sent a message in #grug-chat
-            if message.channel == funnymuseum:
-                dog_thread = await self.client.fetch_channel(d_thread_id)
-                dog_guild = await self.client.fetch_guild(d_guild_id)
-
-                # send either the embed or plain text message
-                if message.embeds:
-                    embed = message.embeds[0]
-                    await dog_thread.send(embed = embed)
-                else:
-                    # replace plain text emojis with doghouse emojis
-                    for match in re.emoji.finditer(message.content):
-                        # get emoji by name
-                        emoji_name = match.group('name')
-                        emoji: discord.Emoji = get(dog_guild.emojis, name = emoji_name)
-                        
-                        # if no emoji is found, don't replace it
-                        if emoji is None:
-                            continue
-                        else:
-                            res = str(emoji)
-                        
-                        message.content = message.content.replace(match.group(0), res)
-
-                    await dog_thread.send(message.content)
-                
-                return
-
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, error):
-        # if the error was from an invalid argument
-        if isinstance(error, commands.BadArgument):
-            with open("commands.json", "r") as f:
-                data = load(f)
-            
-            cmd = ctx.command.name
-
-            # get category and command information (from help command)
-            cat, cmd = next(((cat, x) for cat, x in data.items() 
-                for x in data[cat] if cmd == x or data[cat][x]["alt"] is not None 
-                and any(cmd == alt for alt in data[cat][x]["alt"])))
-                
-            usage = data[cat][cmd]["usage"]
-
-            # add space if usage is not empty
-            if usage is not None: usage = f" {usage}"
-            else: usage = ""
-
-            return await ctx.send(f"**Error:** usage: `.{cmd}{usage}`")
-        else:
-            # print the error
-            print_exception(type(error), error, error.__traceback__)
     
     @commands.command(aliases=["re"])
     @commands.is_owner()
@@ -178,7 +109,7 @@ class General(commands.Cog):
         # make embed
         embed = discord.Embed(
             description = f"made in the funny museum\nuse `.help` or `.help [command]` for help.\ncreated <t:1596846209:R>!",
-            color = 0xd9ba93
+            color = Colors.info
         )
 
         # link to github
@@ -241,7 +172,7 @@ class General(commands.Cog):
     @commands.command()
     async def help(self, ctx: commands.Context, cmd: str = None):
         """Gets information about commands"""
-        embed = discord.Embed(color = self.client.gray)
+        embed = discord.Embed(color = Colors.gray)
 
         if cmd is None:
             # default embed to use
@@ -413,7 +344,7 @@ class General(commands.Cog):
         embed = discord.Embed(
             title = "Tags:",
             description = list,
-            color = self.client.gray
+            color = Colors.gray
         )
 
         await ctx.send(embed = embed)

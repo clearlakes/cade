@@ -1,23 +1,23 @@
 import discord
 from discord.ext import commands
 
-from utils.functions import clean_error, get_media, format_time, upload_to_server
-from utils.variables import Keys, Regex, FFMPEG
+from utils.functions import (
+    clean_error, 
+    get_media, 
+    format_time, 
+    upload_to_server
+)
+from utils.variables import Colors, Keys, Regex as re, ffmpeg
 from utils.views import ChoiceView
 from utils import image
 
 from tempfile import NamedTemporaryFile as create_temp
-from time import strftime, strptime
-from subprocess import Popen, PIPE
+from subprocess import Popen, check_output, PIPE
 from youtube_dl import YoutubeDL
 from asyncio import TimeoutError
 from functools import partial
-from mutagen.mp3 import MP3
 from shlex import split
 from io import BytesIO
-
-re = Regex()
-keys = Keys()
 
 class Media(commands.Cog):
     def __init__(self, client):
@@ -87,7 +87,7 @@ class Media(commands.Cog):
         # embed that will show the progress
         embed = discord.Embed(
             title = f"{self.client.loading} Processing...",
-            color = self.client.gray
+            color = Colors.gray
         )
 
         processing = await ctx.send(embed = embed)
@@ -144,9 +144,11 @@ class Media(commands.Cog):
             with create_temp(suffix="mp3") as temp:
                 await audio.save(temp.name)
                 audio_bytes = temp.read()
-                duration = MP3(temp.name).info.length
 
-            duration_text = format_time(round(duration, 1))
+                # get mp3 duration
+                cmd = split(f'{ffmpeg} -i {temp.name} 2>&1 | grep -oE \"[0-9]{{1}}:[0-9]{{2}}:[0-9]{{2}}\"')
+                duration_text = check_output(cmd)
+
             audio_source = audio.filename
 
         # if a length was not given, use the audio source's length
@@ -182,7 +184,7 @@ class Media(commands.Cog):
             if audio_type == "url":
                 # streches the image out into a video and uses audio from the given url
                 # the final video is written into the temporary video file
-                command = split(f'{FFMPEG} -loop 1 -i {img.name} -i {stream_url} -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p -shortest {temp.name}')
+                command = split(f'{ffmpeg} -loop 1 -i {img.name} -i {stream_url} -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p -shortest {temp.name}')
                 p = Popen(command)
                 p.wait()
 
@@ -193,9 +195,9 @@ class Media(commands.Cog):
                 # create another temporary file as input for the second command
                 with create_temp(suffix='.mp4') as second_input:
                     # the first command streches the image into a video, and saves it into the temporary file that was just created
-                    first_command = split(f'{FFMPEG} -loop 1 -i {img.name} -c:v libx264 -t {length} -pix_fmt yuv420p {second_input.name}')
+                    first_command = split(f'{ffmpeg} -loop 1 -i {img.name} -c:v libx264 -t {length} -pix_fmt yuv420p {second_input.name}')
                     # the second command adds audio from the mp3 file using its bytes, and the final video is saved into the original temporary video file
-                    second_command = split(f'{FFMPEG} -i {second_input.name} -f mp3 -i pipe: -map 0:v -map 1:a -c:v copy -shortest {temp.name}')
+                    second_command = split(f'{ffmpeg} -i {second_input.name} -f mp3 -i pipe: -map 0:v -map 1:a -c:v copy -shortest {temp.name}')
 
                     # run the first command
                     p1 = Popen(first_command)
@@ -227,20 +229,15 @@ class Media(commands.Cog):
                 await processing.edit(content = "**Error:** could not send video (probably too large)", embed = None)
     
     @commands.command()
-    async def resize(self, ctx: commands.Context, width = "auto", height = "auto"):
+    async def resize(self, ctx: commands.Context, width = 'auto', height = 'auto'):
         """Resizes the given attachment"""
-        auto = False
-
-        # if nothing is given (if both values are still "auto")
-        if width == "auto" and height == "auto":
+        # if nothing is given
+        if width == 'auto' and height == 'auto':
             raise commands.BadArgument()
 
-        if width == "auto" or height == "auto":
-            auto = True
-
         # if a given size is over 2000 pixels, send an error
-        if (width.isnumeric() and int(width) > 2000) or (height.isnumeric() and int(height) > 2000):
-            return await ctx.send("**Error:** value too large (max: 2000)")
+        if any(x.isnumeric() and int(x) > 2000 for x in (width, height)):
+            return await ctx.send("**Error:** size too large (max: 2000)")
 
         processing = await ctx.send(f"{self.client.loading} Processing...")
 
@@ -257,7 +254,7 @@ class Media(commands.Cog):
                 temp.write(res.obj.getvalue())
 
                 # resize the video using the given size (and replace "auto" with -2, which means the same thing for ffmpeg)
-                command = split(f'{FFMPEG} -i {temp.name} -f mp4 -movflags frag_keyframe+empty_moov -vf scale={width}:{height} pipe:'.replace("auto", "-2"))
+                command = split(f'{ffmpeg} -i {temp.name} -f mp4 -movflags frag_keyframe+empty_moov -vf scale={width}:{height} pipe:'.replace("auto", "-2"))
                 
                 p = Popen(command, stdout = PIPE)
                 out = p.communicate()[0]
@@ -275,17 +272,15 @@ class Media(commands.Cog):
             return await ctx.send(file = discord.File(result, f"{res.name}.mp4"))
 
         orig_width, orig_height = await self.client.loop.run_in_executor(None, partial(image.get_size, res.obj))
-
-        if auto is True:
-            if width != "auto":
-                # calculate the height
-                wpercent = (int(width) / float(orig_width))
-                height = int((float(orig_height) * float(wpercent)))
-            else:
-                # calculate the width
-                hpercent = (int(height) / float(orig_height))
-                width = int((float(orig_width) * float(hpercent)))
-
+        
+        # calculate 'auto' sizes
+        if height == 'auto':
+            wpercent = (int(width) / float(orig_width))
+            height = int((float(orig_height) * float(wpercent)))
+        elif width == 'auto':
+            hpercent = (int(height) / float(orig_height))
+            width = int((float(orig_width) * float(hpercent)))
+        
         new_size = (int(width), int(height))
 
         # resize the attachment depending on file type
@@ -338,14 +333,14 @@ class Media(commands.Cog):
         try:
             await ctx.reply(file = discord.File(result, filename), mention_author = False)
         except:
-            if keys.imoog_port and keys.imoog_domain and keys.imoog_secret:
-                await processing.edit(content = f"{self.client.loading} Uploading to the web...")
+            if Keys.imoog_port and Keys.imoog_domain and Keys.imoog_secret:
+                await processing.edit(content = f"{self.client.loading} uploading...")
 
                 url = await upload_to_server(result, res.type)
 
-                embed = discord.Embed(color = self.client.gray)
+                embed = discord.Embed(color = Colors.gray)
                 embed.set_image(url = url)
-                embed.set_footer(text = f"Uploaded to {keys.imoog_domain.replace('https://', '')} | Expires in 24h")
+                embed.set_footer(text = f"uploaded to {Keys.imoog_domain.replace('https://', '')} | expires in 24h")
 
                 await ctx.reply(embed = embed)
             else:
@@ -354,7 +349,7 @@ class Media(commands.Cog):
         await processing.delete()
 
     @commands.command()
-    async def get(self, ctx: commands.Context, url: str = None, start = None, end = None):
+    async def get(self, ctx: commands.Context, url: str = None, start: str = None, end: str = None):
         """Downloads either the audio or video from a given youtube url"""
         if url is None:
             raise commands.BadArgument()
@@ -372,35 +367,37 @@ class Media(commands.Cog):
                 url = re.youtube.match(ctx.message.reference.resolved.content).group(0)
             else:
                 return await ctx.send("**Error:** invalid url")
-
-        # if a start time is given but not an end time
-        if start is not None and end is None:
-            return await ctx.send("**Error:** missing end timestamp")
         
         # if a start/end time is given, see if they are formatted correctly
-        if start is not None:        
-            s_colons = start.count(":")
-            time_format = "%H:%M:%S" if s_colons == 2 else "%M:%S"
-        
+        if start and end:        
             try:
-                a = strptime(start, time_format)
-                b = strptime(end, time_format)
-            except ValueError:
-                return await ctx.send(f"**Error:** invalid timestamps (must be M:S or H:M:S)")
+                s_seconds = 0
+                e_seconds = 0
 
-            if strftime(time_format, a) <= strftime(time_format, b):
+                for x in start.split(':'):
+                    s_seconds = s_seconds * 60 + int(x)
+                
+                for y in end.split(':'):
+                    e_seconds = e_seconds * 60 + int(y)
+
+            except ValueError:
+                return await ctx.send(f"**Error:** invalid timestamps (must be min:sec, hr:min:sec, or sec)")
+
+            if (s_seconds - e_seconds) > 0:
                 return await ctx.send(f"**Error:** the start time must come before the end time")
         
-        # send a message with the "video"/"audio" buttons from ChoiceView
-        view = ChoiceView(ctx)
+        # send a message with ChoiceView buttons
+        view = ChoiceView(ctx, ['video', 'audio', 'nvm'])
         msg = await ctx.send("what should be downloaded?", view = view)
         await view.wait()
 
-        # disable the buttons
-        for btn in view.children:
-            btn.disabled = True
+        # if canceled
+        if view.choice == 'nvm':
+            await msg.delete()
+            await ctx.message.delete()
+            return
 
-        await msg.edit(f"{self.client.loading} Getting {view.choice}...", view = view)
+        await msg.edit(content = f"{self.client.loading} downloading {view.choice}...", view = None)
 
         # get the stream url according to the user's choice            
         if view.choice == "video":
@@ -419,9 +416,9 @@ class Media(commands.Cog):
         with create_temp(suffix=suffix) as temp:
             # change the command to include a start/end time if they are given
             if start is not None:
-                command = split(f"{FFMPEG} -ss {start} -to {end} -i {stream_url} {temp.name}")
+                command = split(f"{ffmpeg} -ss {start} -to {end} -i {stream_url} {temp.name}")
             else:
-                command = split(f"{FFMPEG} -i {stream_url} {temp.name}")
+                command = split(f"{ffmpeg} -i {stream_url} {temp.name}")
             
             p = Popen(command)
             p.wait()

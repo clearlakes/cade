@@ -2,62 +2,38 @@ import discord
 from discord.ext import commands
 
 from utils.functions import btn_check, check, format_time, get_attachment, get_media_ids
-from utils.variables import Clients, Regex, HANDLE
-from utils.lavalink_server import LavalinkVoiceClient
+from utils.variables import Colors, Clients, Regex as re, handle
+from utils.voice import LavalinkVoiceClient
 from utils import database
-import lavalink
 
+from youtube_dl import YoutubeDL
+import lavalink
 import asyncio
-import pafy
 import math
 import json
 
-api = Clients.twitter()
-handle = HANDLE
-
-re = Regex()
-
 class ChoiceView(discord.ui.View):
     # download choice for "get" command
-    def __init__(self, ctx):
-        super().__init__()
+    def __init__(self, ctx: commands.Context, choices: list):
+        super().__init__(timeout = None)
+
         self.choice = None
         self.ctx = ctx
 
-    @discord.ui.button(label="audio", style=discord.ButtonStyle.secondary)
-    async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user != self.ctx.author:
-            return
-        
-        # the user chose to download the audio
-        self.choice = "audio"
-        self.stop()
+        async def callback(interaction: discord.Interaction): 
+            if interaction.user != self.ctx.author:
+                return
 
-    @discord.ui.button(label="video", style=discord.ButtonStyle.secondary)
-    async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if interaction.user != self.ctx.author:
-            return
+            self.choice = interaction.custom_id
+            self.stop()
 
-        # the user chose to download the video
-        self.choice = "video"
-        self.stop()
-
-class CancelView(discord.ui.View):
-    def __init__(self):
-        self.canceled = False
-        super().__init__()
-    
-    # create a button with the label "Done" that sets self.canceled to True
-    @discord.ui.button(label="Done", style=discord.ButtonStyle.success)
-    async def done(self, button: discord.ui.Button, interaction: discord.Interaction):
-        self.canceled = True
-        self.stop()
-    
-    async def on_timeout(self) -> None:
-        return await super().on_timeout()
+        for choice in choices:
+            button = discord.ui.Button(label = choice, custom_id = choice)
+            button.callback = callback
+            self.add_item(button)
 
 class Dropdown(discord.ui.Select):
-    def __init__(self, ctx):
+    def __init__(self, ctx: commands.Context):
         # dropdown options
         options = [
             discord.SelectOption(
@@ -86,8 +62,6 @@ class Dropdown(discord.ui.Select):
         # placeholder and setup
         super().__init__(
             placeholder="select le category",
-            min_values=1,
-            max_values=1,
             options=options,
         )
 
@@ -112,7 +86,7 @@ class Dropdown(discord.ui.Select):
             return desc
         
         selection = self.values[0]
-        em = discord.Embed(color = 0x2f3136)
+        em = discord.Embed(color = Colors.gray)
         em.title = f"Commands - {selection}"
 
         # edit embed when selection is made
@@ -121,33 +95,31 @@ class Dropdown(discord.ui.Select):
         await interaction.response.edit_message(embed = em)
 
 class DropdownView(discord.ui.View):
-    def __init__(self, ctx):
-        super().__init__()
+    def __init__(self, ctx: commands.Context):
+        super().__init__(timeout = None)
 
         # build the dropdown list
         self.add_item(Dropdown(ctx))
 
 class ReplyView(discord.ui.View):
-    def __init__(self, client, msg, reply_id):
-        self.msg = msg
-        self.client = client
-        self.reply_id = reply_id
+    def __init__(self, ctx: commands.Context, msg: discord.Message, reply_id):
         super().__init__(timeout = None)
+
+        self.ctx = ctx
+        self.msg = msg
+        self.reply_id = reply_id
 
     @discord.ui.button(label="Reply", style=discord.ButtonStyle.primary, custom_id="replyview:reply")
     async def reply(self, button: discord.ui.Button, interaction: discord.Interaction):
-        view = CancelView()
-        view.children[0].label = "Cancel"
-        view.children[0].style = discord.ButtonStyle.secondary
-
-        await interaction.response.send_message("Send a message to use as the reply.", view = view, ephemeral = True)
+        view = ChoiceView(self.ctx, ['cancel'])
+        await interaction.response.send_message("send a message to use as the reply", view = view, ephemeral = True)
         
         # get user input
         try:
             # wait for either a message or button press
             done, _ = await asyncio.wait([
-                self.client.loop.create_task(self.client.wait_for('message', check = check(interaction), timeout=300)),
-                self.client.loop.create_task(self.client.wait_for('interaction', check = btn_check(interaction), timeout=300))
+                interaction.client.loop.create_task(interaction.client.wait_for('message', check = check(interaction), timeout=500)),
+                interaction.client.loop.create_task(interaction.client.wait_for('interaction', check = btn_check(interaction), timeout=500))
             ], return_when=asyncio.FIRST_COMPLETED)
             
             for future in done:
@@ -155,7 +127,7 @@ class ReplyView(discord.ui.View):
 
             # if a button press was received
             if isinstance(msg_or_interaction, discord.interactions.Interaction):
-                if view.canceled: 
+                if view.choice == 'cancel': 
                     return await interaction.edit_original_message(content = "(canceled)", view = None)
             
             # if a message was received instead
@@ -163,13 +135,13 @@ class ReplyView(discord.ui.View):
                 message = msg_or_interaction
             else:
                 # got unexpected response
-                return await interaction.edit_original_message(content = "**Error:** got a weird response for some reason, please try again (or don't if you wanted to cancel)", view = None)
+                return await interaction.edit_original_message(content = "**Error:** idk what happened, please try again (or don't if you wanted to cancel)", view = None)
         except asyncio.TimeoutError:
             await interaction.edit_original_message(content = "**Error:** timed out", view = None)
 
         await message.delete()
         
-        ctx = await self.client.get_context(message)
+        ctx = await interaction.client.get_context(message)
         status = message.content
         
         # same procedure as a reply command
@@ -181,19 +153,19 @@ class ReplyView(discord.ui.View):
             media_ids = None
         
         # send the reply
-        new_status = api.update_status(status=status, media_ids=media_ids, in_reply_to_status_id=self.reply_id, auto_populate_reply_metadata=True)
+        new_status = Clients().twitter().update_status(status=status, media_ids=media_ids, in_reply_to_status_id=self.reply_id, auto_populate_reply_metadata=True)
 
         await interaction.edit_original_message(content = "Replied!", view = None)
 
         # reply to the original message containing the tweet
         new_msg = await self.msg.reply(f"{interaction.user.mention} replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
 
-        view = ReplyView(self.client, new_msg, new_status.id)
+        view = ReplyView(interaction.client, new_msg, new_status.id)
         await new_msg.edit(view = view)
 
 class QueueView(commands.Cog):
     @classmethod
-    async def get_queue(cls, client: discord.Client, ctx: commands.Context):
+    async def get_queue(cls, client: commands.Bot, ctx: commands.Context):
         player = client.lavalink.player_manager.get(ctx.guild.id)
         total_pages = math.ceil(len(player.queue) / 10)
         current_page = 1
@@ -230,7 +202,7 @@ class QueueView(commands.Cog):
         return pages
 
 class PlaylistView(discord.ui.View):
-    def __init__(self, client, ctx, msg, playlist):
+    def __init__(self, client: commands.Bot, ctx: commands.Context, msg: discord.Message, playlist: list):
         super().__init__()
         self.db = database.Guild(ctx.guild)
         self.doc = self.db.get()
@@ -305,7 +277,7 @@ class PlaylistView(discord.ui.View):
         embed = discord.Embed(
             title = self.pl,
             description = track_list,
-            color = 0x42f55a
+            color = Colors.added_track
         )
         embed.set_author(name=f"Added Playlist to Queue ({len(self.playlists[self.pl])} tracks)", icon_url=self.ctx.author.display_avatar)
         
@@ -343,31 +315,30 @@ class PlaylistView(discord.ui.View):
                 await self.msg.edit(embed = new_embed, view = self)
             
             # if removing a track
-            if button.custom_id == "remove":
+            elif button.custom_id == "remove":
                 # if the playlist is listed in the database and it has tracks
                 if self.pl in self.playlists.keys() and len(self.playlists[self.pl]) > 0:
-                    count = 0
                     track_list = ''
 
                     # build the track list again
-                    for track in self.playlists[self.pl]:
-                        count += 1
+                    for i, track in enumerate(self.playlists[self.pl]):
                         title = track['title']
                         url = track['url']
                         user = f"<@{track['user']}>"
-                        track_list += f"**{count}.** [{title}]({url}) - {user}\n"
+
+                        track_list += f"**{i}.** [{title}]({url}) - {user}\n"
                         
                     embed = discord.Embed(
-                        title = f"{self.pl} - {count} track(s)",
+                        title = f"{self.pl} - {len(self.playlists[self.pl])} track(s)",
                         description = track_list,
-                        color = self.client.gray
+                        color = Colors.gray
                     )
                 else:
                     # if the playlist is now empty
                     embed = discord.Embed(
                         title = self.pl,
                         description = "(this playlist is empty)",
-                        color = self.client.gray
+                        color = Colors.gray
                     )
                     
                     # disable the play/remove track buttons
@@ -378,13 +349,13 @@ class PlaylistView(discord.ui.View):
 
         embed = discord.Embed(
             title = f"{button.custom_id.capitalize()} Tracks",
-            color = self.client.gray
+            color = Colors.gray
         )
 
         # choose which words to use depending on button choice
         if button.custom_id == "add":
             words = ["youtube links", "add"]
-        if button.custom_id == "remove":
+        elif button.custom_id == "remove":
             words = ["indexes", "remove"]
 
         description_text = "Send the {} of the tracks you want to {}.".format(*words)
@@ -392,17 +363,17 @@ class PlaylistView(discord.ui.View):
         embed.description = description_text
 
         # create cancel view
-        cancel_view = CancelView()
+        view = ChoiceView(self.ctx, ['cancel'])
 
-        await interaction.response.send_message(embed = embed, view = cancel_view, ephemeral = True)
+        await interaction.response.send_message(embed = embed, view = view, ephemeral = True)
 
         # continue recieving tracks/indexes as long as the user hasn't canceled it
-        while not cancel_view.canceled:
+        while not view.choice == 'cancel':
             try:
                 # wait for message or interaction
                 done, _ = await asyncio.wait([
-                    self.client.loop.create_task(self.client.wait_for('message', check=check(interaction), timeout=300)),
-                    self.client.loop.create_task(self.client.wait_for('interaction', check=btn_check(interaction), timeout=300))
+                    interaction.client.loop.create_task(interaction.client.wait_for('message', check=check(interaction), timeout=300)),
+                    interaction.client.loop.create_task(interaction.client.wait_for('interaction', check=btn_check(interaction), timeout=300))
                 ], return_when=asyncio.FIRST_COMPLETED)
                 
                 for future in done:
@@ -410,7 +381,7 @@ class PlaylistView(discord.ui.View):
 
                 # check if bot received interaction
                 if isinstance(msg_or_interaction, discord.interactions.Interaction):
-                    if cancel_view.canceled: break # if they canceled
+                    if view.choice == 'cancel': break # if they canceled
                     else: continue # unexpected interaction
 
                 # check if bot received message
@@ -421,7 +392,7 @@ class PlaylistView(discord.ui.View):
                     continue
 
                 # make the bot ignore itself
-                if message.author == self.client.user: continue
+                if message.author == interaction.client.user: continue
             except asyncio.TimeoutError:
                 break
             
@@ -444,8 +415,9 @@ class PlaylistView(discord.ui.View):
                 await interaction.edit_original_message(embed = embed)
 
                 # get track details
-                title = pafy.new(url).title
-                new_track = {"title": title, "url": url, "user": interaction.user.id}
+                with YoutubeDL() as ydl:
+                    video = ydl.extract_info(url, download = False)
+                    new_track = {"title": video['title'], "url": url, "user": interaction.user.id}
                 
                 # update the playlist with the new track
                 self.db.push(f'playlists.{self.pl}', new_track)
@@ -463,7 +435,7 @@ class PlaylistView(discord.ui.View):
                 continue
             
             # if removing a track
-            if button.custom_id == "remove":
+            elif button.custom_id == "remove":
                 # check if the receieved message is a number
                 if not message.content.isnumeric():
                     await interaction.followup.send("**Error:** invalid index, try again", ephemeral=True)
@@ -527,18 +499,17 @@ class PlaylistView(discord.ui.View):
     
     # disable buttons on timeout
     async def on_timeout(self):
-        for button in self.children:
-            button.disabled = True
-        
+        self.disable_all_items()
         await self.msg.edit(embed = self.msg.embeds[0], view = self)
 
 class TrackSelectView(discord.ui.View):
-    def __init__(self, ctx, msg, tracks):
-        super().__init__()
+    def __init__(self, ctx: commands.Context, msg: discord.Message, tracks: list):
+        super().__init__(timeout = None)
         
-        self.msg: discord.Message = msg
-        self.ctx: commands.Context = ctx
-        self.tracks: list = tracks
+        self.ctx = ctx
+        self.msg = msg
+        self.tracks = tracks
+
         self.track = tracks[0]
         self.selection = None
 

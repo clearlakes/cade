@@ -2,6 +2,7 @@ import discord
 from discord.utils import get
 from discord.ext import commands
 
+from json import load
 import configparser
 import time
 
@@ -36,7 +37,6 @@ async def on_ready():
     ]
 
     client.initial = initial
-    client.gray = 0x2f3136
 
     # small function that returns emojis from a server
     get_emoji = lambda x: get(client.emojis, name = x, guild_id = 680201586579996678)
@@ -51,5 +51,32 @@ async def on_ready():
         client.load_extension(f"cogs.{cog}")
 
     print("cade ready to rumble")
+
+@client.event
+async def on_command_error(ctx: commands.Context, error):
+    # if the error was from an invalid argument
+    if isinstance(error, commands.BadArgument):
+        with open("commands.json", "r") as f:
+            data = load(f)
+        
+        cmd = ctx.command.name
+
+        # get category and command information (from help command)
+        cat, cmd = next(((cat, x) for cat, x in data.items() 
+            for x in data[cat] if cmd == x or data[cat][x]["alt"] is not None 
+            and any(cmd == alt for alt in data[cat][x]["alt"])))
+            
+        usage = data[cat][cmd]["usage"]
+
+        # add space if usage is not empty
+        if usage is not None: usage = f" {usage}"
+        else: usage = ""
+
+        return await ctx.send(f"**Error:** usage: `.{cmd}{usage}`")
+    elif isinstance(error, commands.CheckFailure):
+        # ignore check failures
+        pass
+    else:
+        raise error
 
 client.run(token)

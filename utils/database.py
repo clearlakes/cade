@@ -1,5 +1,4 @@
 import discord
-
 import configparser
 import pymongo
 

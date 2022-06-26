@@ -2,195 +2,280 @@ import discord
 from discord.ext import commands, pages
 
 from utils.views import QueueView, PlaylistView, TrackSelectView
-from utils.lavalink_server import LavalinkVoiceClient
-from utils.variables import Clients, Regex, Keys
+from utils.variables import Colors, Clients, Keys, Regex as re
+from utils.voice import LavalinkVoiceClient
 from utils.functions import format_time
 from utils import database
 
+from lavalink import Client as LavalinkClient, DefaultPlayer, listener
 from lavalink.events import TrackStartEvent, TrackEndEvent
 from lavalink.models import AudioTrack
-from lavalink import Client, listener
 
+from dataclasses import dataclass
 from youtube_dl import YoutubeDL
 from functools import reduce
 from textwrap import shorten
 
-re = Regex()
+@dataclass
+class CurrentTrack:
+    requester_id = 0
+    track: AudioTrack = None
+    msg: discord.Message = None
+    looped = False
+    loop_count = 0
 
-lavalink_opts = Keys().lavalink
+def create_player(lavalink: LavalinkClient, ctx: commands.Context) -> DefaultPlayer:
+    player = lavalink.player_manager.create(ctx.guild.id, endpoint=str(ctx.guild.region))
+    player.store('channel', ctx.channel.id)
+    return player
 
-playing_color = 0x4e42f5
-added_color = 0x42f55a
+def get_player(lavalink: LavalinkClient, guild_id) -> DefaultPlayer:
+    return lavalink.player_manager.get(guild_id)
 
-repeat_single = False
-current_track = None
-loop_count = 0
-np_msg = None
+def check_if_user_in_vc(cmd: commands.Command, lavalink: LavalinkClient, same_vc: bool):
+    async def predicate(ctx: commands.Context):
+        player = get_player(lavalink, ctx.guild.id)
+        
+        if not ctx.author.voice or (same_vc and player and ctx.author.voice.channel.id != player.channel_id):
+            await ctx.send("**Error:** you're not in the vc")
+            return False
+        else:
+            return True
+
+    return cmd.add_check(predicate)
+
+def check_if_bot_in_vc(cmd: commands.Command, lavalink: LavalinkClient, connect_if_not: bool):
+    async def predicate(ctx: commands.Context):
+        player = get_player(lavalink, ctx.guild.id)
+
+        if not player or not player.is_connected:
+            if connect_if_not and ctx.author.voice:
+                player = create_player(lavalink, ctx)
+                await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
+                return True
+            else:
+                await ctx.send("**Error:** i'm not in a vc")
+                return False
+        else:
+            return True
+
+    return cmd.add_check(predicate)
+
+def check_if_playing(cmd: commands.Command, lavalink: LavalinkClient):
+    async def predicate(ctx: commands.Context):
+        player = get_player(lavalink, ctx.guild.id)
+
+        if not player or not player.is_playing:
+            await ctx.send("**Error:** nothing is playing right now")
+            return False
+        else:
+            return True
+
+    return cmd.add_check(predicate)
 
 class Music(commands.Cog):
     def __init__(self, client):
-        self.client = client
-        global played_song
-        played_song = False
+        self.client: commands.Bot = client
+        self.current_track = CurrentTrack()
 
         # if not already connected, connect to the lavalink server using the credentials from lavalink_opts
         if not hasattr(client, 'lavalink'):
-            client.lavalink = Client(client.user.id)
-            client.lavalink.add_node(*lavalink_opts, name = "default-node")
+            self.client.lavalink = LavalinkClient(self.client.user.id)
+            self.client.lavalink.add_node(*Keys.lavalink, name = "default-node")
 
         # get events to use for on_track_start/end, etc.
-        client.lavalink.add_event_hooks(self)
+        self.client.lavalink.add_event_hooks(self)
 
-        # connect to spotify for use in the play command
-        self.connect_spotify()
+        # get spotify api client
+        self.spotify_api = Clients().spotify()
+        self.client.loop.create_task(self.spotify_api.get_auth_token_with_client_credentials())
+        self.client.loop.create_task(self.spotify_api.create_new_client())
 
-    def connect_spotify(self):
-        """Connects to Spotify's API"""
-        global api_client
-        global sp_credentials
+        # add command checks
+        for command in self.get_commands():
+            if command.name == 'playlist':
+                continue
 
-        api_client = Clients().spotify()
-        sp_credentials = False
+            if command.name not in ['loopcount', 'queue', 'nowplaying']:
+                # if command is not .join, check if they're in the same vc as the bot
+                check_if_user_in_vc(command, self.client.lavalink, command.name != 'join')
+
+            if command.name in ['play', 'disconnect']:
+                # if the command is .play, connect to the vc
+                check_if_bot_in_vc(command, self.client.lavalink, command.name == 'play')
+            
+            if command.name not in ['play', 'join', 'disconnect']:
+                check_if_playing(command, self.client.lavalink)
+
+    @property
+    def lavalink(self) -> LavalinkClient:
+        return self.client.lavalink
 
     def cog_unload(self):
-        self.client.lavalink._event_hooks.clear()
-
-    # create a player before every command invoke
-    async def cog_before_invoke(self, ctx: commands.Context):
-        guild_check = ctx.guild is not None
-
-        if guild_check:
-            self.client.lavalink.player_manager.create(ctx.guild.id, endpoint=str(ctx.guild.region))
-
-        return guild_check
+        self.lavalink._event_hooks.clear()
 
     @listener(TrackStartEvent)
     async def on_track_start(self, event: TrackStartEvent):
         """Event handler for when a track starts"""
-        global current_track
-        global repeat_single
-        global np_msg
-        
-        if repeat_single is True:
+        if self.current_track.looped:
             return
-        
-        current_track = [event.track, event.track.requester]
 
-        # get the channel, requester, and duration
-        channel = event.player.fetch('channel')
-        channel = await self.client.fetch_channel(channel)
+        # get the channel, requester, and track duration
+        channel = await self.client.fetch_channel(event.player.fetch('channel'))
         requester = await self.client.fetch_user(event.track.requester)
-        duration = event.track.duration // 1000
-        duration = format_time(duration)
+        duration = format_time(event.track.duration // 1000)
 
         # create the embed
         playing = discord.Embed(
             title = event.track.title,
             url = event.track.uri,
             description = f"Duration: `{duration}` | Sent by {requester.mention}",
-            color = playing_color
+            color = Colors.playing_track
         )
 
         # add footer and thumbnail
         playing.set_author(name="Now Playing", icon_url = requester.display_avatar)
-        playing.set_thumbnail(url=f"https://img.youtube.com/vi/{event.track.identifier}/0.jpg")
+        playing.set_thumbnail(url = f"https://img.youtube.com/vi/{event.track.identifier}/0.jpg")
 
-        np_msg = await channel.send(embed = playing)
+        self.current_track.track = event.track
+        self.current_track.requester_id = requester.id
+        self.current_track.msg = await channel.send(embed = playing)
     
     @listener(TrackEndEvent)
     async def on_track_end(self, event: TrackEndEvent):
         """Event handler for when a track ends"""
-        global np_msg
-        global loop_count
-        global repeat_single
-
         # check if the track is being looped
-        if repeat_single:
-            # replay the track
-            guild_id = int(event.player.guild_id)
-            player = self.client.lavalink.player_manager.get(guild_id)
-            loop_count += 1
-            player.add(track=current_track[0], requester=current_track[1], index=0)
+        if self.current_track.looped:
+            player = get_player(self.lavalink, event.player.guild_id)
+            self.current_track.loop_count += 1
+
+            # replay the track 
+            player.add(track = self.current_track.track, requester = self.current_track.requester_id, index = 0)
         else:
-            # get information about the track that ended
-            title = event.track.title
-            url = event.track.uri
-            user = await self.client.fetch_user(current_track[1])
-            duration = event.track.duration // 1000
-            duration = format_time(duration)
+            duration = format_time(event.track.duration // 1000)
 
             # create "played track" embed
             played = discord.Embed(
-                title = title,
-                url = url,
-                description = f"was played by {user.mention} | Duration: `{duration}`",
-                color = self.client.gray
+                title = event.track.title,
+                url = event.track.uri,
+                description = f"was played by <@{self.current_track.requester_id}> | Duration: `{duration}`",
+                color = Colors.gray
             )
 
             # edit the original "now playing" message with the embed
-            await np_msg.edit(embed = played)
+            await self.current_track.msg.edit(embed = played)
 
     @commands.command(aliases=['p'])
     async def play(self, ctx: commands.Context, *, query: str = None):
         """Plays a track from a given url/query"""
         # this was also semi-taken from https://github.com/Devoxin/Lavalink.py/blob/master/examples/music.py
-        global api_client
-        global sp_credentials
-        is_spotify = False
         track_selection = False
 
         if query is None:
             raise commands.BadArgument()
 
-        def get_id(which: str, url):
-            start = url.find(f'{which}/') + len(f'{which}/')
-            end = url.find("?")
-            url_id = url[start:end]
+        def get_id(track_type: str):
+            """Gets the track/playlist ID from a spotify url"""
+            start = query.find(f'{track_type}/') + len(f'{track_type}/')
+            url_id = query[start:query.find("?")]
             return url_id
 
         # get the player for this guild from cache
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
+        player = get_player(self.lavalink, ctx.guild.id)
 
         # remove leading and trailing <> (<> may be used to suppress embedding links in Discord)
         query = query.strip('<>')
 
-        # if the user wants to select a track
+        # check if the user wants to select a track
         if query.endswith("*"):
-            # remove the asterisk from the query
             query = query[:-1]
             track_selection = True
 
-            # just in case, check if the query is now nothing
-            if query == '': raise commands.BadArgument()
-
-        # if the user is not in a vc
-        if not ctx.author.voice:
-            return await ctx.send("**Error:** you're not in the same vc")
-
-        # if the bot is not in a vc, connect to the user's vc
-        # if the bot is in a vc (but not the user's vc), send an error
-        if not player.is_connected:
-            player.store('channel', ctx.channel.id)
-            await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
-        elif ctx.author.voice.channel.id != int(player.channel_id):
-            return await ctx.send("**Error:** you're not in the same vc")
+            # throw error if the query was just "*"
+            if query == '': 
+                raise commands.BadArgument()
 
         # find either the youtube url or query to use
         if not re.url.match(query):
             query = f'ytsearch:{query}'
         else:
-            # if the message contains a url, check if it's spotify
             query = re.url.match(query).group(0)
 
-            if (query.find("spotify") != -1):
-                if sp_credentials is False:
-                    await api_client.get_auth_token_with_client_credentials()
-                    await api_client.create_new_client()
-                    sp_credentials = True
-                is_spotify = True
+            if "spotify" in query:
+                if "track" in query:
+                    # url is a track
+                    track_id = get_id("track")
+                    track = await self.spotify_api.track.get_one(track_id)
+                    
+                    # search youtube for a track with the same name
+                    track_name = track["name"]
+                    track_artist = track["artists"][0]["name"]
+                    query = f'ytsearch:{track_artist} - {track_name}'
+
+                elif "playlist" in query:
+                    # url is a playlist
+                    playlist_id = get_id("playlist")
+                    playlist_info = await self.spotify_api.playlists.get_one(playlist_id)
+                    tracks = playlist_info["tracks"]
+
+                    # get playlist details
+                    num_of_tracks = tracks["total"]
+                    playlist_name = playlist_info["name"]
+                    playlist_owner = playlist_info["owner"]["display_name"]
+                    playlist_image = playlist_info["images"][0]["url"]
+
+                    count = 0
+                    total_duration = 0
+                    tracks = tracks["items"]
+
+                    msg = await ctx.send(f"{self.client.loading} Adding spotify playlist (this may take a WHILE)")
+
+                    # for each track in the playlist, get details about it
+                    for item in tracks:
+                        track = item['track'] if 'track' in item else item
+
+                        # build search query
+                        track_name = track["name"]
+                        track_artist = track["artists"][0]["name"]
+                        sp_query = f'ytsearch:{track_artist} - {track_name}'
+
+                        # search for matching track
+                        results = await player.node.get_tracks(sp_query)
+
+                        # continue loop if no results were found that matched the track query
+                        if not results or not results['tracks']:
+                            continue
+                        
+                        # add track to queue
+                        sp_track = results['tracks'][0]
+                        sp_track = AudioTrack(sp_track, ctx.author.id)
+                        player.add(requester = ctx.author.id, track = sp_track)
+                        total_duration += track["duration_ms"]
+                    
+                    await msg.delete()
+
+                    total_duration = total_duration // 1000
+                    duration = format_time(total_duration)
+
+                    # "the playlist was added"
+                    embed = discord.Embed(
+                        title = playlist_name,
+                        description = f'**{playlist_owner}** - **{num_of_tracks}** tracks\nSent by {ctx.author.mention} | Duration: `{duration}`',
+                        color = Colors.added_track
+                    )
+                    embed.set_thumbnail(url = playlist_image)
+                    embed.set_author(name = f"Added Spotify Playlist to Queue", icon_url = ctx.author.display_avatar)
+                    embed.set_footer(text = f"Got results for {count} songs")
+
+                    await ctx.send(embed = embed)
+                    
+                    # start playing if it isn't
+                    if not player.is_playing:
+                        await player.play()
+
+                    return
             else:
-                # if it's not spotify (but is a url), check if it's youtube
-                # if it's not youtube, send an error
+                # if it's not a youtube url, send an error
                 if not re.youtube.match(query):
                     return await ctx.send("**Error:** only youtube/spotify links can be used")
                 
@@ -198,92 +283,8 @@ class Music(commands.Cog):
                 if 'shorts' in query:
                     query = f'https://youtube.com/watch?v={re.youtube.match(query).group(1)}'
 
-        # get the results from the lavalink server if it's not spotify
-        if not is_spotify:
-            results = await player.node.get_tracks(query)
-        else:
-            # check if the spotify link is for a track or a playlist
-            if (query.find("track") != -1):
-                # url is a track
-                track_id = get_id("track", query)
-                track = await api_client.track.get_one(track_id)
-                
-                # search youtube for a track with the same name
-                track_name = track["name"]
-                track_artist = track["artists"][0]["name"]
-                sp_query = f'ytsearch:{track_artist} - {track_name}'
-
-                results = await player.node.get_tracks(sp_query)
-            elif (query.find("playlist") != -1):
-                # url is a playlist
-                playlist_id = get_id("playlist", query)
-                playlist_info = await api_client.playlists.get_one(playlist_id)
-                tracks = playlist_info["tracks"]
-
-                # get playlist details
-                num_of_tracks = tracks["total"]
-                playlist_name = playlist_info["name"]
-                playlist_owner = playlist_info["owner"]["display_name"]
-                playlist_image = playlist_info["images"][0]["url"]
-
-                count = 0
-                total_duration = 0
-                tracks = tracks["items"]
-
-                msg = await ctx.send(f"{self.client.loading} Adding spotify playlist (this may take a WHILE)")
-
-                # for each track in the playlist, get details about it
-                for item in tracks:
-                    if count == 50:
-                        break
-
-                    if 'track' in item:
-                        track = item['track']
-                    else:
-                        track = item
-
-                    # build search query
-                    track_name = track["name"]
-                    track_artist = track["artists"][0]["name"]
-                    sp_query = f'ytsearch:{track_artist} - {track_name}'
-
-                    # search for matching track
-                    results = await player.node.get_tracks(sp_query)
-
-                    # continue loop if no results were found that matched the track query
-                    if not results or not results['tracks']:
-                        continue
-                    
-                    # add track to queue
-                    sp_track = results['tracks'][0]
-                    sp_track = AudioTrack(sp_track, ctx.author.id)
-                    player.add(requester=ctx.author.id, track=sp_track)
-                    total_duration += track["duration_ms"]
-                    count += 1
-                
-                await msg.delete()
-
-                total_duration = total_duration // 1000
-                duration = format_time(total_duration)
-
-                # "the playlist was added"
-                embed = discord.Embed(
-                    title = playlist_name,
-                    description = f'**{playlist_owner}** - **{num_of_tracks}** tracks\nSent by {ctx.author.mention} | Duration: `{duration}`',
-                    color = added_color
-                )
-                embed.set_thumbnail(url=playlist_image)
-                embed.set_author(name=f"Added Spotify Playlist to Queue", icon_url=ctx.author.display_avatar)
-                embed.set_footer(text=f"Got results for {count} songs")
-
-                await ctx.send(embed = embed)
-                
-                # start playing if it isn't
-                if not player.is_playing:
-                    await player.play()
-                return
-            else:
-                return await ctx.send("**Error:** could not determine if url is a playlist or a track")
+        # get the results from lavalink
+        results = await player.node.get_tracks(query)
 
         # if nothing was found when searching for tracks
         if not results or not results['tracks']:
@@ -293,40 +294,29 @@ class Music(commands.Cog):
         if results['loadType'] == 'PLAYLIST_LOADED':
             # a playlist was found
             tracks = results['tracks']
-            
-            count = 0
-            extended = False
+
             playlist_name = results["playlistInfo"]["name"]
-            playlist_track_preview = ''
+            track_list = ''
             
             # for each track in the playlist, add it to the queue
-            for track in tracks:
-                count += 1
-                player.add(requester=ctx.author.id, track=track)
-
-                if extended is True:
-                    continue
+            for i, track in enumerate(tracks):
+                player.add(requester = ctx.author.id, track = track)
 
                 # add track to list of added tracks
-                # if the amount of tracks is more than 10, keep counting from 1 without adding them to the list
-                if count <= 10:
+                if i <= 9:
                     shortened = shorten(track.title, 70, placeholder="...")
-                    url = track.uri
-                    playlist_track_preview += f'`{count}.` [{shortened}]({url})\n'
-                else:
-                    count = 1
-                    extended = True
+                    track_list += f'`{count}.` [{shortened}]({track.uri})\n'
             
             # show how many tracks there are after the first 10
-            if extended is True:
-                playlist_track_preview += f'(`+{count} more`)'
+            if len(tracks) > 10:
+                track_list += f'+`{len(tracks) - 10}` more'
             
             embed = discord.Embed(
                 title = playlist_name,
-                description = playlist_track_preview,
-                color = added_color
+                description = track_list,
+                color = Colors.added_track
             )
-            embed.set_author(name=f"Added Playlist to Queue ({len(tracks)} tracks)", icon_url=ctx.author.display_avatar)
+            embed.set_author(name=f"Queued Playlist ({len(tracks)} tracks)", icon_url = ctx.author.display_avatar)
             await ctx.send(embed = embed)
         else:
             # get a list of results if track selection is enabled
@@ -361,8 +351,8 @@ class Music(commands.Cog):
 
                 if view.selection is None:
                     return await ctx.message.delete()
-                else:
-                    track = view.selection
+                
+                track = view.selection
             else:
                 track = results['tracks'][0]
 
@@ -375,7 +365,7 @@ class Music(commands.Cog):
                     title = track.title,
                     url = track.uri,
                     description = f"Added by {ctx.author.mention} | Duration: `{duration}`",
-                    color = added_color
+                    color = Colors.added_track
                 )
                 
                 # get time left before song is played
@@ -384,19 +374,19 @@ class Music(commands.Cog):
                 for song in player.queue:
                     time_left += song.duration
 
-                total_duration = format_time(total_duration // 1000)
+                total_duration = format_time(time_left // 1000)
                 queue_length = len(player.queue) + 1
 
                 # set the footer, author, and thumbnail
                 embed.set_footer(text = f"Playing in {total_duration}")
-                embed.set_author(name = f"Queued - #{queue_length}", icon_url=ctx.author.display_avatar)
+                embed.set_author(name = f"Queued Track - #{queue_length}", icon_url = ctx.author.display_avatar)
                 embed.set_thumbnail(url = f"https://img.youtube.com/vi/{track.identifier}/0.jpg")
 
-                await ctx.send(embed=embed)
+                await ctx.send(embed = embed)
 
             # add the track to the queue. if the player is not playing anything, this will make it play the requested track
             track = AudioTrack(track, ctx.author.id)
-            player.add(requester=ctx.author.id, track=track)
+            player.add(requester = ctx.author.id, track = track)
 
         # play the track if it isn't doing anything
         if not player.is_playing:
@@ -405,11 +395,8 @@ class Music(commands.Cog):
     @commands.command(aliases=['j'])
     async def join(self, ctx: commands.Context):
         """Makes the bot join a VC"""
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-
-        # check if the user is in a vc
-        if not ctx.author.voice:
-            return await ctx.send("**Error:** you're not in a vc")
+        # create a player for the guild
+        player = create_player(self.lavalink, ctx)
 
         # move to the user's vc if it is already connected to another
         if player.is_connected:
@@ -418,26 +405,16 @@ class Music(commands.Cog):
                 return await ctx.message.add_reaction(self.client.ok)
             return await ctx.send("**Error:** i'm already in the vc")
 
-        # store the channel in the lavalink player
-        player.store('channel', ctx.channel.id)
-
-        await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
+        await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
         await ctx.message.add_reaction(self.client.ok)
 
     @commands.command(aliases=['dc', 'leave'])
     async def disconnect(self, ctx: commands.Context):
         """Disconnects the bot from the VC and clears the queue"""
         # disable loop
-        global repeat_single
-        repeat_single = False
+        self.current_track.looped = False
 
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-
-        if not player.is_connected:
-            return await ctx.send("**Error:** not connected to a vc")
-
-        if not ctx.author.voice or (ctx.author.voice.channel.id != int(player.channel_id)):
-            return await ctx.send("**Error:** you're not in the same vc")
+        player = get_player(self.lavalink, ctx.guild.id)
 
         # clear the queue
         player.queue.clear()
@@ -446,26 +423,17 @@ class Music(commands.Cog):
         await player.stop()
 
         # leave the vc
-        await ctx.voice_client.disconnect(force=True)
+        await ctx.voice_client.disconnect(force = True)
         await ctx.message.add_reaction(self.client.ok)
     
     @commands.command(aliases=['s'])
     async def skip(self, ctx: commands.Context, index = None):
         """Skips either the current track, a track in the queue, or the entire queue"""
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-
-        if not player.is_connected:
-            return await ctx.send("**Error:** not connected to a vc")
-
-        if not ctx.author.voice or (ctx.author.voice.channel.id != int(player.channel_id)):
-            return await ctx.send("**Error:** you're not in the same vc")
-
-        # if the bot isn't playing anything, send an error
-        if not player.is_playing:
-            return await ctx.send("**Error:** not playing anything")
+        player = get_player(self.lavalink, ctx.guild.id)
 
         # if nothing is given, skip the current track
         if index is None:
+            self.current_track.looped = False
             await player.skip()
             await ctx.message.add_reaction(self.client.ok)
             return
@@ -482,20 +450,14 @@ class Music(commands.Cog):
         index = int(index)
         
         # "skipped track"
-        title = player.queue[index-1]['title']
+        title = player.queue[index - 1]['title']
         player.queue.pop(index - 1)
         await ctx.send(f"{self.client.ok} Skipped **{title}**")
 
     @commands.command()
     async def shuffle(self, ctx: commands.Context):
         """Shuffles the playing order of the queue"""
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-
-        if not player.is_connected:
-            return await ctx.send("**Error:** not connected to a vc")
-
-        if not ctx.author.voice or (ctx.author.voice.channel.id != int(player.channel_id)):
-            return await ctx.send("**Error:** you're not in the same vc")
+        player = get_player(self.lavalink, ctx.guild.id)
         
         # check if the queue is empty
         if not player.queue:
@@ -513,46 +475,28 @@ class Music(commands.Cog):
     @commands.command(aliases=['l'])
     async def loop(self, ctx: commands.Context):
         """Loops the current track"""
-        global repeat_single
-        global loop_count
-
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-
-        if not player.is_connected:
-            return await ctx.send("**Error:** not connected to a vc")
-
-        if not ctx.author.voice or (ctx.author.voice.channel.id != int(player.channel_id)):
-            return await ctx.send("**Error:** you're not in the same vc")
-        
-        if not player.is_playing:
-            return await ctx.send("**Error:** nothing is playing right now")
+        player = get_player(self.lavalink, ctx.guild.id)
         
         # set the loop status to it's opposite (true -> false, false -> true)
-        repeat_single = not repeat_single
+        self.current_track.looped = not self.current_track.looped
 
         # success message according to what it was set to
-        if repeat_single is True:
+        if self.current_track.looped:
             await ctx.send(f"{self.client.ok} Looping **{player.current.title}**")
         else:
-            await ctx.send(f"{self.client.ok} Stopped loop (ended at **{loop_count}** loop(s)) ")
-            loop_count = 0
+            await ctx.send(f"{self.client.ok} Stopped loop (ended at **{self.current_track.loop_count}** loop(s)) ")
+            self.current_track.loop_count = 0
     
     @commands.command(aliases=['lc'])
     async def loopcount(self, ctx: commands.Context):
         """Shows how many times the current track has been looped"""
-        global repeat_single
-        global loop_count
-
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-        
-        if not player.is_playing:
-            return await ctx.send("**Error:** nothing is playing right now")
+        player = get_player(self.lavalink, ctx.guild.id)
         
         # check if the current track is being looped
-        if not repeat_single:
+        if not self.current_track.looped:
             return await ctx.send("**Error:** the current song is not being looped (use `.l` to do so)")
         
-        await ctx.send(f"`{player.current.title}` has been looped **{loop_count}** time(s)")
+        await ctx.send(f"`{player.current.title}` has been looped **{self.current_track.loop_count}** time(s)")
 
     @commands.command(aliases=['pl'])
     async def playlist(self, ctx: commands.Context, pl_name: str = None, opt: str = None, res: str = None):
@@ -569,7 +513,7 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     title = pl_name,
                     description = "(this playlist is empty)",
-                    color = self.client.gray
+                    color = Colors.gray
                 )
             else:
                 count = 0
@@ -586,7 +530,7 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     title = f"{pl_name} - {count} track(s)",
                     description = track_list,
-                    color = self.client.gray
+                    color = Colors.gray
                 )
 
             return embed
@@ -612,7 +556,7 @@ class Music(commands.Cog):
             embed = discord.Embed(
                 title = "Playlists",
                 description = list_of_playlists,
-                color = self.client.gray
+                color = Colors.gray
             )
 
             return await ctx.send(embed = embed)
@@ -629,8 +573,7 @@ class Music(commands.Cog):
 
             # disable the play/remove track buttons if the playlist is empty
             if playlist_is_not_there or playlist_is_there_but_empty:
-                view.children[1].disabled = True
-                view.children[2].disabled = True
+                view.disable_all_items(exclusions = [view.children[0]])
             
             await msg.edit(embed = embed, view = view)
             return await view.wait()
@@ -706,13 +649,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['pp', 'pause'])
     async def togglepause(self, ctx: commands.Context):
         """Pauses/unpauses the current track"""
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-
-        if not player.is_connected:
-            return await ctx.send("**Error:** not connected to a vc")
-
-        if not ctx.author.voice or (ctx.author.voice.channel.id != int(player.channel_id)):
-            return await ctx.send("**Error:** you're not in the same vc")
+        player = get_player(self.lavalink, ctx.guild.id)
 
         # set the pause status to it's opposite value (paused -> unpaused, etc.)
         await player.set_pause(not player.paused)
@@ -726,20 +663,14 @@ class Music(commands.Cog):
     @commands.command()
     async def seek(self, ctx: commands.Context, time_input = None):
         """Seek to a given timestamp, or rewind/fast-forward the track"""
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
+        player = get_player(self.lavalink, ctx.guild.id)
         new_time = time_input
-
-        if not player.is_connected:
-            return await ctx.send("**Error:** not connected to a vc")
-
-        if not ctx.author.voice or (ctx.author.voice.channel.id != int(player.channel_id)):
-            return await ctx.send("**Error:** you're not in the same vc")
 
         # if nothing is given
         if time_input is None:
             return await ctx.send("**Error:** specify the time you want to go to (ex. `1:00`, `10.5`), or use either `+` or `-` to skip/rewind")
         
-        # if the first character of the given time is not numeric (probably a + or -), 
+        # if the first character of the given time is not numeric (probably a + or -),
         # set new_time to whatever is after that character
         if not time_input[0].isnumeric():
             new_time = time_input[1:]
@@ -751,7 +682,10 @@ class Music(commands.Cog):
             new_time = int(round(new_time))
         else:
             # most likely given seconds, so multiply by 1000
-            new_time = int(new_time) * 1000
+            try:
+                new_time = int(new_time) * 1000
+            except ValueError:
+                return await ctx.send("**Error:** invalid time (sec, min:sec, hour:min:sec) (optionally with +/- in front)")
 
         res = ''
         
@@ -765,7 +699,7 @@ class Music(commands.Cog):
                 if new_time >= player.current.duration:
                     return await ctx.send("**Error:** cannot skip that far into the track")
 
-                res = '**Skipped** to `{}`'
+                res = 'skipped to `{}`'
             elif time_input[0] == "-":
                 # rewind by the amount of time given
                 new_time = player.position - new_time
@@ -774,9 +708,9 @@ class Music(commands.Cog):
                 if new_time < 0:
                     new_time = 0
 
-                res = '**Rewinded** to `{}`'
+                res = 'rewinded to `{}`'
         else:
-            res = '**Set position** to `{}`'
+            res = 'set position to `{}`'
 
         # format the given time
         before_format = new_time // 1000
@@ -789,14 +723,14 @@ class Music(commands.Cog):
     @commands.command(aliases=['q'])
     async def queue(self, ctx: commands.Context):
         """Displays the queue of the server"""
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
+        player = get_player(self.lavalink, ctx.guild.id)
 
         if not player.queue:
             return await ctx.send("the queue is empty!")
 
         # create the paginator using the embeds from get_queue
-        queue_pages = await QueueView.get_queue(self.client, ctx)
-        paginator = pages.Paginator(pages=queue_pages, loop_pages=True)
+        queue_pages = await QueueView().get_queue(self.client, ctx)
+        paginator = pages.Paginator(pages = queue_pages, loop_pages = True)
 
         # if the queue is 1 page (10 items or less), send the embed without buttons
         if len(player.queue) <= 10:
@@ -807,12 +741,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['np'])
     async def nowplaying(self, ctx: commands.Context):
         """Displays information about the current track"""
-        global loop_count
-        global repeat_single
-        player = self.client.lavalink.player_manager.get(ctx.guild.id)
-
-        if not player.is_playing:
-            return await ctx.send("**Error:** not playing anything")
+        player = get_player(self.lavalink, ctx.guild.id)
 
         requester = await self.client.fetch_user(player.current.requester)
         
@@ -821,151 +750,122 @@ class Music(commands.Cog):
         song_duration = player.current.duration
         
         # generate video progress bar
-        line = ""
         ratio_of_times = (current_song_pos / song_duration) * 50
         ratio_of_times_in_range = ratio_of_times // 2.5
 
-        for i in range(20):
-            if i == ratio_of_times_in_range:
-                line += "⦿"
-            else:
-                line += "-"
+        line = ''.join("-" if i != ratio_of_times_in_range else "⦿" for i in range(20))
 
         current_song_pos = current_song_pos // 1000
         song_duration = song_duration // 1000
 
         # formatted durations
+        duration = format_time(song_duration)
         time_at = format_time(current_song_pos)
         time_left = format_time(song_duration - current_song_pos)
-        duration = format_time(song_duration)
 
         # create embed
         embed = discord.Embed(
             title = player.current.title,
             url = f"https://youtube.com/watch?v={player.current.identifier}",
             description = f"Sent by {requester.mention} | Duration: `{duration}`",
-            color = 0x4287f5
+            color = Colors.now_playing
         )
 
-        embed.set_footer(text=f"{time_at} elapsed {line} {time_left} left")
-        embed.set_author(name=f"Currently Playing", icon_url=requester.display_avatar)
-        embed.set_thumbnail(url=f"https://img.youtube.com/vi/{player.current.identifier}/0.jpg")
+        embed.set_footer(text = f"{time_at} elapsed {line} {time_left} left")
+        embed.set_author(name = f"Currently Playing", icon_url = requester.display_avatar)
+        embed.set_thumbnail(url = f"https://img.youtube.com/vi/{player.current.identifier}/0.jpg")
 
         # edit the embed to show if the current track is paused
         if player.paused:
             embed.description += " | **Paused**"
         
         # edit the footer if the current track is being looped
-        if repeat_single:
+        if self.current_track.looped:
             embed.set_footer(text = f"{embed.footer.text} • looped")
 
         msg = await ctx.send(embed = embed)
 
         # add NowPlayingView buttons to message
-        view = NowPlayingView(self.client, ctx, player, msg)
+        view = NowPlayingView(ctx, player, msg)
         await msg.edit(embed = embed, view = view)
         await view.wait()
 
-# this class should be in views.py but it uses repeat_single so i can't
+# this class should be in views.py but it uses self.current_track.looped so i can't
 class NowPlayingView(discord.ui.View):
-    def __init__(self, client, ctx, player, msg):
+    def __init__(self, ctx, player, msg):
         super().__init__()
-        
-        global repeat_single
         self.player = player
-        self.client = client
         self.ctx = ctx
         self.msg = msg
 
-        # set the pause button to say play if the current track is paused
+        # change pause emoji to play emoji, if paused
         if player.paused:
-            self.children[2].label = "play"
-            self.children[2].emoji = "▶️"
+            self.children[1].emoji = "▶️"
         
-        # same thing for the loop button: 
-        # if the current track is being looped, set it to say "stop loop"
-        if repeat_single:
-            self.children[3].label = "stop loop"
-            self.children[3].emoji = "🔂"
+        # change loop emoji to whatever 🔂 is, if looped
+        if self.current_track.looped:
+            self.children[2].emoji = "🔂"
     
-    # link every button to the same callback.
-    # i don't know if there is a better way to do this
-    
-    @discord.ui.button(label="10s", emoji="⏪", style=discord.ButtonStyle.secondary, custom_id="-10")
-    async def first(self, b, i): await self.callback(b, i)
+    # link every button to the same callback
 
-    @discord.ui.button(label="skip", emoji="🔀", style=discord.ButtonStyle.secondary, custom_id="skip")
-    async def second(self, b, i): await self.callback(b, i)
+    @discord.ui.button(emoji = "⏩", custom_id = "skip")
+    async def _skip(self, b, i): await self.callback(b, i)
 
-    @discord.ui.button(label="pause", emoji="⏸️", style=discord.ButtonStyle.secondary, custom_id="pause")
-    async def third(self, b, i): await self.callback(b, i)
+    @discord.ui.button(emoji = "⏸️", custom_id = "pause")
+    async def _pause(self, b, i): await self.callback(b, i)
 
-    @discord.ui.button(label="loop", emoji="🔁", style=discord.ButtonStyle.secondary, custom_id="loop")
-    async def fourth(self, b, i): await self.callback(b, i)
+    @discord.ui.button(emoji = "🔁", custom_id = "loop")
+    async def _loop(self, b, i): await self.callback(b, i)
 
-    @discord.ui.button(label="10s", emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="+10")
-    async def fifth(self, b, i): await self.callback(b, i)
-    
     async def callback(self, button: discord.ui.Button, interaction: discord.Interaction):
-        global repeat_single
-
         if interaction.user != self.ctx.author:
             return
 
         if not self.ctx.author.voice or (self.ctx.author.voice.channel.id != int(self.player.channel_id)):
-            return await interaction.response.send_message("**Error:** you're not in the same vc", ephemeral=True)
+            return await interaction.response.send_message("**Error:** you're not in the same vc", ephemeral = True)
+
+        await interaction.response.defer()
 
         embed = self.msg.embeds[0]
 
-        # seek forwards or backwards 10 seconds
-        if button.custom_id == "-10": await self.player.seek(self.player.position - 10000)
-        if button.custom_id == "+10": await self.player.seek(self.player.position + 10000)
-
         if button.custom_id == "skip":
-            await interaction.response.defer()
-
             # update original message view
             button.disabled = True
             button.label = "skipped"
             self.children = [button]
+            self.current_track.looped = False
             
             await self.msg.edit(embed = embed, view = self)
 
             return await self.player.skip()
 
         # change pause button and embed description according to pause status
-        if button.custom_id == "pause":
+        elif button.custom_id == "pause":
             if not self.player.paused:
                 await self.player.set_pause(True)
-                self.children[2].label = "play"
-                self.children[2].emoji = "▶️"
+                self.children[1].emoji = "▶️"
                 embed.description += " | **Paused**"
             else:
                 await self.player.set_pause(False)
-                self.children[2].label = "pause"
-                self.children[2].emoji = "⏸️"
+                self.children[1].emoji = "⏸️"
                 embed.description = embed.description.replace(" | **Paused**", "")
-        
+
         # do the same thing but for loop status
-        if button.custom_id == "loop":
-            if not repeat_single:
-                repeat_single = True
+        elif button.custom_id == "loop":
+            if not self.current_track.looped:
+                self.current_track.looped = True
                 embed.set_footer(text = f"{embed.footer.text} • looped")
-                self.children[3].label = "stop loop"
-                self.children[3].emoji = "🔂"
+                self.children[2].emoji = "🔂"
             else:
-                repeat_single = False
+                self.current_track.looped = False
                 embed.set_footer(text = embed.footer.text.replace(" • looped", ""))
-                self.children[3].label = "loop"
-                self.children[3].emoji = "🔁"
-        
-        await self.msg.edit(embed = embed, view = self)
+                self.children[2].emoji = "🔁"
+
+        return await self.msg.edit(embed = embed, view = self)
 
     # disable buttons on timeout
     async def on_timeout(self):
-        for button in self.children:
-            button.disabled = True
-        
+        self.disable_all_items()
         await self.msg.edit(embed = self.msg.embeds[0], view = self)
 
 def setup(bot):
