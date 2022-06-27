@@ -241,12 +241,7 @@ class General(commands.Cog):
         """Creates/sends a tag"""
         def get_attachment(ctx: commands.Context):
             # use the replied message if it's there
-            if ctx.message.attachments:
-                msg = ctx.message
-            elif ctx.message.reference:
-                msg = ctx.message.reference.resolved
-            else:
-                return False
+            msg = ctx.message.reference.resolved if ctx.message.reference and not ctx.message.attachments else ctx.message
             
             # find a url if there are no attachments
             if not msg.attachments:

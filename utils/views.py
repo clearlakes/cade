@@ -513,7 +513,9 @@ class TrackSelectView(discord.ui.View):
         self.track = tracks[0]
         self.selection = None
 
-    async def refresh_msg(self):
+    async def refresh_msg(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
         embed = discord.Embed(
             title = self.track.title,
             url = self.track.uri
@@ -552,7 +554,7 @@ class TrackSelectView(discord.ui.View):
             return
 
         self.track = self.tracks[self.tracks.index(self.track) - 1]
-        await self.refresh_msg()
+        await self.refresh_msg(interaction)
     
     @discord.ui.button(label="next", style=discord.ButtonStyle.secondary)
     async def next(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -560,7 +562,7 @@ class TrackSelectView(discord.ui.View):
             return
 
         self.track = self.tracks[self.tracks.index(self.track) + 1]
-        await self.refresh_msg()
+        await self.refresh_msg(interaction)
 
     @discord.ui.button(label="this one", style=discord.ButtonStyle.primary)
     async def play(self, button: discord.ui.Button, interaction: discord.Interaction):

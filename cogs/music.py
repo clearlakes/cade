@@ -24,55 +24,6 @@ class CurrentTrack:
     looped = False
     loop_count = 0
 
-def create_player(lavalink: LavalinkClient, ctx: commands.Context) -> DefaultPlayer:
-    player = lavalink.player_manager.create(ctx.guild.id, endpoint=str(ctx.guild.region))
-    player.store('channel', ctx.channel.id)
-    return player
-
-def get_player(lavalink: LavalinkClient, guild_id) -> DefaultPlayer:
-    return lavalink.player_manager.get(guild_id)
-
-def check_if_user_in_vc(cmd: commands.Command, lavalink: LavalinkClient, same_vc: bool):
-    async def predicate(ctx: commands.Context):
-        player = get_player(lavalink, ctx.guild.id)
-        
-        if not ctx.author.voice or (same_vc and player and ctx.author.voice.channel.id != player.channel_id):
-            await ctx.send("**Error:** you're not in the vc")
-            return False
-        else:
-            return True
-
-    return cmd.add_check(predicate)
-
-def check_if_bot_in_vc(cmd: commands.Command, lavalink: LavalinkClient, connect_if_not: bool):
-    async def predicate(ctx: commands.Context):
-        player = get_player(lavalink, ctx.guild.id)
-
-        if not player or not player.is_connected:
-            if connect_if_not and ctx.author.voice:
-                player = create_player(lavalink, ctx)
-                await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
-                return True
-            else:
-                await ctx.send("**Error:** i'm not in a vc")
-                return False
-        else:
-            return True
-
-    return cmd.add_check(predicate)
-
-def check_if_playing(cmd: commands.Command, lavalink: LavalinkClient):
-    async def predicate(ctx: commands.Context):
-        player = get_player(lavalink, ctx.guild.id)
-
-        if not player or not player.is_playing:
-            await ctx.send("**Error:** nothing is playing right now")
-            return False
-        else:
-            return True
-
-    return cmd.add_check(predicate)
-
 class Music(commands.Cog):
     def __init__(self, client):
         self.client: commands.Bot = client
@@ -91,21 +42,48 @@ class Music(commands.Cog):
         self.client.loop.create_task(self.spotify_api.get_auth_token_with_client_credentials())
         self.client.loop.create_task(self.spotify_api.create_new_client())
 
-        # add command checks
-        for command in self.get_commands():
-            if command.name == 'playlist':
-                continue
+    def create_player(self, ctx: commands.Context) -> DefaultPlayer:
+        player = self.lavalink.player_manager.create(ctx.guild.id, endpoint=str(ctx.guild.region))
+        player.store('channel', ctx.channel.id)
+        return player
 
-            if command.name not in ['loopcount', 'queue', 'nowplaying']:
-                # if command is not .join, check if they're in the same vc as the bot
-                check_if_user_in_vc(command, self.client.lavalink, command.name != 'join')
+    def get_player(self, guild_id) -> DefaultPlayer:
+        return self.lavalink.player_manager.get(guild_id)
 
-            if command.name in ['play', 'disconnect']:
-                # if the command is .play, connect to the vc
-                check_if_bot_in_vc(command, self.client.lavalink, command.name == 'play')
-            
-            if command.name not in ['play', 'join', 'disconnect']:
-                check_if_playing(command, self.client.lavalink)
+    async def cog_check(self, ctx: commands.Context):
+        if ctx.command.name == 'playlist':
+            return True
+
+        player = self.get_player(ctx.guild.id)
+
+        if ctx.command.name == 'disconnect' and not player:
+            await ctx.send("**Error:** i'm not in a vc")
+            return False
+
+        # check if the bot is in vc
+        if ctx.command.name in ['play', 'disconnect']:
+            if not player or not player.is_connected:
+                if ctx.command.name == 'play' and ctx.author.voice:
+                    player = self.create_player(ctx)
+                    await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
+                    return True
+                else:
+                    await ctx.send("**Error:** i'm not in a vc")
+                    return False
+
+        # check if the user is in vc
+        if ctx.command.name not in ['loopcount', 'queue', 'nowplaying']:
+            if not ctx.author.voice or (ctx.command.name != 'join' and player and ctx.author.voice.channel.id != player.channel_id):
+                await ctx.send("**Error:** you're not in the vc")
+                return False
+
+        # check if the bot is playing music
+        if ctx.command.name not in ['play', 'join', 'disconnect']:
+            if not player or not player.is_playing:
+                await ctx.send("**Error:** nothing is playing right now")
+                return False
+
+        return True
 
     @property
     def lavalink(self) -> LavalinkClient:
@@ -146,7 +124,7 @@ class Music(commands.Cog):
         """Event handler for when a track ends"""
         # check if the track is being looped
         if self.current_track.looped:
-            player = get_player(self.lavalink, event.player.guild_id)
+            player = self.get_player(event.player.guild_id)
             self.current_track.loop_count += 1
 
             # replay the track 
@@ -181,7 +159,7 @@ class Music(commands.Cog):
             return url_id
 
         # get the player for this guild from cache
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
 
         # remove leading and trailing <> (<> may be used to suppress embedding links in Discord)
         query = query.strip('<>')
@@ -305,7 +283,7 @@ class Music(commands.Cog):
                 # add track to list of added tracks
                 if i <= 9:
                     shortened = shorten(track.title, 70, placeholder="...")
-                    track_list += f'`{count}.` [{shortened}]({track.uri})\n'
+                    track_list += f'`{i + 1}.` [{shortened}]({track.uri})\n'
             
             # show how many tracks there are after the first 10
             if len(tracks) > 10:
@@ -396,7 +374,7 @@ class Music(commands.Cog):
     async def join(self, ctx: commands.Context):
         """Makes the bot join a VC"""
         # create a player for the guild
-        player = create_player(self.lavalink, ctx)
+        player = self.create_player(ctx)
 
         # move to the user's vc if it is already connected to another
         if player.is_connected:
@@ -414,7 +392,7 @@ class Music(commands.Cog):
         # disable loop
         self.current_track.looped = False
 
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
 
         # clear the queue
         player.queue.clear()
@@ -429,7 +407,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['s'])
     async def skip(self, ctx: commands.Context, index = None):
         """Skips either the current track, a track in the queue, or the entire queue"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
 
         # if nothing is given, skip the current track
         if index is None:
@@ -457,7 +435,7 @@ class Music(commands.Cog):
     @commands.command()
     async def shuffle(self, ctx: commands.Context):
         """Shuffles the playing order of the queue"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
         
         # check if the queue is empty
         if not player.queue:
@@ -475,7 +453,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['l'])
     async def loop(self, ctx: commands.Context):
         """Loops the current track"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
         
         # set the loop status to it's opposite (true -> false, false -> true)
         self.current_track.looped = not self.current_track.looped
@@ -490,7 +468,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['lc'])
     async def loopcount(self, ctx: commands.Context):
         """Shows how many times the current track has been looped"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
         
         # check if the current track is being looped
         if not self.current_track.looped:
@@ -516,19 +494,17 @@ class Music(commands.Cog):
                     color = Colors.gray
                 )
             else:
-                count = 0
                 track_list = ''
 
                 # get details about each track in the playlist, as well as who added them
-                for track in playlists[pl_name]:
-                    count += 1
+                for i, track in enumerate(playlists[pl_name]):
                     title = track['title']
                     url = track['url']
                     user = f"<@{track['user']}>"
-                    track_list += f"**{count}.** [{title}]({url}) - {user}\n"
+                    track_list += f"**{i + 1}.** [{title}]({url}) - {user}\n"
                     
                 embed = discord.Embed(
-                    title = f"{pl_name} - {count} track(s)",
+                    title = f"{pl_name} - {len(playlists[pl_name])} track(s)",
                     description = track_list,
                     color = Colors.gray
                 )
@@ -649,7 +625,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['pp', 'pause'])
     async def togglepause(self, ctx: commands.Context):
         """Pauses/unpauses the current track"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
 
         # set the pause status to it's opposite value (paused -> unpaused, etc.)
         await player.set_pause(not player.paused)
@@ -663,7 +639,7 @@ class Music(commands.Cog):
     @commands.command()
     async def seek(self, ctx: commands.Context, time_input = None):
         """Seek to a given timestamp, or rewind/fast-forward the track"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
         new_time = time_input
 
         # if nothing is given
@@ -723,7 +699,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['q'])
     async def queue(self, ctx: commands.Context):
         """Displays the queue of the server"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
 
         if not player.queue:
             return await ctx.send("the queue is empty!")
@@ -741,7 +717,7 @@ class Music(commands.Cog):
     @commands.command(aliases=['np'])
     async def nowplaying(self, ctx: commands.Context):
         """Displays information about the current track"""
-        player = get_player(self.lavalink, ctx.guild.id)
+        player = self.get_player(ctx.guild.id)
 
         requester = await self.client.fetch_user(player.current.requester)
         

@@ -141,22 +141,16 @@ async def get_attachment(ctx: commands.Context, interaction: discord.Interaction
     """Gets the attachment to use for the tweet"""
     client = ctx.bot
 
-    # switch to the replied message if it's there
-    if ctx.message.attachments:
-        msg = ctx.message
-    elif ctx.message.reference:
-        msg = ctx.message.reference.resolved
-    else:
-        return False
+    # switch to the original message if it's a reply
+    msg = ctx.message.reference.resolved if ctx.message.reference and not ctx.message.attachments else ctx.message
     
-    count = 0
     att_bytes = []
 
     if not msg.attachments:
         return False
     else:
-        for att in msg.attachments:
-            if count == 4:
+        for i, att in enumerate(msg.attachments):
+            if i == 4:
                 break
 
             if "image" in att.content_type:
@@ -165,7 +159,6 @@ async def get_attachment(ctx: commands.Context, interaction: discord.Interaction
                     return ["gif", BytesIO(await att.read())]
 
                 att_bytes.append(BytesIO(await att.read()))
-                count += 1
                 continue
             
             if att.filename.lower().endswith("mov"):
