@@ -75,10 +75,13 @@ def create_caption(text: str, width: int):
     spacing = width // 40
     font_size = width // 10
     white = (255, 255, 255)
+
+    # replace ellipsis characters and remove extra whitespace
+    text = text.replace("…", "...")
+    text = " ".join(text.split())
     
     # wrap caption text
-    caption_lines = textwrap.wrap(text, width // 24, break_long_words=True)
-    caption = '\n'.join(caption_lines)
+    caption = textwrap.fill(text, 22)
 
     font_path = 'fonts/futura.ttf'
     font = ImageFont.truetype(font_path, font_size)
