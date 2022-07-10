@@ -77,7 +77,7 @@ def create_caption(text: str, width: int):
     white = (255, 255, 255)
     
     # wrap caption text
-    caption_lines = textwrap.wrap(text, 22, break_long_words=True)
+    caption_lines = textwrap.wrap(text, width // 24, break_long_words=True)
     caption = '\n'.join(caption_lines)
 
     font_path = 'fonts/futura.ttf'
