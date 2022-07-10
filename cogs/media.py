@@ -46,43 +46,35 @@ class Media(commands.Cog):
         """Creates a video of a set length with a given image and audio source"""
         global audio; global audio_type
 
-        def check_audio(author):
+        def check_audio(ctx: commands.Context):
             def check_inner(message: discord.Message):
                 global audio; global audio_type
 
-                mp3_types = ["mpeg", "mp3"]
+                mp3_types = ["audio/mpeg", "audio/mp3"]
 
                 # check if the bot needs to get information from a reply
                 if message.reference:
-                    msg = message.reference.resolved
-                else:
-                    msg = message
+                    message = message.reference.resolved
+
+                audio_type = None
+                audio = None
 
                 # if the message contains an mp3 file
-                if msg.attachments and any(x in msg.attachments[0].content_type for x in mp3_types):
+                if any((att := attachment).content_type in mp3_types for attachment in message.attachments):
                     audio_type = "file"
-                    audio = msg.attachments[0]
+                    audio = att
 
                 # if the message contains a youtube url
-                elif re.youtube.match(msg.content):
-                    url = re.youtube.match(msg.content).group(0)
+                elif match := re.youtube.match(message.content):
+                    url = match.group(0)
                     audio_type = "url"
                     audio = url
 
-                else:
-                    # failed to get anything
-                    audio_type = None
-                    audio = None
-
-                return message.author == author
+                return message.author == ctx.author and message.channel == ctx.channel
             return check_inner
         
         # if a length is given, check if it's a number
-        if length:
-            try:
-                length = int(length)
-            except ValueError:
-                return await ctx.send("**Error:** length must be in seconds")
+        length = int(length) if str(length).isnumeric() else None
         
         # embed that will show the progress
         embed = discord.Embed(
@@ -105,7 +97,7 @@ class Media(commands.Cog):
 
         # wait for a youtube url or mp3 file using the check_audio function
         try:
-            response = await self.client.wait_for('message', check = check_audio(ctx.author), timeout=300)
+            response = await self.client.wait_for('message', check = check_audio(ctx), timeout=300)
         except TimeoutError:
             return await processing.edit(content="**Error:** timed out", embed=None)
 
@@ -139,7 +131,7 @@ class Media(commands.Cog):
             audio_source = video_title
         
         # if an mp3 file was given
-        if audio_type == "file":
+        elif audio_type == "file":
             # download the video as a temporary file and get its duration
             with create_temp(suffix="mp3") as temp:
                 await audio.save(temp.name)
@@ -222,7 +214,7 @@ class Media(commands.Cog):
             try:
                 await ctx.send(ctx.author.mention, file = discord.File(video_file, f"{res.name}.mp4"))
                 
-                embed.title = f"{self.client.ok} Completed"
+                embed.title = f"{self.client.ok} finish"
                 embed.color = discord.Color.brand_green()
                 await processing.edit(embed = embed)
             except:
@@ -285,10 +277,10 @@ class Media(commands.Cog):
 
         # resize the attachment depending on file type
         if "gif" in res.type:
-            result = await self.client.loop.run_in_executor(None, partial(image.gif, res.obj, edit_type = 1, size = new_size))
+            result = await self.client.loop.run_in_executor(None, partial(image.EditGif(res.obj).resize, new_size))
             filename = f"{res.name}.gif"
         else:
-            result = await self.client.loop.run_in_executor(None, partial(image.resize, res.obj, size = new_size))
+            result = await self.client.loop.run_in_executor(None, partial(image.resize, res.obj, new_size))
             filename = f"{res.name}.png"
 
         # send the resized attachment
@@ -322,11 +314,11 @@ class Media(commands.Cog):
 
         # if the attachment is a gif, use the edit_gif function to caption each frame
         if "gif" in res.type:
-            result = await self.client.loop.run_in_executor(None, partial(image.gif, res.obj, edit_type = 2, caption = caption))
+            result = await self.client.loop.run_in_executor(None, partial(image.EditGif(res.obj).caption, caption))
             filename = f"{res.name}.gif"
         else:
             # if it's an image, add the caption image to the top of it
-            result = await self.client.loop.run_in_executor(None, partial(image.add_caption, res.obj, caption = caption))
+            result = await self.client.loop.run_in_executor(None, partial(image.add_caption, res.obj, caption))
             filename = f"{res.name}.png"
 
         # send the completed caption

@@ -144,12 +144,21 @@ class Music(commands.Cog):
             await self.current_track.msg.edit(embed = played)
 
     @commands.command(aliases=['p'])
-    async def play(self, ctx: commands.Context, *, query: str = None):
+    async def play(self, ctx: commands.Context, *, query: str = ''):
         """Plays a track from a given url/query"""
         # this was also semi-taken from https://github.com/Devoxin/Lavalink.py/blob/master/examples/music.py
         track_selection = False
 
-        if query is None:
+        # remove leading and trailing <> (<> may be used to suppress embedding links in Discord)
+        query = query.strip('<>')
+
+        # check if the user wants to select a track
+        if query.endswith("*"):
+            query = query[:-1]
+            track_selection = True
+        
+        # check if the query was empty
+        if not query:
             raise commands.BadArgument()
 
         def get_id(track_type: str):
@@ -160,18 +169,6 @@ class Music(commands.Cog):
 
         # get the player for this guild from cache
         player = self.get_player(ctx.guild.id)
-
-        # remove leading and trailing <> (<> may be used to suppress embedding links in Discord)
-        query = query.strip('<>')
-
-        # check if the user wants to select a track
-        if query.endswith("*"):
-            query = query[:-1]
-            track_selection = True
-
-            # throw error if the query was just "*"
-            if query == '': 
-                raise commands.BadArgument()
 
         # find either the youtube url or query to use
         if not re.url.match(query):

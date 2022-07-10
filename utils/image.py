@@ -1,19 +1,19 @@
-from tempfile import TemporaryDirectory, NamedTemporaryFile as create_temp
 from PIL import Image, ImageFont, ImageDraw
+from subprocess import Popen, PIPE
 from pilmoji import Pilmoji
-import subprocess
+from shlex import split
+from io import BytesIO
 import textwrap
 import emoji
-import io
 
-def get_size(file: io.BytesIO):
+def get_size(file: BytesIO):
     """Returns the size of a file"""
     image = Image.open(file)
     size = image.width, image.height
     
     return size
 
-def size_check(file: io.BytesIO):
+def size_check(file: BytesIO):
     """Resizes a file so that it's width and height are even"""
     image = Image.open(file).convert('RGBA')
     width, height = image.size
@@ -30,109 +30,13 @@ def size_check(file: io.BytesIO):
     alpha_composite = Image.alpha_composite(background, image)
 
     # save the new image as bytes
-    img_byte_arr = io.BytesIO()
+    img_byte_arr = BytesIO()
     alpha_composite.save(img_byte_arr, format = 'PNG')
-    result = io.BytesIO(img_byte_arr.getvalue())
+    result = BytesIO(img_byte_arr.getvalue())
 
     return result
 
-def gif(file: io.BytesIO, edit_type: int, size: tuple = None, caption: Image.Image = None):
-    """Function for editing gifs (and either resize or caption them)"""
-    file = Image.open(file)
-    
-    def _analyse(file: Image.Image):
-        # determine if the gif's mode is full (changes whole frame) or additive (changes parts of the frame)
-        # taken from https://gist.github.com/rockkoca/30357703f42f9d17c6fa121cf4dd1d8e
-        results = {'size': file.size, 'mode': 'full'}
-
-        try:
-            while True:
-                # check update region dimensions
-                if file.tile and file.tile[0][1][2:] != file.size:
-                    results['mode'] = 'partial'
-                    break
-
-                # move to next frame    
-                file.seek(file.tell() + 1)
-        except EOFError:
-            pass
-
-        return results
-    
-    analyse = _analyse(file)
-
-    i = 0
-    last_frame = file.convert('RGBA')
-
-    frames = []
-    durations = []
-
-    try:
-        # loop over frames in the gif
-        while True:
-            new_frame = Image.new('RGBA', file.size)
-            
-            if analyse['mode'] == 'partial':
-                new_frame.paste(last_frame)
-            
-            new_frame.paste(file, (0,0), file.convert('RGBA'))
-
-            # if the frame is to be resized
-            if edit_type == 1:
-                new_frame = new_frame.resize(size)
-                frames.append(new_frame)
-
-            # if the frame is to be captioned
-            if edit_type == 2:
-                final_caption = Image.new('RGBA', (new_frame.width, new_frame.height + caption.height))
-
-                final_caption.paste(caption, (0, 0))
-                final_caption.paste(new_frame, (0, caption.height))
-
-                frames.append(final_caption)
-
-            # add the frame's duration to a list
-            durations.append(file.info["duration"])
-
-            i += 1
-            last_frame = new_frame
-            file.seek(i)
-    except EOFError:
-        pass
-
-    if edit_type == 2:
-        with TemporaryDirectory() as dir:
-            files = []
-            for i, frame in enumerate(frames):
-                temp_path = f"{dir}/{i}.png"
-                frame.save(temp_path)
-                files.append(temp_path)
-            
-            with create_temp(suffix = ".gif") as temp:
-                cmd = ["./convert"] + [opt for d, f in zip(durations, files) for opt in ("-delay", f"{d // 10}", f)] + ["-loop", "0", "-dispose", "background", "-layers", "optimize", temp.name]
-
-                subprocess.Popen(cmd).wait()
-                return io.BytesIO(temp.read())
-
-    img_byte_arr = io.BytesIO()
-
-    # create a new gif using the lists of created frames and their durations
-    frames[0].save(
-        img_byte_arr, 
-        format = 'gif',
-        save_all = True, 
-        append_images = frames[1:], 
-        duration = durations,
-        optimize = True,
-        loop = 0
-    )
-
-    # get the gif's data in bytes
-    result = io.BytesIO(img_byte_arr.getvalue())
-
-    return result
-
-def jpeg(file: io.BytesIO):
+def jpeg(file: BytesIO):
     """Returns a low quality version of the file"""
     file_rgba = Image.open(file).convert('RGBA')
 
@@ -149,20 +53,20 @@ def jpeg(file: io.BytesIO):
     file_rgb = alpha_composite.convert('RGB') # converting to RGB for jpeg output
 
     # save the image as a bytes object
-    img_byte_arr = io.BytesIO()
+    img_byte_arr = BytesIO()
     file_rgb.save(img_byte_arr, format = 'JPEG', quality = 4) # "quality = 4" lowers the quality
-    result = io.BytesIO(img_byte_arr.getvalue())
+    result = BytesIO(img_byte_arr.getvalue())
 
     return result
 
-def resize(file: io.BytesIO, size: tuple[int, int]):
+def resize(file: BytesIO, size: tuple[int, int]):
     """Resizes a file to a given size"""
     file: Image.Image = Image.open(file)
     file = file.resize(size)
 
-    img_byte_arr = io.BytesIO()
-    file.save(img_byte_arr, format = 'png')
-    result = io.BytesIO(img_byte_arr.getvalue())
+    img_byte_arr = BytesIO()
+    file.save(img_byte_arr, format = 'PNG')
+    result = BytesIO(img_byte_arr.getvalue())
 
     return result
 
@@ -202,7 +106,7 @@ def create_caption(text: str, width: int):
 
     return caption_img
 
-def add_caption(file: io.BytesIO, caption: Image.Image):
+def add_caption(file: BytesIO, caption: Image.Image):
     """Adds a caption onto a given file"""
     file: Image.Image = Image.open(file)
     
@@ -212,8 +116,107 @@ def add_caption(file: io.BytesIO, caption: Image.Image):
     new_img.paste(file, (0, caption.height))
 
     # save the result
-    img_byte_arr = io.BytesIO()
-    new_img.save(img_byte_arr, format = 'png')
-    result = io.BytesIO(img_byte_arr.getvalue())
+    img_byte_arr = BytesIO()
+    new_img.save(img_byte_arr, format = 'PNG')
+    result = BytesIO(img_byte_arr.getvalue())
 
     return result
+
+class EditGif:
+    def __init__(self, gif: BytesIO):
+        self.gif = Image.open(gif)
+        self.mode = self._analyse()
+        self.last_frame = self.gif.convert('RGBA')
+        self.frames: list[Image.Image] = []
+        self.durations: list[int] = []
+
+    def _analyse(self):
+        # determine if the gif's mode is full (changes whole frame) or partial (changes parts of the frame)
+        # taken from https://gist.github.com/rockkoca/30357703f42f9d17c6fa121cf4dd1d8e
+        try:
+            while True:
+                # check update region dimensions
+                if self.gif.tile and self.gif.tile[0][1][2:] != self.gif.size:
+                    return 'partial'
+
+                # move to next frame    
+                self.gif.seek(self.gif.tell() + 1)
+        except EOFError:
+            pass
+
+        return 'full'
+    
+    def _paste(self):
+        self.gif.seek(self.i)
+        self.new_frame = Image.new('RGBA', self.gif.size)
+        
+        if self.mode == 'partial':
+            self.new_frame.paste(self.last_frame)
+        
+        self.new_frame.paste(self.gif, (0,0), self.gif.convert('RGBA'))
+
+    def _append(self, image: Image.Image):
+        self.frames.append(image)
+        self.durations.append(self.gif.info['duration'])
+        self.last_frame = self.new_frame
+
+    def resize(self, new_size: tuple[int]):
+        for self.i in range(self.gif.n_frames):
+            self._paste()
+
+            # resize frame
+            self.new_frame = self.new_frame.resize(new_size)
+
+            self._append(self.new_frame)
+
+        result = BytesIO()
+
+        # save gif with frame and delay information
+        self.frames[0].save(
+            result,
+            format = 'GIF', 
+            save_all = True, 
+            append_images = self.frames[1:], 
+            duration = self.durations,
+            optimize = True,
+            loop = 0
+        )
+
+        return BytesIO(result.getvalue()) # IDK
+
+    def caption(self, text: Image.Image):
+        for self.i in range(self.gif.n_frames):
+            self._paste()
+
+            # create image that will contain both caption and original frame
+            captioned_img = Image.new('RGBA', (self.new_frame.width, self.new_frame.height + text.height))
+
+            # add caption and then original frame under it
+            captioned_img.paste(text, (0, 0))
+            captioned_img.paste(self.new_frame, (0, text.height))
+
+            self._append(captioned_img)
+
+        # --nextfile: read from bytes, -O: optimize, +x -w: remove gif extensions and warnings
+        cmd = "gifsicle --nextfile -O +x -w "
+        
+        # generate delay information
+        for duration in self.durations:
+            cmd += f"-d{duration // 10} - "
+
+        # loop forever and read output as bytes
+        cmd += f"--loopcount=0 -o -"
+
+        p = Popen(split(cmd), stdin = PIPE, stdout = PIPE)
+        
+        # send frames to gifsicle
+        for frame in self.frames:
+            b = BytesIO()
+            frame.save(b, format = "GIF")
+
+            p.stdin.write(b.getvalue())
+        
+        p.stdin.close()
+        result = p.stdout.read()
+
+        return BytesIO(result)

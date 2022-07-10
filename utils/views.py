@@ -67,32 +67,29 @@ class Dropdown(discord.ui.Select):
 
     # callback runs whenever something is selected
     async def callback(self, interaction: discord.Interaction):
-        # get information from category
-        def get_help(cat):
-            with open("commands.json", "r") as f:
-                data = json.load(f)
+        category = self.values[0].lower()
+
+        with open("commands.json", "r") as f:
+            data = json.load(f)
+        
+        desc = ""
+        for cmd in data[category]:
+            about: str = data[category][cmd]["desc"]
+            usage: str = data[category][cmd]["usage"]
             
-            desc = ""
-            for key in data[cat]:
-                about = data[cat][key]["desc"]
-                usage = data[cat][key]["usage"]
-                
-                # add backticks to each word in 'usage' if the usage isn't nothing
-                if usage is not None: usage_str = ' `' + '` `'.join(usage.split()) + '`' if usage != '' else ''
-                else: usage_str = ""
+            # add backticks to each word in 'usage' if the usage isn't nothing
+            usage_str = ' `' + '` `'.join(usage.split()) + '`' if usage else ''
 
-                # add the command to the description
-                desc += f"**.{key}**{usage_str} - {about}\n"
-            return desc
-        
-        selection = self.values[0]
-        em = discord.Embed(color = Colors.gray)
-        em.title = f"Commands - {selection}"
+            # add the command to the description
+            desc += f"**.{cmd}**{usage_str} - {about}\n"
 
-        # edit embed when selection is made
-        em.description = get_help(selection.lower())
+        embed = discord.Embed(
+            title = f"Commands - {category}",
+            description = desc,
+            color = Colors.gray
+        )
         
-        await interaction.response.edit_message(embed = em)
+        await interaction.response.edit_message(embed = embed)
 
 class DropdownView(discord.ui.View):
     def __init__(self, ctx: commands.Context):
