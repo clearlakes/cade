@@ -268,12 +268,12 @@ def create_caption_text(text: str, width: int):
 def _get_content_bounds(img: Union[Image.Image, cv2.Mat]):
     """
     Gets the size of the main part of an image (without the border/caption),
-    using code from [this stackoverflow answer](https://stackoverflow.com/a/64796067)
+    mostly using code from [here](https://stackoverflow.com/a/64796067)
     """
+
     # convert PIL image to cv2 image
     if isinstance(img, Image.Image):
         img = cv2.cvtColor(numpy.array(img), cv2.COLOR_RGB2BGR)
-        img.size
 
     # invert the image and convert it to grayscale
     img_invert = cv2.bitwise_not(img)
