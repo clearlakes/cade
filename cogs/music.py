@@ -5,6 +5,7 @@ from utils.views import QueueView, PlaylistView, TrackSelectView
 from utils.variables import Colors, Clients, Keys, Regex as re
 from utils.voice import LavalinkVoiceClient
 from utils.functions import format_time
+from utils.enums import err
 from utils import database
 
 from lavalink import Client as LavalinkClient, DefaultPlayer, listener
@@ -57,7 +58,7 @@ class Music(commands.Cog):
         player = self.get_player(ctx.guild.id)
 
         if ctx.command.name == 'disconnect' and not player:
-            await ctx.send("**Error:** i'm not in a vc")
+            await ctx.send(err.BOT_NOT_IN_VC.value)
             return False
 
         # check if the bot is in vc
@@ -68,19 +69,19 @@ class Music(commands.Cog):
                     await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
                     return True
                 else:
-                    await ctx.send("**Error:** i'm not in a vc")
+                    await ctx.send(err.BOT_NOT_IN_VC.value)
                     return False
 
         # check if the user is in vc
         if ctx.command.name not in ['loopcount', 'queue', 'nowplaying']:
             if not ctx.author.voice or (ctx.command.name != 'join' and player and ctx.author.voice.channel.id != player.channel_id):
-                await ctx.send("**Error:** you're not in the vc")
+                await ctx.send(err.USER_NOT_IN_VC.value)
                 return False
 
         # check if the bot is playing music
         if ctx.command.name not in ['play', 'join', 'disconnect']:
             if not player or not player.is_playing:
-                await ctx.send("**Error:** nothing is playing right now")
+                await ctx.send(err.NO_MUSIC_PLAYING.value)
                 return False
 
         return True
@@ -252,7 +253,7 @@ class Music(commands.Cog):
             else:
                 # if it's not a youtube url, send an error
                 if not re.youtube.match(query):
-                    return await ctx.send("**Error:** only youtube/spotify links can be used")
+                    return await ctx.send(err.INVALID_MUSIC_URL.value)
                 
                 # since youtube shorts urls are not recognized by lavalink yet, convert it into a regular url
                 if 'shorts' in query:
@@ -263,7 +264,7 @@ class Music(commands.Cog):
 
         # if nothing was found when searching for tracks
         if not results or not results['tracks']:
-            return await ctx.send("**Error:** no results were found with that query")
+            return await ctx.send(err.NO_MUSIC_RESULTS.value)
 
         # check if the bot found either a playlist or a track
         if results['loadType'] == 'PLAYLIST_LOADED':
@@ -378,7 +379,7 @@ class Music(commands.Cog):
             if ctx.author.voice.channel.id != int(player.channel_id):
                 await ctx.guild.voice_client.move_to(ctx.author.voice.channel)
                 return await ctx.message.add_reaction(self.client.ok)
-            return await ctx.send("**Error:** i'm already in the vc")
+            return await ctx.send(err.BOT_IN_VC.value)
 
         await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
         await ctx.message.add_reaction(self.client.ok)
@@ -420,7 +421,7 @@ class Music(commands.Cog):
         
         # if the given index is not numeric or larger than the number of tracks in the queue, send an error
         if not index.isnumeric() or int(index) > len(player.queue):
-            return await ctx.send("**Error:** that is probably not in the queue")
+            return await ctx.send(err.VALUE_NOT_IN_QUEUE.value)
         
         index = int(index)
         
@@ -469,7 +470,7 @@ class Music(commands.Cog):
         
         # check if the current track is being looped
         if not self.current_track.looped:
-            return await ctx.send("**Error:** the current song is not being looped (use `.l` to do so)")
+            return await ctx.send(err.MUSIC_NOT_LOOPED.value)
         
         await ctx.send(f"`{player.current.title}` has been looped **{self.current_track.loop_count}** time(s)")
 
@@ -557,11 +558,11 @@ class Music(commands.Cog):
         if opt in add_opt:
             # if nothing is given as a url 
             if res is None:
-                return await ctx.send("**Error:** missing track url")
+                return await ctx.send(err.MUSIC_URL_NOT_FOUND.value)
 
             # if the user input is not a youtube url
             if not re.youtube.match(res):
-                return await ctx.send("**Error:** not a valid url")
+                return await ctx.send(err.INVALID_MUSIC_URL.value)
 
             # get track information from the url
             with YoutubeDL() as ydl:
@@ -583,7 +584,7 @@ class Music(commands.Cog):
         if opt in remove_opt:
             # if the playlist is empty
             if playlist_is_not_there:
-                return await ctx.send("**Error:** that playlist doesn't exist")
+                return await ctx.send(err.PLAYLIST_DOESNT_EXIST.value)
 
             # if the user does not give an index, or if the index is "all", remove the playlist entirely
             if res is None or res.lower() == "all":
@@ -593,10 +594,10 @@ class Music(commands.Cog):
             # check if the given index is numeric
             if res.isnumeric():
                 if playlist_is_there_but_empty:
-                    return await ctx.send("**Error:** that playlist is empty")
+                    return await ctx.send(err.PLAYLIST_IS_EMPTY.value)
 
                 if int(res) > len(playlists[pl_name]):
-                    return await ctx.send("**Error:** invalid index (too high)")
+                    return await ctx.send(err.INVALID_INDEX.value)
                 
                 track_id = int(res) - 1
                 title = playlists[pl_name][track_id]["title"]
@@ -610,14 +611,14 @@ class Music(commands.Cog):
 
                 return await ctx.send(f"{self.client.ok} Removed track **{title}**")
             else:
-                return await ctx.send("**Error:** invalid index (must be a number)")
+                return await ctx.send(err.INVALID_INDEX.value)
 
         # if the user only wants a list of tracks in the playlist
         if opt in list_opt:
             embed = await get_track_embed()
             return await ctx.send(embed = embed)
 
-        await ctx.send("**Error:** usage is:\n`.pl (name) (a)dd (url)`\n`.pl (name) (r)emove (index)|all`\n`.pl (name) (l)ist`")
+        raise commands.BadArgument()
     
     @commands.command(aliases=['pp', 'pause'])
     async def togglepause(self, ctx: commands.Context):
@@ -641,7 +642,7 @@ class Music(commands.Cog):
 
         # if nothing is given
         if time_input is None:
-            return await ctx.send("**Error:** specify the time you want to go to (ex. `1:00`, `10.5`), or use either `+` or `-` to skip/rewind")
+            raise commands.BadArgument()
         
         # if the first character of the given time is not numeric (probably a + or -),
         # set new_time to whatever is after that character
@@ -658,7 +659,7 @@ class Music(commands.Cog):
             try:
                 new_time = int(new_time) * 1000
             except ValueError:
-                return await ctx.send("**Error:** invalid time (sec, min:sec, hour:min:sec) (optionally with +/- in front)")
+                return await ctx.send(err.INVALID_TIMESTAMP.value)
 
         res = ''
         
@@ -670,7 +671,7 @@ class Music(commands.Cog):
 
                 # if the given time is further than the track's end time
                 if new_time >= player.current.duration:
-                    return await ctx.send("**Error:** cannot skip that far into the track")
+                    return await ctx.send(err.INVALID_SEEK.value)
 
                 res = 'skipped to `{}`'
             elif time_input[0] == "-":
@@ -795,7 +796,7 @@ class NowPlayingView(discord.ui.View):
             return
 
         if not self.ctx.author.voice or (self.ctx.author.voice.channel.id != int(self.player.channel_id)):
-            return await interaction.response.send_message("**Error:** you're not in the same vc", ephemeral = True)
+            return await interaction.response.send_message(err.USER_NOT_IN_VC.value, ephemeral = True)
 
         await interaction.response.defer()
 

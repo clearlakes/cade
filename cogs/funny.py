@@ -2,13 +2,13 @@ import discord
 from discord.ext import commands
 
 from utils.functions import (
-    clean_error, 
+    get_attachment_obj,
     get_attachment, 
-    get_attachment_obj, 
     get_media_ids
 )
 from utils.variables import Clients, Regex as re, handle
 from utils.views import ReplyView
+from utils.enums import err
 
 from tempfile import NamedTemporaryFile as create_temp
 from tweepy import NotFound
@@ -24,7 +24,7 @@ class Funny(commands.Cog):
     async def cog_check(self, ctx):
         # check if command is sent from funny museum
         if ctx.guild.id != 783166876784001075:
-            await ctx.send("**Error:** that command only works in funny museum")
+            await ctx.send(err.FUNNY_ONLY.value)
             return False
         else:
             return True
@@ -70,7 +70,7 @@ class Funny(commands.Cog):
         content_given = await get_attachment(ctx)
 
         # gets the media ids to use if an attachment is found
-        if content_given != False:
+        if content_given:
             media_ids = get_media_ids(content_given)
         else:
             if status is None:
@@ -81,8 +81,8 @@ class Funny(commands.Cog):
         # sends the tweet
         try:
             new_status = self.api.update_status(status=status, media_ids=media_ids)
-        except Exception as e:
-            return await ctx.send(f"**Error:** could not send tweet (full error: ||{clean_error(e)}||)")
+        except Exception:
+            return await ctx.send(err.TWEET_ERROR.value)
         
         # tweet sent! so cool
         msg = await ctx.send(f"{self.client.ok} **Tweet sent:**\nhttps://twitter.com/{handle}/status/{new_status.id}")
@@ -116,7 +116,7 @@ class Funny(commands.Cog):
                 url = re.twitter.search(reply_to)
                 
                 if url is None:
-                    return await ctx.send("**Error:** could not find tweet url/id")
+                    return await ctx.send(err.TWEET_URL_NOT_FOUND.value)
                 
                 reply_id = int(url.group(2))
         else:
@@ -126,7 +126,7 @@ class Funny(commands.Cog):
         content_given = await get_attachment(ctx)
 
         # check for attachments and create media ids
-        if content_given != False:
+        if content_given:
             media_ids = get_media_ids(content_given)
         else:
             if status is None:
@@ -138,9 +138,9 @@ class Funny(commands.Cog):
         try:
             new_status = self.api.update_status(status=status, media_ids=media_ids, in_reply_to_status_id=reply_id, auto_populate_reply_metadata=True)
         except NotFound:
-            return await ctx.send("**Error:** could not find tweet from the given url/id")
-        except Exception as e:
-            return await ctx.send(f"**Error:** could not send tweet (full error: ||{clean_error(e)}||)")
+            return await ctx.send(err.TWEET_URL_NOT_FOUND.value)
+        except Exception:
+            return await ctx.send(err.TWEET_ERROR.value)
         
         if not is_chain:
             replied_to = self.api.get_status(reply_id)
@@ -158,10 +158,10 @@ class Funny(commands.Cog):
         if kind is None:
             raise commands.BadArgument()
 
-        att = await get_attachment_obj(ctx)
+        att = get_attachment_obj(ctx)
 
         if not att:
-            return await ctx.send("no image attachment was found")
+            return await ctx.send(err.NO_ATTACHMENT_FOUND.value)
 
         # if an image is given
         if "image" in att.content_type and any(att.content_type != x for x in ["image/gif", "image/apng"]):
@@ -192,16 +192,16 @@ class Funny(commands.Cog):
                     else:
                         await processing.delete()
                         raise commands.BadArgument()
-            except Exception as e:
+            except Exception:
                 await processing.delete()
-                return await ctx.send(f"**Error:** could not set profile {kind} (full error: ||{clean_error(e)}||)")
+                return await ctx.send(err.TWITTER_PROFILE_ERROR.value)
 
             await processing.delete()
             
             # it worked
             await ctx.send(f"{self.client.ok} **The profile {kind} has been set:**\nhttps://twitter.com/{handle}")
         else:
-            return await ctx.send("**Error:** attachment is not an image")
+            return await ctx.send(err.WRONG_ATT_TYPE.value)
 
 def setup(bot):
     bot.add_cog(Funny(bot))

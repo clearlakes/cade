@@ -3,6 +3,8 @@ from discord.ext import commands
 
 from utils.variables import Colors, Regex as re
 from utils.views import DropdownView
+from utils.functions import run
+from utils.enums import err
 from utils import database
 
 from subprocess import Popen, PIPE
@@ -62,7 +64,7 @@ class General(commands.Cog):
                 # reload the specified extension
                 self.client.reload_extension(f"cogs.{cog_to_reload.lower()}")
         except:
-            return await ctx.send(f"**Error:** could not reload")
+            return await ctx.send(err.COG_RELOAD_ERROR.value)
         
         await processing.delete()
         await ctx.message.add_reaction(self.client.ok)
@@ -72,33 +74,33 @@ class General(commands.Cog):
     async def update(self, ctx: commands.Context):
         processing = await ctx.send(f"{self.client.loading} looking for update...")
 
+        def get_info_from(cmd: str):
+            return run(split(cmd))[0].decode('utf-8').strip('\n').replace("=", "-")
+
         # get the last update's information
-        # .communicate()[0] - get response (in bytes)
         # .decode('UTF-8') - convert byte string to regular text
         # .replace('\n', '') - replace newlines with an empty space
-        previous = Popen(split(r"git rev-parse --short HEAD"), stdout = PIPE).communicate()[0].decode('UTF_8').replace('\n', '')
+        previous = get_info_from("git rev-parse --short HEAD")
 
-        # get the latest update from the github repo
-        update = Popen(["git", "pull"], stdout = PIPE).communicate()[0].decode('UTF-8').replace("=", "-")
-
-        if "Already up to date." in update:
-            return await processing.edit("**Already up to date!**")
+        # check if on the latest commit
+        if (utd := "already up to date") in get_info_from("git pull"):
+            return await processing.edit(f"**{utd}**")
 
         # reload cogs after update
         for cog in ["funny", "general", "media", "music"]:
             self.client.reload_extension(f"cogs.{cog}")
 
         # get information about new update
-        get_commit_data = split(r"git log -1 --pretty=format:%h%x09%s")
-        commit_data = Popen(get_commit_data, stdout = PIPE).communicate()[0].decode('UTF_8').split('\t')
+        commit_data = get_info_from("git log -1 --pretty=format:%h%x09%s").split('\t')
         
-        url = "https://github.com/source64/cade/commit/{}"
-
-        embed = discord.Embed(
-            description = f"{self.client.ok} **Updated bot: [`{previous}`]({url.format(previous)}) -> [`{commit_data[0]}`]({url.format(commit_data[0])})**\n```fix\n{update}```"
-        )
+        url = lambda commit: f"https://github.com/source64/cade/commit/{commit}"
 
         await processing.delete()
+
+        embed = discord.Embed(
+            description = f"{self.client.ok} **updated from [`{previous}`]({url(previous)}) to [`{commit_data[0]}`]({url(commit_data[0])})**"
+        )
+
         await ctx.send(embed = embed)
 
     @commands.command()
@@ -194,7 +196,7 @@ class General(commands.Cog):
             cat, cmd = next(((cat, x) for cat, x in data.items() for x in data[cat] if cmd == x or data[cat][x]["alt"] is not None and any(cmd == alt for alt in data[cat][x]["alt"])))
         except StopIteration:
             # if neither the item nor any of the "alt" values matched the command 
-            return await ctx.send("**Error:** command not found")
+            return await ctx.send(err.HELP_NOT_FOUND.value)
 
         usage = data[cat][cmd]["usage"]
 
@@ -218,20 +220,20 @@ class General(commands.Cog):
     @commands.command()
     async def echo(self, ctx: commands.Context, channel: discord.TextChannel, *, msg = None):
         """Sends a given message as itself"""
-        # if nothing is given
+        # if nothing is given, throw an error
         if msg is None and not ctx.message.attachments:
-            return await ctx.send("**Error:** uhhh no message found")
+            raise commands.BadArgument()
 
         # if the user can't send messages in the given channel
         if channel.permissions_for(ctx.author).send_messages == False:
-            return await ctx.send("**Error:** you're missing permissions")
+            return await ctx.send(err.NO_PERMISSIONS_USER.value)
         
         # repeat the message in the given channel
         try:
             file_array = [await x.to_file() for x in ctx.message.attachments]
             await channel.send(msg, files=file_array)
         except discord.Forbidden:
-            return await ctx.send("**Error:** i can't do that, missing permissions")
+            return await ctx.send(err.NO_PERMISSIONS_BOT.value)
         
         # react with ok
         await ctx.message.add_reaction(self.client.ok)
@@ -245,8 +247,8 @@ class General(commands.Cog):
             
             # find a url if there are no attachments
             if not msg.attachments:
-                if re.url.match(msg.content):
-                    return re.url.match(msg.content).group(0)
+                if match := re.url.match(msg.content):
+                    return match.group(0)
                 else:
                     return False
             else:
@@ -254,7 +256,7 @@ class General(commands.Cog):
         
         # if nothing is given
         if tag_name is None:
-            return await ctx.send("**Error:** usage: `.t [existing tag]` or `.t [new tag] [tag content]`")
+            raise commands.BadArgument()
         
         db = database.Guild(ctx.guild)
         doc = db.get()
@@ -278,7 +280,7 @@ class General(commands.Cog):
                 new_res = str(result).replace("media.discordapp.net", "cdn.discordapp.com")
                 return await ctx.send(new_res)
             else:
-                return await ctx.send(f"**Error:** the tag `{tag_name}` has not been created yet")
+                return await ctx.send(err.TAG_DOESNT_EXIST.value)
         else:
             # if content is given
             if tag_name not in data.keys():
@@ -292,13 +294,13 @@ class General(commands.Cog):
                 db.add_obj('tags', tag_name, new_tag)
                 return await ctx.send(f"{self.client.ok} Added tag `{tag_name}`")
             else:
-                return await ctx.send(f"**Error:** the tag `{tag_name}` already exists")
+                return await ctx.send(err.TAG_EXISTS.value)
 
     @commands.command(aliases=['tagdel', 'tdel'])
     async def tagdelete(self, ctx: commands.Context, tag: str = None):
         """Deletes a given tag"""
         if tag is None:
-            return await ctx.send("**Error:** missing tag name")
+            raise commands.BadArgument()
 
         tag = str(tag).lower()
 
@@ -310,7 +312,7 @@ class General(commands.Cog):
 
         # if the tag is not listed
         if tag not in tags:
-            return await ctx.send("**Error:** tag not found")
+            return await ctx.send(err.TAG_DOESNT_EXIST.value)
         
         # remove the tag
         db.del_obj('tags', tag)
@@ -323,15 +325,11 @@ class General(commands.Cog):
         db = database.Guild(ctx.guild)
         doc = db.get()
 
-        # if 'tags' is not in the guild database
-        if doc.tags is None:
-            return await ctx.send("**Error:** no tags were found")
+        # if 'tags' is empty or not in the guild database
+        if not doc.tags:
+            return await ctx.send(err.NO_TAGS_AT_ALL.value)
 
         tags = doc.tags
-
-        # if 'tags' is there, but empty
-        if tags == {}:
-            return await ctx.send("**Error:** no tags were found")
 
         # create list
         list = '**' + '**, **'.join(tags) + '**'

@@ -110,8 +110,13 @@
             "alt": ["img"]
         },
         "caption": {
-            "usage": "[text] (gif/image)",
+            "usage": "[text] (gif/image/video)",
             "desc": "captions the specified gif or image in the style of an iFunny caption",
+            "alt": null
+        },
+        "uncaption": {
+            "usage": "(gif/image/video)",
+            "desc": "removes captions (can be slightly off)",
             "alt": null
         },
         "resize": {

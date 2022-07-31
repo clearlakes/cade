@@ -60,5 +60,3 @@ class Guild:
         """Removes a value from a dictionary (or array) field"""
         _db.update_one(self.guild, {'$unset': {f'{field}.{key}': 1}})
         _db.update_one(self.guild, {'$pull': {f'{field}.{key}': None}})
-
-    

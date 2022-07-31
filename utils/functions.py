@@ -1,14 +1,14 @@
 import discord
 from discord.ext import commands
 
-from utils.variables import Clients, Regex as re, Keys as keys, ffmpeg
+from utils.variables import Clients, Colors, Keys, Regex as re
+from utils.enums import err, ff
 
-from tempfile import NamedTemporaryFile as create_temp
+from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
+from subprocess import Popen, PIPE
 from time import strftime, gmtime
-from subprocess import Popen
 from os.path import splitext
 from typing import Union
-from shlex import split
 from io import BytesIO
 from PIL import Image
 import aiohttp
@@ -27,7 +27,7 @@ def _get_link(text: str):
         "https://media.discordapp",
         "https://i.imgur",
         "https://c.tenor",
-        keys.imoog_domain   # allow content from the image server
+        Keys.imoog_domain   # allow content from the image server
     )
 
     if match := re.url.search(text):
@@ -39,7 +39,7 @@ async def _link_bytes(link: str, allow_gifs: bool, media_types: list[str]):
     if res := re.tenor.search(link):
         # get direct gif link through tenor's api
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={keys.tenor}') as r:
+            async with session.get(f'https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={Keys.tenor}') as r:
                 res = await r.json()
 
         link = res['results'][0]['media'][0]['gif']['url']
@@ -70,25 +70,21 @@ async def get_media(ctx: commands.Context, media_types: list[str], allow_gifs: b
 
         # don't use animated gifs/pngs if allow_gifs is false
         if any(x in att.content_type for x in ("gif", "apng")) and not allow_gifs:
-            return (None, "wrong attachment type")
+            return (None, err.WRONG_ATT_TYPE.value)
 
-        return (AttObj(await att.read(), splitext(att.filename)[0], att.content_type), None) if any(types in att.content_type for types in media_types) else (None, "wrong attachment type")
+        return (AttObj(await att.read(), splitext(att.filename)[0], att.content_type), None) if any(types in att.content_type for types in media_types) else (None, err.WRONG_ATT_TYPE.value)
     else:
         # if allow_urls is true, read the image/gif from the link
         if not allow_urls:
-            return (None, "no attachments were found")
+            return (None, err.NO_ATTACHMENT_FOUND.value)
         else:
             link = _get_link(msg.content)
 
             if link:
                 link_bytes = await _link_bytes(link, allow_gifs, media_types)
-                return (AttObj(*link_bytes), None) if link_bytes else (None, "invalid media type")
+                return (AttObj(*link_bytes), None) if link_bytes else (None, err.WRONG_ATT_TYPE.value)
             else:
-                return (None, "unknown link")
-
-def clean_error(text: Exception):
-    """Removes color codes and newlines from errors"""
-    return re.ansi.sub('', str(text)).replace("\n", " - ")
+                return (None, err.NO_ATT_OR_URL_FOUND.value)
 
 def check(ctx: Union[commands.Context, discord.Interaction]):
     """Checks if a message is sent by the command sender"""
@@ -125,92 +121,70 @@ def btn_check(ctx: Union[commands.Context, discord.Interaction]):
 
     return btn_check_inner
 
-def format_time(duration):
-    """Formats the given duration into either M:S or H:M:S"""
-    hour = int(strftime('%H', gmtime(int(duration))))
+def format_time(duration: int):
+    """Formats the given duration (in seconds) into either M:S or H:M:S"""
+    # check if the duration is an hour or more (and switch formats)
+    hours = duration // 3600
+    format = '%-H:%M:%S' if hours else '%-M:%S'
 
-    # check if the duration is an hour or more
-    if hour > 0:
-        new_duration = strftime('%-H:%M:%S', gmtime(int(duration)))
-    else:
-        new_duration = strftime('%-M:%S', gmtime(int(duration)))
-
-    return new_duration
+    return strftime(format, gmtime(duration))
 
 async def get_attachment(ctx: commands.Context, interaction: discord.Interaction = None):
     """Gets the attachment to use for the tweet"""
-    client = ctx.bot
-
     # switch to the original message if it's a reply
     msg = ctx.message.reference.resolved if ctx.message.reference and not ctx.message.attachments else ctx.message
-    
-    att_bytes = []
 
     if not msg.attachments:
-        return False
-    else:
-        for i, att in enumerate(msg.attachments):
-            if i == 4:
-                break
+        return
 
-            if "image" in att.content_type:
-                # if the content is animated, only one can be posted
-                if any(att.content_type == x for x in ["image/gif", "image/apng"]):
-                    return ["gif", BytesIO(await att.read())]
+    attachments = []
 
-                att_bytes.append(BytesIO(await att.read()))
-                continue
-            
-            if att.filename.lower().endswith("mov"):
-                # convert mov to mp4
-                with create_temp(suffix=".mov") as temp_mov, create_temp(suffix=".mp4") as temp_mp4:
-                    if not interaction:
-                        processing = await ctx.send(f"{client.loading} Processing...")
-                    else:
-                        processing = await interaction.edit_original_message(content = f"{client.loading} Processing...", view = None)
+    for i, att in enumerate(msg.attachments):
+        if i == 4:
+            break
 
-                    temp_mov.write(await att.read())
-                    command = split(f'{ffmpeg} -i {temp_mov.name} -qscale 0 {temp_mp4.name}')
-                    
-                    p = Popen(command)
-                    p.wait()
+        att_bytes = BytesIO(await att.read())
 
-                    # if there was an error running the ffmpeg command
-                    if p.returncode != 0:
-                        if not interaction:
-                            await processing.edit("**Error:** there was an issue converting from mov to mp4")
-                        else:
-                            processing = await interaction.edit_original_message(content = "**Error:** there was an issue converting from mov to mp4")
+        if "image" in att.content_type:
+            # if the content is animated, only one can be posted
+            if any(att.content_type == x for x in ["image/gif", "image/apng"]):
+                return ["gif", att_bytes]
 
-                        return False
-                    else:
-                        return ["video", BytesIO(temp_mp4.read())]
+            attachments.append(att_bytes)
+            continue
+        
+        if att.filename.lower().endswith("mov"):
+            att_bytes = mov_to_mp4(att_bytes)
 
-            return ["video", BytesIO(await att.read())]
+            if not att_bytes:
+                if interaction:
+                    await interaction.edit_original_message(content = err.MOV_TO_MP4_ERROR.value)
+                else:
+                    await ctx.send(err.MOV_TO_MP4_ERROR.value)
 
-        return ["image", att_bytes]
+                return
 
-async def get_attachment_obj(ctx: commands.Context):
+        return ["video", att_bytes]
+
+    return ["image", attachments]
+
+def get_attachment_obj(ctx: commands.Context):
     """Gets the attachment object from a message"""
     # switch to the replied message if it's there
-    if ctx.message.attachments:
-        msg = ctx.message
-    elif ctx.message.reference:
-        msg = ctx.message.reference.resolved
-    else:
-        return False
+    msg = ctx.message.reference.resolved if ctx.message.reference and not ctx.message.attachments else ctx.message
     
     if not msg.attachments:
-        return False
-    else:
-        return msg.attachments[0]
+        return
+    
+    return msg.attachments[0]
     
 def get_media_ids(content):
     """Gets the media ids for content in tweets"""
-    media_ids = []
-    result = content[0]
-    media = content[1]
     api = Clients().twitter()
+
+    result = content[0]  # either "image", "video", or "gif"
+    media = content[1]  # BytesIO (or list if "image")
+    media_ids = []
 
     # chooses between either uploading multiple images or just one video/gif
     if result == "image":
@@ -233,16 +207,57 @@ def get_media_ids(content):
 
     return media_ids
 
-async def upload_to_server(b: BytesIO, mime: str):
+async def _upload_to_server(b: BytesIO, mime: str):
+    """Uploads media to the image server (imoog)"""
     form = aiohttp.FormData()
     form.add_field("file", b.getvalue(), content_type = mime)
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(f'http://localhost:{keys.imoog_port}/upload', data = form, headers = {"Authorization": keys.imoog_secret}) as resp:
+        async with session.post(f'http://localhost:{Keys.imoog_port}/upload', data = form, headers = {"Authorization": Keys.imoog_secret}) as resp:
             resp = await resp.json()
 
     id: str = resp['file_id']
     ext: str = resp['file_ext']
-    domain = keys.imoog_domain
+    domain = Keys.imoog_domain
 
     return f"{domain}/image/{id.upper()}.{ext}"
+
+def mov_to_mp4(file: BytesIO):
+    """Converts mov files to mp4"""
+    with TemporaryDirectory() as temp:
+        with open(f'{temp}/input.mov', 'wb') as input:
+            input.write(file.getvalue())
+        
+        _, returncode = run(ff.MOV_TO_MP4.value(temp))
+
+        if returncode != 0:
+            return None
+
+        with open(f'{temp}/output.mp4') as output:
+            result = BytesIO(output.read())
+        
+        return result
+
+def run(cmd: list[str], b1: bytes = None):
+    p = Popen(cmd, stdin = PIPE, stdout = PIPE)
+    result: bytes = p.communicate(input = b1)[0]
+
+    return result, p.returncode
+
+async def send_media(ctx: commands.Context, msg: discord.Message, content: BytesIO, filetype: str, filename: str):
+    """Sends the given media to discord or the image server depending on its size"""
+    try:
+        await ctx.reply(file = discord.File(content, filename), mention_author = False)
+    except:
+        if (Keys.imoog_port and Keys.imoog_domain and Keys.imoog_secret) and "video" not in filetype:
+            url = await _upload_to_server(content, filetype)
+
+            embed = discord.Embed(color = Colors.gray)
+            embed.set_image(url = url)
+            embed.set_footer(text = f"uploaded to {Keys.imoog_domain.replace('https://', '')} | expires in 24h")
+
+            await ctx.reply(embed = embed)
+        else:
+            return await msg.edit(content = err.CANT_SEND_FILE.value)
+    
+    await msg.delete()

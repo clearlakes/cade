@@ -13,9 +13,6 @@ config.read("config.ini")
 # twitter handle
 handle = str(config.get("twitter", "handle"))
 
-# shortcut to use options that hide the wall of text
-ffmpeg = "ffmpeg -y -hide_banner -loglevel error"
-
 @dataclass
 class Colors:
     info = 0xd9ba93

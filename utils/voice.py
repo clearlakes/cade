@@ -3,7 +3,9 @@ from discord.ext import commands
 from utils.variables import Keys
 import lavalink
 
-# class taken from https://github.com/Devoxin/Lavalink.py/blob/master/examples/music.py
+# class taken from Devoxin's lavalink.py example
+# https://github.com/Devoxin/Lavalink.py/blob/master/examples/music.py
+
 class LavalinkVoiceClient(discord.VoiceClient):
     def __init__(self, client: commands.Bot, channel: discord.abc.Connectable):
         self.client = client
