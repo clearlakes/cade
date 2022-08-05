@@ -2,10 +2,10 @@ import discord
 from discord.ext import commands, pages
 
 from utils.views import QueueView, PlaylistView, TrackSelectView
-from utils.variables import Colors, Clients, Keys, Regex as re
+from utils.dataclasses import reg, err, colors, emoji
 from utils.voice import LavalinkVoiceClient
 from utils.functions import format_time
-from utils.enums import err
+from utils.clients import Clients, Keys
 from utils import database
 
 from lavalink import Client as LavalinkClient, DefaultPlayer, listener
@@ -44,7 +44,7 @@ class Music(commands.Cog):
         self.client.loop.create_task(self.spotify_api.create_new_client())
 
     def create_player(self, ctx: commands.Context) -> DefaultPlayer:
-        player = self.lavalink.player_manager.create(ctx.guild.id, endpoint=str(ctx.guild.region))
+        player = self.lavalink.player_manager.create(ctx.guild.id, endpoint = str(ctx.author.voice.channel.rtc_region))
         player.store('channel', ctx.channel.id)
         return player
 
@@ -58,7 +58,7 @@ class Music(commands.Cog):
         player = self.get_player(ctx.guild.id)
 
         if ctx.command.name == 'disconnect' and not player:
-            await ctx.send(err.BOT_NOT_IN_VC.value)
+            await ctx.send(err.BOT_NOT_IN_VC)
             return False
 
         # check if the bot is in vc
@@ -69,19 +69,19 @@ class Music(commands.Cog):
                     await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
                     return True
                 else:
-                    await ctx.send(err.BOT_NOT_IN_VC.value)
+                    await ctx.send(err.BOT_NOT_IN_VC)
                     return False
 
         # check if the user is in vc
         if ctx.command.name not in ['loopcount', 'queue', 'nowplaying']:
             if not ctx.author.voice or (ctx.command.name != 'join' and player and ctx.author.voice.channel.id != player.channel_id):
-                await ctx.send(err.USER_NOT_IN_VC.value)
+                await ctx.send(err.USER_NOT_IN_VC)
                 return False
 
         # check if the bot is playing music
         if ctx.command.name not in ['play', 'join', 'disconnect']:
             if not player or not player.is_playing:
-                await ctx.send(err.NO_MUSIC_PLAYING.value)
+                await ctx.send(err.NO_MUSIC_PLAYING)
                 return False
 
         return True
@@ -109,7 +109,7 @@ class Music(commands.Cog):
             title = event.track.title,
             url = event.track.uri,
             description = f"Duration: `{duration}` | Sent by {requester.mention}",
-            color = Colors.playing_track
+            color = colors.PLAYING_TRACK
         )
 
         # add footer and thumbnail
@@ -138,7 +138,7 @@ class Music(commands.Cog):
                 title = event.track.title,
                 url = event.track.uri,
                 description = f"was played by <@{self.current_track.requester_id}> | Duration: `{duration}`",
-                color = Colors.gray
+                color = discord.Color.embed_background()
             )
 
             # edit the original "now playing" message with the embed
@@ -172,10 +172,10 @@ class Music(commands.Cog):
         player = self.get_player(ctx.guild.id)
 
         # find either the youtube url or query to use
-        if not re.url.match(query):
+        if not reg.url.match(query):
             query = f'ytsearch:{query}'
         else:
-            query = re.url.match(query).group(0)
+            query = reg.url.match(query).group(0)
 
             if "spotify" in query:
                 if "track" in query:
@@ -204,7 +204,7 @@ class Music(commands.Cog):
                     total_duration = 0
                     tracks = tracks["items"]
 
-                    msg = await ctx.send(f"{self.client.loading} Adding spotify playlist (this may take a WHILE)")
+                    msg = await ctx.send(f"{emoji.PROCESSING()} Adding spotify playlist (this may take a WHILE)")
 
                     # for each track in the playlist, get details about it
                     for item in tracks:
@@ -237,7 +237,7 @@ class Music(commands.Cog):
                     embed = discord.Embed(
                         title = playlist_name,
                         description = f'**{playlist_owner}** - **{num_of_tracks}** tracks\nSent by {ctx.author.mention} | Duration: `{duration}`',
-                        color = Colors.added_track
+                        color = colors.ADDED_TRACK
                     )
                     embed.set_thumbnail(url = playlist_image)
                     embed.set_author(name = f"Added Spotify Playlist to Queue", icon_url = ctx.author.display_avatar)
@@ -245,26 +245,22 @@ class Music(commands.Cog):
 
                     await ctx.send(embed = embed)
                     
-                    # start playing if it isn't
-                    if not player.is_playing:
-                        await player.play()
-
-                    return
+                    await player.play(no_replace = True)
             else:
                 # if it's not a youtube url, send an error
-                if not re.youtube.match(query):
-                    return await ctx.send(err.INVALID_MUSIC_URL.value)
+                if not reg.youtube.match(query):
+                    return await ctx.send(err.INVALID_MUSIC_URL)
                 
                 # since youtube shorts urls are not recognized by lavalink yet, convert it into a regular url
                 if 'shorts' in query:
-                    query = f'https://youtube.com/watch?v={re.youtube.match(query).group(1)}'
+                    query = f'https://youtube.com/watch?v={reg.youtube.match(query).group(1)}'
 
         # get the results from lavalink
         results = await player.node.get_tracks(query)
 
         # if nothing was found when searching for tracks
         if not results or not results['tracks']:
-            return await ctx.send(err.NO_MUSIC_RESULTS.value)
+            return await ctx.send(err.NO_MUSIC_RESULTS)
 
         # check if the bot found either a playlist or a track
         if results['loadType'] == 'PLAYLIST_LOADED':
@@ -290,7 +286,7 @@ class Music(commands.Cog):
             embed = discord.Embed(
                 title = playlist_name,
                 description = track_list,
-                color = Colors.added_track
+                color = colors.ADDED_TRACK
             )
             embed.set_author(name=f"Queued Playlist ({len(tracks)} tracks)", icon_url = ctx.author.display_avatar)
             await ctx.send(embed = embed)
@@ -312,7 +308,8 @@ class Music(commands.Cog):
 
                 embed = discord.Embed(
                     title = track.title,
-                    url = track.uri
+                    url = track.uri,
+                    color = discord.Color.embed_background()
                 )
 
                 embed.set_author(name = f"Result {tracks.index(track) + 1} out of {len(tracks)}")
@@ -341,7 +338,7 @@ class Music(commands.Cog):
                     title = track.title,
                     url = track.uri,
                     description = f"Added by {ctx.author.mention} | Duration: `{duration}`",
-                    color = Colors.added_track
+                    color = colors.ADDED_TRACK
                 )
                 
                 # get time left before song is played
@@ -364,9 +361,7 @@ class Music(commands.Cog):
             track = AudioTrack(track, ctx.author.id)
             player.add(requester = ctx.author.id, track = track)
 
-        # play the track if it isn't doing anything
-        if not player.is_playing:
-            await player.play()
+        await player.play(no_replace = True)
 
     @commands.command(aliases=['j'])
     async def join(self, ctx: commands.Context):
@@ -378,11 +373,11 @@ class Music(commands.Cog):
         if player.is_connected:
             if ctx.author.voice.channel.id != int(player.channel_id):
                 await ctx.guild.voice_client.move_to(ctx.author.voice.channel)
-                return await ctx.message.add_reaction(self.client.ok)
-            return await ctx.send(err.BOT_IN_VC.value)
+                return await ctx.message.add_reaction(emoji.OK)
+            return await ctx.send(err.BOT_IN_VC)
 
         await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
-        await ctx.message.add_reaction(self.client.ok)
+        await ctx.message.add_reaction(emoji.OK)
 
     @commands.command(aliases=['dc', 'leave'])
     async def disconnect(self, ctx: commands.Context):
@@ -400,7 +395,7 @@ class Music(commands.Cog):
 
         # leave the vc
         await ctx.voice_client.disconnect(force = True)
-        await ctx.message.add_reaction(self.client.ok)
+        await ctx.message.add_reaction(emoji.OK)
     
     @commands.command(aliases=['s'])
     async def skip(self, ctx: commands.Context, index = None):
@@ -411,24 +406,24 @@ class Music(commands.Cog):
         if index is None:
             self.current_track.looped = False
             await player.skip()
-            await ctx.message.add_reaction(self.client.ok)
+            await ctx.message.add_reaction(emoji.OK)
             return
         
         # clear the queue if "all" is given
         if index == "all":
             player.queue.clear()
-            return await ctx.send(f"{self.client.ok} Cleared the queue")
+            return await ctx.send(f"{emoji.OK} Cleared the queue")
         
         # if the given index is not numeric or larger than the number of tracks in the queue, send an error
         if not index.isnumeric() or int(index) > len(player.queue):
-            return await ctx.send(err.VALUE_NOT_IN_QUEUE.value)
+            return await ctx.send(err.VALUE_NOT_IN_QUEUE)
         
         index = int(index)
         
         # "skipped track"
         title = player.queue[index - 1]['title']
         player.queue.pop(index - 1)
-        await ctx.send(f"{self.client.ok} Skipped **{title}**")
+        await ctx.send(f"{emoji.OK} Skipped **{title}**")
 
     @commands.command()
     async def shuffle(self, ctx: commands.Context):
@@ -444,9 +439,9 @@ class Music(commands.Cog):
 
         # success message according to what it was set to
         if player.shuffle is False:
-            await ctx.send(f"{self.client.ok} Playing the queue in order from now on")
+            await ctx.send(f"{emoji.OK} Playing the queue in order from now on")
         else:
-            await ctx.send(f"{self.client.ok} Picking a random song from now on")
+            await ctx.send(f"{emoji.OK} Picking a random song from now on")
     
     @commands.command(aliases=['l'])
     async def loop(self, ctx: commands.Context):
@@ -458,9 +453,9 @@ class Music(commands.Cog):
 
         # success message according to what it was set to
         if self.current_track.looped:
-            await ctx.send(f"{self.client.ok} Looping **{player.current.title}**")
+            await ctx.send(f"{emoji.OK} Looping **{player.current.title}**")
         else:
-            await ctx.send(f"{self.client.ok} Stopped loop (ended at **{self.current_track.loop_count}** loop(s)) ")
+            await ctx.send(f"{emoji.OK} Stopped loop (ended at **{self.current_track.loop_count}** loop(s)) ")
             self.current_track.loop_count = 0
     
     @commands.command(aliases=['lc'])
@@ -470,7 +465,7 @@ class Music(commands.Cog):
         
         # check if the current track is being looped
         if not self.current_track.looped:
-            return await ctx.send(err.MUSIC_NOT_LOOPED.value)
+            return await ctx.send(err.MUSIC_NOT_LOOPED)
         
         await ctx.send(f"`{player.current.title}` has been looped **{self.current_track.loop_count}** time(s)")
 
@@ -489,7 +484,7 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     title = pl_name,
                     description = "(this playlist is empty)",
-                    color = Colors.gray
+                    color = discord.Color.embed_background()
                 )
             else:
                 track_list = ''
@@ -504,7 +499,7 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     title = f"{pl_name} - {len(playlists[pl_name])} track(s)",
                     description = track_list,
-                    color = Colors.gray
+                    color = discord.Color.embed_background()
                 )
 
             return embed
@@ -517,7 +512,7 @@ class Music(commands.Cog):
 
         # variables that hold True or False according to:
         playlist_is_not_there = pl_name not in playlists.keys() # if the playlist is not listed in the database
-        playlist_is_there_but_empty = not playlist_is_not_there and playlists != {} and len(playlists[pl_name]) == 0 # if the playlist is listed in the database, but is empty
+        playlist_is_there_but_empty = not playlist_is_not_there and playlists != {} and len(playlists[pl_name]) == 0  # if the playlist is listed in the database, but is empty
 
         # if nothing is given
         if pl_name is None:
@@ -530,7 +525,7 @@ class Music(commands.Cog):
             embed = discord.Embed(
                 title = "Playlists",
                 description = list_of_playlists,
-                color = Colors.gray
+                color = discord.Color.embed_background()
             )
 
             return await ctx.send(embed = embed)
@@ -558,11 +553,11 @@ class Music(commands.Cog):
         if opt in add_opt:
             # if nothing is given as a url 
             if res is None:
-                return await ctx.send(err.MUSIC_URL_NOT_FOUND.value)
+                return await ctx.send(err.MUSIC_URL_NOT_FOUND)
 
             # if the user input is not a youtube url
-            if not re.youtube.match(res):
-                return await ctx.send(err.INVALID_MUSIC_URL.value)
+            if not reg.youtube.match(res):
+                return await ctx.send(err.INVALID_MUSIC_URL)
 
             # get track information from the url
             with YoutubeDL() as ydl:
@@ -576,28 +571,28 @@ class Music(commands.Cog):
             
             if pl_name in playlists.keys():
                 position = len(doc.playlists[pl_name])
-                return await ctx.send(f"{self.client.ok} Added track **{title}** (`#{position}`)")
+                return await ctx.send(f"{emoji.OK} Added track **{title}** (`#{position}`)")
             else:        
-                return await ctx.send(f"{self.client.ok} Created playlist **{pl_name}** and added track **{title}**")
+                return await ctx.send(f"{emoji.OK} Created playlist **{pl_name}** and added track **{title}**")
 
         # if the user is trying to remove a track
         if opt in remove_opt:
             # if the playlist is empty
             if playlist_is_not_there:
-                return await ctx.send(err.PLAYLIST_DOESNT_EXIST.value)
+                return await ctx.send(err.PLAYLIST_DOESNT_EXIST)
 
             # if the user does not give an index, or if the index is "all", remove the playlist entirely
             if res is None or res.lower() == "all":
                 db.del_obj('playlists', pl_name)
-                return await ctx.send(f"{self.client.ok} Removed **{pl_name}**")
+                return await ctx.send(f"{emoji.OK} Removed **{pl_name}**")
             
             # check if the given index is numeric
             if res.isnumeric():
                 if playlist_is_there_but_empty:
-                    return await ctx.send(err.PLAYLIST_IS_EMPTY.value)
+                    return await ctx.send(err.PLAYLIST_IS_EMPTY)
 
                 if int(res) > len(playlists[pl_name]):
-                    return await ctx.send(err.INVALID_INDEX.value)
+                    return await ctx.send(err.INVALID_INDEX)
                 
                 track_id = int(res) - 1
                 title = playlists[pl_name][track_id]["title"]
@@ -609,9 +604,9 @@ class Music(commands.Cog):
                     # remove the playlist completely if the final track was deleted
                     db.del_obj('playlists', pl_name)
 
-                return await ctx.send(f"{self.client.ok} Removed track **{title}**")
+                return await ctx.send(f"{emoji.OK} Removed track **{title}**")
             else:
-                return await ctx.send(err.INVALID_INDEX.value)
+                return await ctx.send(err.INVALID_INDEX)
 
         # if the user only wants a list of tracks in the playlist
         if opt in list_opt:
@@ -630,9 +625,9 @@ class Music(commands.Cog):
         
         # success message depending on if the track is now paused or unpaused
         if player.paused is True:
-            await ctx.send(f"{self.client.ok} paused")
+            await ctx.send(f"{emoji.OK} paused")
         else:
-            await ctx.send(f"{self.client.ok} unpaused")
+            await ctx.send(f"{emoji.OK} unpaused")
     
     @commands.command()
     async def seek(self, ctx: commands.Context, time_input = None):
@@ -659,7 +654,7 @@ class Music(commands.Cog):
             try:
                 new_time = int(new_time) * 1000
             except ValueError:
-                return await ctx.send(err.INVALID_TIMESTAMP.value)
+                return await ctx.send(err.INVALID_TIMESTAMP)
 
         res = ''
         
@@ -671,7 +666,7 @@ class Music(commands.Cog):
 
                 # if the given time is further than the track's end time
                 if new_time >= player.current.duration:
-                    return await ctx.send(err.INVALID_SEEK.value)
+                    return await ctx.send(err.INVALID_SEEK)
 
                 res = 'skipped to `{}`'
             elif time_input[0] == "-":
@@ -692,7 +687,7 @@ class Music(commands.Cog):
         res = res.format(formatted_time)
         
         await player.seek(new_time)
-        return await ctx.send(f"{self.client.ok} {res}")
+        return await ctx.send(f"{emoji.OK} {res}")
 
     @commands.command(aliases=['q'])
     async def queue(self, ctx: commands.Context):
@@ -742,7 +737,7 @@ class Music(commands.Cog):
             title = player.current.title,
             url = f"https://youtube.com/watch?v={player.current.identifier}",
             description = f"Sent by {requester.mention} | Duration: `{duration}`",
-            color = Colors.now_playing
+            color = colors.CURRENT_TRACK
         )
 
         embed.set_footer(text = f"{time_at} elapsed {line} {time_left} left")
@@ -760,14 +755,15 @@ class Music(commands.Cog):
         msg = await ctx.send(embed = embed)
 
         # add NowPlayingView buttons to message
-        view = NowPlayingView(ctx, player, msg)
+        view = NowPlayingView(self.current_track, ctx, player, msg)
         await msg.edit(embed = embed, view = view)
         await view.wait()
 
 # this class should be in views.py but it uses self.current_track.looped so i can't
 class NowPlayingView(discord.ui.View):
-    def __init__(self, ctx, player, msg):
+    def __init__(self, current_track, ctx, player, msg):
         super().__init__()
+        self.current_track = current_track
         self.player = player
         self.ctx = ctx
         self.msg = msg
@@ -796,7 +792,7 @@ class NowPlayingView(discord.ui.View):
             return
 
         if not self.ctx.author.voice or (self.ctx.author.voice.channel.id != int(self.player.channel_id)):
-            return await interaction.response.send_message(err.USER_NOT_IN_VC.value, ephemeral = True)
+            return await interaction.response.send_message(err.USER_NOT_IN_VC, ephemeral = True)
 
         await interaction.response.defer()
 

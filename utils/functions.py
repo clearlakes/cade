@@ -1,14 +1,15 @@
 import discord
 from discord.ext import commands
 
-from utils.variables import Clients, Colors, Keys, Regex as re
-from utils.enums import err, ff
+from utils.dataclasses import reg, err, ff
+from utils.clients import Clients, Keys
 
 from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
 from subprocess import Popen, PIPE
 from time import strftime, gmtime
 from os.path import splitext
 from typing import Union
+from shlex import split
 from io import BytesIO
 from PIL import Image
 import aiohttp
@@ -30,13 +31,13 @@ def _get_link(text: str):
         Keys.imoog_domain   # allow content from the image server
     )
 
-    if match := re.url.search(text):
+    if match := reg.url.search(text):
         link = match.group(0)
 
         return link if link.startswith(valid_urls) else None
 
 async def _link_bytes(link: str, allow_gifs: bool, media_types: list[str]):
-    if res := re.tenor.search(link):
+    if res := reg.tenor.search(link):
         # get direct gif link through tenor's api
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={Keys.tenor}') as r:
@@ -70,21 +71,26 @@ async def get_media(ctx: commands.Context, media_types: list[str], allow_gifs: b
 
         # don't use animated gifs/pngs if allow_gifs is false
         if any(x in att.content_type for x in ("gif", "apng")) and not allow_gifs:
-            return (None, err.WRONG_ATT_TYPE.value)
+            return (None, err.WRONG_ATT_TYPE)
 
-        return (AttObj(await att.read(), splitext(att.filename)[0], att.content_type), None) if any(types in att.content_type for types in media_types) else (None, err.WRONG_ATT_TYPE.value)
+        return (AttObj(await att.read(), splitext(att.filename)[0], att.content_type), None) if any(types in att.content_type for types in media_types) else (None, err.WRONG_ATT_TYPE)
     else:
         # if allow_urls is true, read the image/gif from the link
         if not allow_urls:
-            return (None, err.NO_ATTACHMENT_FOUND.value)
+            return (None, err.NO_ATTACHMENT_FOUND)
         else:
             link = _get_link(msg.content)
 
             if link:
                 link_bytes = await _link_bytes(link, allow_gifs, media_types)
-                return (AttObj(*link_bytes), None) if link_bytes else (None, err.WRONG_ATT_TYPE.value)
+                return (AttObj(*link_bytes), None) if link_bytes else (None, err.WRONG_ATT_TYPE)
             else:
-                return (None, err.NO_ATT_OR_URL_FOUND.value)
+                error = err.NO_ATT_OR_URL_FOUND
+                
+                if "//imgur.com" in msg.content:
+                    error += " (cant use imgur link it doesn't start with \"i.\")"
+
+                return (None, error)
 
 def check(ctx: Union[commands.Context, discord.Interaction]):
     """Checks if a message is sent by the command sender"""
@@ -158,9 +164,9 @@ async def get_attachment(ctx: commands.Context, interaction: discord.Interaction
 
             if not att_bytes:
                 if interaction:
-                    await interaction.edit_original_message(content = err.MOV_TO_MP4_ERROR.value)
+                    await interaction.edit_original_message(content = err.MOV_TO_MP4_ERROR)
                 else:
-                    await ctx.send(err.MOV_TO_MP4_ERROR.value)
+                    await ctx.send(err.MOV_TO_MP4_ERROR)
 
                 return
 
@@ -228,7 +234,7 @@ def mov_to_mp4(file: BytesIO):
         with open(f'{temp}/input.mov', 'wb') as input:
             input.write(file.getvalue())
         
-        _, returncode = run(ff.MOV_TO_MP4.value(temp))
+        _, returncode = run(ff.MOV_TO_MP4(temp))
 
         if returncode != 0:
             return None
@@ -238,11 +244,11 @@ def mov_to_mp4(file: BytesIO):
         
         return result
 
-def run(cmd: list[str], b1: bytes = None):
-    p = Popen(cmd, stdin = PIPE, stdout = PIPE)
+def run(cmd: str, b1: bytes = None, decode: bool = False):
+    p = Popen(split(cmd), stdin = PIPE, stdout = PIPE)
     result: bytes = p.communicate(input = b1)[0]
 
-    return result, p.returncode
+    return (result.decode('utf-8').strip('\n') if decode else result), p.returncode
 
 async def send_media(ctx: commands.Context, msg: discord.Message, content: BytesIO, filetype: str, filename: str):
     """Sends the given media to discord or the image server depending on its size"""
@@ -252,12 +258,12 @@ async def send_media(ctx: commands.Context, msg: discord.Message, content: Bytes
         if (Keys.imoog_port and Keys.imoog_domain and Keys.imoog_secret) and "video" not in filetype:
             url = await _upload_to_server(content, filetype)
 
-            embed = discord.Embed(color = Colors.gray)
+            embed = discord.Embed(color = discord.Color.embed_background())
             embed.set_image(url = url)
             embed.set_footer(text = f"uploaded to {Keys.imoog_domain.replace('https://', '')} | expires in 24h")
 
             await ctx.reply(embed = embed)
         else:
-            return await msg.edit(content = err.CANT_SEND_FILE.value)
+            return await msg.edit(content = err.CANT_SEND_FILE)
     
     await msg.delete()

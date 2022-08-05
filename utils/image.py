@@ -17,7 +17,7 @@ class EditImage:
     def __init__(self, file: BytesIO):
         self.image = Image.open(file).convert('RGBA')
 
-    def save(self, format: str = "PNG", quality: int = 95):
+    def _save(self, format: str = "PNG", quality: int = 95):
         """General function for saving images as byte objects"""
         # save the image as bytes
         img_byte_arr = BytesIO()
@@ -41,7 +41,7 @@ class EditImage:
         background = Image.new('RGBA', (width, height), (0, 0, 0))
         self.image = Image.alpha_composite(background, self.image)
 
-        result = self.save()
+        result = self._save()
         return result
 
     def jpeg(self):
@@ -58,7 +58,7 @@ class EditImage:
         # create a black background behind the image (useful if it's a transparent png)
         background = Image.new('RGBA', small, (0, 0, 0))
         alpha_composite = Image.alpha_composite(background, file_rgba)
-        self.image = alpha_composite.convert('RGB') # converting to RGB for jpeg output
+        self.image = alpha_composite.convert('RGB')  # converting to RGB for jpeg output
 
         result = self.save("JPEG", 4)
         return result
@@ -67,7 +67,7 @@ class EditImage:
         """Resizes the image to a given size"""
         self.image = self.image.resize(size)
         
-        result = self.save()
+        result = self._save()
         return result
 
     def caption(self, caption: Image.Image):
@@ -82,7 +82,7 @@ class EditImage:
 
         self.image = new_img
 
-        result = self.save()
+        result = self._save()
         return result
 
     def uncaption(self):
@@ -91,7 +91,7 @@ class EditImage:
         
         self.image = self.image.crop(bounds)
 
-        result = self.save()
+        result = self._save()
         return result
 
 class EditGif:
@@ -210,7 +210,7 @@ class EditGif:
         return result
 
 def get_size(file: BytesIO):
-    """Returns the size of a file"""
+    """Gets the dimensions of an image/gif"""
     try:
         image = Image.open(file)
     except:

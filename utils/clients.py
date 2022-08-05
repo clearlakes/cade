@@ -4,7 +4,6 @@ import tweepy
 
 from dataclasses import dataclass
 import configparser
-import re
 
 # load config file
 config = configparser.ConfigParser()
@@ -14,27 +13,8 @@ config.read("config.ini")
 handle = str(config.get("twitter", "handle"))
 
 @dataclass
-class Colors:
-    info = 0xd9ba93
-    gray = 0x2f3136
-    now_playing = 0x4287f5
-    added_track = 0x42f55a
-    playing_track = 0x4e42f5
-
-@dataclass
-class Regex:
-    # universal url regex
-    url = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)')
-
-    youtube = re.compile(r'(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch|v|embed|shorts)(?:\.php)?(?:\?.*v=|\/))([a-zA-Z0-9\_-]+)')
-    twitter = re.compile(r'https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)') # group 1: handle, group 2: status id
-    tenor = re.compile(r'https?:\/\/tenor.com\/view\/.*-(\d+)') # group 1: tenor id
-    emoji = re.compile(r':(?P<name>[a-zA-Z0-9_]{2,32}):')
-    ansi = re.compile(r'(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]')
-
-@dataclass
 class Keys:
-    get_list = lambda section: [str(config.get(section, x)) for x in config.options(section) if x != "handle"] # ignore twitter handle
+    get_list = lambda section: [str(config.get(section, x)) for x in config.options(section) if x != "handle"]  # ignore twitter handle
     get = lambda section, option: str(config.get(section, option))
     
     lavalink = get_list('lavalink')

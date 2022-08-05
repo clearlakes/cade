@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils.variables import Keys
+from utils.clients import Keys
 import lavalink
 
 # class taken from Devoxin's lavalink.py example

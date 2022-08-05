@@ -1,14 +1,10 @@
 import discord
 from discord.ext import commands
 
-from utils.functions import (
-    get_attachment_obj,
-    get_attachment, 
-    get_media_ids
-)
-from utils.variables import Clients, Regex as re, handle
+from utils.functions import get_attachment_obj, get_attachment, get_media_ids
+from utils.dataclasses import err, emoji, reg
+from utils.clients import Clients, handle
 from utils.views import ReplyView
-from utils.enums import err
 
 from tempfile import NamedTemporaryFile as create_temp
 from tweepy import NotFound
@@ -18,13 +14,13 @@ from PIL import Image
 
 class Funny(commands.Cog):
     def __init__(self, client):
-        self.client = client
+        self.client: commands.Bot = client
         self.api = Clients().twitter()
     
     async def cog_check(self, ctx):
         # check if command is sent from funny museum
         if ctx.guild.id != 783166876784001075:
-            await ctx.send(err.FUNNY_ONLY.value)
+            await ctx.send(err.FUNNY_ONLY)
             return False
         else:
             return True
@@ -82,10 +78,10 @@ class Funny(commands.Cog):
         try:
             new_status = self.api.update_status(status=status, media_ids=media_ids)
         except Exception:
-            return await ctx.send(err.TWEET_ERROR.value)
+            return await ctx.send(err.TWEET_ERROR)
         
         # tweet sent! so cool
-        msg = await ctx.send(f"{self.client.ok} **Tweet sent:**\nhttps://twitter.com/{handle}/status/{new_status.id}")
+        msg = await ctx.send(f"{emoji.OK} **Tweet sent:**\nhttps://twitter.com/{handle}/status/{new_status.id}")
 
         view = ReplyView(ctx, msg, new_status.id)
         await msg.edit(view = view)
@@ -96,7 +92,7 @@ class Funny(commands.Cog):
         is_chain = False
 
         # checks if the user wants to reply to a tweet that is in a different message
-        if ctx.message.reference and not re.twitter.match(reply_to):
+        if ctx.message.reference and not reg.twitter.match(reply_to):
             # .reply hello there
             #          ^ this is not intended to be used as the reply id, so add it to the existing status
             status = f"{reply_to} {status}" if status else reply_to
@@ -113,10 +109,10 @@ class Funny(commands.Cog):
             if reply_to == "latest":
                 reply_id = self.api.user_timeline(screen_name = handle, count = 1)[0].id
             else:
-                url = re.twitter.search(reply_to)
+                url = reg.twitter.search(reply_to)
                 
                 if url is None:
-                    return await ctx.send(err.TWEET_URL_NOT_FOUND.value)
+                    return await ctx.send(err.TWEET_URL_NOT_FOUND)
                 
                 reply_id = int(url.group(2))
         else:
@@ -138,13 +134,13 @@ class Funny(commands.Cog):
         try:
             new_status = self.api.update_status(status=status, media_ids=media_ids, in_reply_to_status_id=reply_id, auto_populate_reply_metadata=True)
         except NotFound:
-            return await ctx.send(err.TWEET_URL_NOT_FOUND.value)
+            return await ctx.send(err.TWEET_URL_NOT_FOUND)
         except Exception:
-            return await ctx.send(err.TWEET_ERROR.value)
+            return await ctx.send(err.TWEET_ERROR)
         
         if not is_chain:
             replied_to = self.api.get_status(reply_id)
-            msg = await ctx.send(f"{self.client.ok} **Reply sent:**\nhttps://twitter.com/{replied_to.user.screen_name}/status/{replied_to.id}\nhttps://twitter.com/{handle}/status/{new_status.id}")
+            msg = await ctx.send(f"{emoji.OK} **Reply sent:**\nhttps://twitter.com/{replied_to.user.screen_name}/status/{replied_to.id}\nhttps://twitter.com/{handle}/status/{new_status.id}")
         else:
             await ctx.message.delete()
             msg = await ctx.message.reference.resolved.reply(f"{ctx.author.mention} replied:\nhttps://twitter.com/{handle}/status/{new_status.id}")
@@ -161,11 +157,11 @@ class Funny(commands.Cog):
         att = get_attachment_obj(ctx)
 
         if not att:
-            return await ctx.send(err.NO_ATTACHMENT_FOUND.value)
+            return await ctx.send(err.NO_ATTACHMENT_FOUND)
 
         # if an image is given
         if "image" in att.content_type and any(att.content_type != x for x in ["image/gif", "image/apng"]):
-            processing = await ctx.send(f"{self.client.loading} Resizing image...")
+            processing = await ctx.send(f"{emoji.PROCESSING()} Resizing image...")
 
             img = Image.open(BytesIO(await att.read()))
 
@@ -194,14 +190,14 @@ class Funny(commands.Cog):
                         raise commands.BadArgument()
             except Exception:
                 await processing.delete()
-                return await ctx.send(err.TWITTER_PROFILE_ERROR.value)
+                return await ctx.send(err.TWITTER_PROFILE_ERROR)
 
             await processing.delete()
             
             # it worked
-            await ctx.send(f"{self.client.ok} **The profile {kind} has been set:**\nhttps://twitter.com/{handle}")
+            await ctx.send(f"{emoji.OK} **The profile {kind} has been set:**\nhttps://twitter.com/{handle}")
         else:
-            return await ctx.send(err.WRONG_ATT_TYPE.value)
+            return await ctx.send(err.WRONG_ATT_TYPE)
 
 def setup(bot):
     bot.add_cog(Funny(bot))
