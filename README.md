@@ -1,23 +1,51 @@
-<img align="left" src="https://i.imgur.com/VcvrhfV.png" width="500">
+```
+```
 
-# cade bot - v3 &nbsp;<img src="https://cdn.discordapp.com/app-icons/709214886969999379/fb15ac3bc3cf90fcf1e5f824b504338b.png" width="25" height="20">
+<div align="center">
+
+[features](#features) • [commands](commands.json) • [credits](#credits)
+
+<p><img src="https://i.imgur.com/VcvrhfV.png" width="400"></p>
+
+**cade v3** - bot for funny museum by me
 
 ![lines](https://img.shields.io/tokei/lines/github/source64/cade)
 ![last commit](https://img.shields.io/github/last-commit/source64/cade)
+![grade](https://img.shields.io/codeclimate/maintainability/source64/cade)
 
-a funny discord bot that can play music, edit images, download videos, etc.
+this bot can play music, edit images, download videos, etc.
 
-**[bot invite](https://discord.com/api/oauth2/authorize?client_id=709214886969999379&permissions=3533888&scope=bot%20applications.commands) &nbsp; &nbsp; &nbsp; [funny museum discord](https://discord.gg/zDUBVSyhqk)**
+[**bot invite**](https://discord.com/api/oauth2/authorize?client_id=709214886969999379&permissions=3533888&scope=bot%20applications.commands)
 
---- 
+```
+```
+  
+### features
 
-<p align="center">
-  <strong>big thanks to:</strong><br>
-  all of the funny museumers, including:<br>
-  - jacktender (brofist)<br>
-  - tatertot (used .img a lot)<br>
-  - me <img src="https://static-cdn.jtvnw.net/emoticons/v2/1/default/dark/1.0" width="25"><br>
-  - image of freddy fazbear (used in testing) <img src="https://static.wikia.nocookie.net/five-nights-at-freddys-fanon/images/3/3a/Freddy_Fazbear_en_Fiesta_Full_Body.png/revision/latest/scale-to-width-down/180?cb=20201016162646" width="130"><br>
-  <img src="https://i.imgur.com/eCHkJ10.jpg" width="500" title="he's in my house"><br>
-  - tod (in my house)
+<p>
+• caption/uncaption gifs, images, and videos<br>
+• save messages as tags to use later<br>
+• play music via youtube and spotify<br>
+• download parts of youtube videos<br>
+• resize gifs, images, and videos<br>
+• more i forgot
 </p>
+  
+### credits
+
+<p>
+- funny museum guys <br>
+- jacktender (for discord)
+</p>
+
+<img src="https://camo.githubusercontent.com/1b377afce62180f1432a557bb9d7d01504b34fee0749201c4d0b0283fca2eafb/68747470733a2f2f692e696d6775722e636f6d2f6543486b4a31302e6a7067" width="200" title="he's in my house">
+  
+\- tod (in my house)
+
+&nbsp;
+
+<pre>
+<a href="LICENSE">MIT license</a>
+</pre>
+
+</div>
