@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "cade v3"
+version = "0.1.0"
+description = ""
+authors = ["source64 <65923236+source64@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+lavalink = {git = "https://github.com/Devoxin/Lavalink.py", rev = "dev"}
+youtube_dl = "^2021.12.17"
+Pillow = "^9.2.0"
+opencv-python = "^4.6.0"
+Wand = "^0.6.9"
+async-spotify = "^0.4.4"
+tweepy = "^4.10.0"
+pymongo = {extras = ["srv"], version = "^4.2.0"}
+pilmoji = {git = "https://github.com/jay3332/pilmoji", rev = "2.0"}
+py-cord = {extras = ["speed"], version = "^2.0.0"}
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
