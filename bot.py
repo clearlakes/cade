@@ -34,7 +34,7 @@ class Cade(commands.Bot):
             self.session = aiohttp.ClientSession(loop = self.loop)
             
             for cog in ["funny", "general", "media", "music"]:
-                self.load_extension(f"cogs.{cog}")
+                self.load_extension(f"cogs.{cog}", store = False)
 
             print("cade ready to rumble")
 
