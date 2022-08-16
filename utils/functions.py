@@ -244,6 +244,9 @@ def mov_to_mp4(file: BytesIO):
         
         return result
 
+def get_yt_thumbnail(identifier: str):
+    return f"https://img.youtube.com/vi/{identifier}/0.jpg"
+
 def run(cmd: str, b1: bytes = None, decode: bool = False):
     p = Popen(split(cmd), stdin = PIPE, stdout = PIPE)
     result: bytes = p.communicate(input = b1)[0]

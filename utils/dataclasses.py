@@ -43,7 +43,8 @@ class emoji:
 @dataclass
 class reg:
     url = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)')  # gets any url
-    youtube = re.compile(r'(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch|v|embed|shorts)(?:\.php)?(?:\?.*v=|\/))([a-zA-Z0-9\_-]+)')
+    spotify = re.compile(r'https?:\/\/open\.spotify\.com\/(track|playlist|album)\/([a-zA-Z0-9\_-]+)')  # group 1: type, group 2: id
+    youtube = re.compile(r'https?:\/\/(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(watch|v|embed|shorts|playlist)?(?:\.php)?(?:\?(?:v=|list=)|\/))([a-zA-Z0-9\_-]+)') # group 1: type, group 2: id
     twitter = re.compile(r'https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)')  # group 1: handle, group 2: status id
     tenor = re.compile(r'https?:\/\/tenor.com\/view\/.*-(\d+)')  # group 1: tenor id
 
@@ -112,6 +113,7 @@ class err:
     VALUE_NOT_IN_QUEUE =    f"{E} that is probably not in the queue"
     MUSIC_NOT_LOOPED =      f"{E} the current song is not being looped (use `.l` to do so)"
     MUSIC_URL_NOT_FOUND =   f"{E} missing track url"
+    SPOTIFY_NF = lambda t:  f"{E} couldn't find `{t}` on youtube sorry (skipping)"
     PLAYLIST_DOESNT_EXIST = f"{E} that playlist doesn't exist"
     PLAYLIST_IS_EMPTY =     f"{E} that playlist is empty"
     INVALID_INDEX =         f"{E} invalid index"

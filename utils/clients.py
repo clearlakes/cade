@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import configparser
 
 # load config file
-config = configparser.ConfigParser()
+config = configparser.ConfigParser(interpolation = None)
 config.read("config.ini")
 
 # twitter handle
@@ -25,7 +25,21 @@ class Keys:
     imoog_port = get("imoog", "port")
     imoog_domain = get("imoog", "domain")
     imoog_secret = get("imoog", "key")
+
+class SpotifyClient:
+    def __init__(self):
+        auth = ClientCredentialsFlow(*Keys.spotify)
+        self.api = SpotifyApiClient(auth)
     
+    async def __aenter__(self):
+        await self.api.get_auth_token_with_client_credentials()
+        await self.api.create_new_client()
+
+        return self.api
+
+    async def __aexit__(self, *_):
+        await self.api.close_client()
+
 class Clients:
     def twitter(self):
         twitter_keys = Keys.twitter
@@ -33,15 +47,3 @@ class Clients:
         auth.set_access_token(twitter_keys[2], twitter_keys[3])
 
         return tweepy.API(auth)
-
-    def spotify(self):
-        spotify_keys = Keys.spotify
-
-        # use credentials from spotify_keys
-        auth_flow = ClientCredentialsFlow(
-            application_id = spotify_keys[0],
-            application_secret = spotify_keys[1]
-        )
-
-        auth_flow.load_from_env()
-        return SpotifyApiClient(auth_flow)

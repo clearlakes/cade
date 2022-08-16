@@ -1,16 +1,22 @@
 import discord
 from discord.ext import commands
 
-from utils.functions import btn_check, check, format_time, get_attachment, get_media_ids
+from utils.functions import (
+    get_yt_thumbnail,
+    get_attachment,
+    get_media_ids,
+    format_time,
+    btn_check,
+    check
+)
+from utils.music.voice import LavalinkVoiceClient
 from utils.dataclasses import colors, err, reg
-from utils.voice import LavalinkVoiceClient
 from utils.clients import Clients, handle
 from utils import database
 
+from lavalink import DefaultPlayer, AudioTrack, LoadResult, Client
 from youtube_dl import YoutubeDL
-import lavalink
 import asyncio
-import math
 import json
 
 class ChoiceView(discord.ui.View):
@@ -134,9 +140,9 @@ class ReplyView(discord.ui.View):
                 message = msg_or_interaction
             else:
                 # got unexpected response
-                return await interaction.edit_original_message(content = err.UNEXPECTEDINVALID_MUSIC_URL, view = None)
+                return await interaction.edit_original_message(content = err.UNEXPECTED, view = None)
         except asyncio.TimeoutError:
-            await interaction.edit_original_message(content = err.TIMED_OUTINVALID_MUSIC_URL, view = None)
+            await interaction.edit_original_message(content = err.TIMED_OUT, view = None)
 
         await message.delete()
         
@@ -157,53 +163,17 @@ class ReplyView(discord.ui.View):
         view = ReplyView(interaction.client, new_msg, new_status.id)
         await new_msg.edit(view = view)
 
-class QueueView(commands.Cog):
-    @classmethod
-    async def get_queue(cls, client: commands.Bot, ctx: commands.Context):
-        player = client.lavalink.player_manager.get(ctx.guild.id)
-        total_pages = math.ceil(len(player.queue) / 10)
-        current_page = 1
-        pages = []
-
-        # generate queue pages
-        while current_page <= total_pages:
-            start = (current_page - 1) * 10
-            end = start + 10
-
-            queue_list = ''
-
-            # get the information of each track in the queue starting from the current page
-            for index, track in enumerate(player.queue[start:end], start=start):
-                duration = format_time(track.duration // 1000)
-                requester = f"<@{track.requester}>"
-                queue_list += f'**{index + 1}.** [**{track.title}**]({track.uri}) `{duration}` - {requester}\n'
-
-            embed = discord.Embed(
-                title = f"Queue ({len(player.queue)} total)",
-                description = queue_list,
-                color = discord.Color.embed_background()
-            )
-            
-            # add page counter to footer if there's more than one page
-            page_count = f"• page {current_page} out of {total_pages}" if total_pages > 1 else ''
-
-            embed.set_footer(text=f'{ctx.guild.name} {page_count}', icon_url=ctx.guild.icon.url)
-            pages.append(embed)
-
-            current_page += 1
-        
-        return pages
-
 class PlaylistView(discord.ui.View):
-    def __init__(self, client: commands.Bot, ctx: commands.Context, msg: discord.Message, playlist: list):
+    def __init__(self, lavalink: Client, ctx: commands.Context, msg: discord.Message, playlist: list):
         super().__init__()
+
         self.db = database.Guild(ctx.guild)
         self.doc = self.db.get()
 
         # use an empty dict if 'playlists' is not in the guild db
         self.playlists = self.doc.playlists if self.doc.playlists else {}
 
-        self.client = client
+        self.lavalink = lavalink
         self.pl = playlist
         self.msg = msg
         self.ctx = ctx
@@ -213,19 +183,21 @@ class PlaylistView(discord.ui.View):
 
     @discord.ui.button(label="Play", style=discord.ButtonStyle.primary)
     async def play(self, button: discord.ui.Button, interaction: discord.Interaction):
-        player = self.client.lavalink.player_manager.create(self.ctx.guild.id, endpoint=str(self.ctx.guild.region))
+        await interaction.response.defer()
 
         # if the playlist is not listed
         if self.pl not in self.playlists.keys(): 
-            return await interaction.response.send_message(err.PLAYLIST_DOESNT_EXISTINVALID_MUSIC_URL, ephemeral=True)
+            return await interaction.response.send_message(err.PLAYLIST_DOESNT_EXIST, ephemeral=True)
         
         # if the playlist is listed, but empty
         if len(self.playlists[self.pl]) == 0:
-            return await interaction.response.send_message(err.PLAYLIST_IS_EMPTYINVALID_MUSIC_URL, ephemeral=True)
+            return await interaction.response.send_message(err.PLAYLIST_IS_EMPTY, ephemeral=True)
 
         # if the user is not in a vc
         if not self.ctx.author.voice:
-            return await interaction.response.send_message(err.USER_NOT_IN_VCINVALID_MUSIC_URL, ephemeral=True)
+            return await interaction.response.send_message(err.USER_NOT_IN_VC, ephemeral=True)
+
+        player: DefaultPlayer = self.lavalink.player_manager.create(self.ctx.guild.id, endpoint = str(self.ctx.author.voice.channel.rtc_region))
 
         # if the player is not connected to a vc, join the user's vc.
         # else, if the user's vc does not match the player's vc, send an error
@@ -233,7 +205,7 @@ class PlaylistView(discord.ui.View):
             player.store('channel', self.ctx.channel.id)
             await self.ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)            
         elif self.ctx.author.voice.channel.id != int(player.channel_id):
-            return await interaction.response.send_message(err.USER_NOT_IN_VCINVALID_MUSIC_URL, ephemeral=True)
+            return await interaction.response.send_message(err.USER_NOT_IN_VC, ephemeral=True)
 
         track_list = ''
 
@@ -246,9 +218,10 @@ class PlaylistView(discord.ui.View):
             url = track["url"]
 
             # add the track
-            results = await player.node.get_tracks(url)
-            track = lavalink.models.AudioTrack(results['tracks'][0], self.ctx.author.id)
-            player.add(requester=self.ctx.author.id, track=track)
+            results: LoadResult = await player.node.get_tracks(url)
+            track = results.tracks[0]
+
+            player.add(track, self.ctx.author.id)
 
             track_list += f'`{i + 1}.` [{title}]({url})\n'
         
@@ -256,7 +229,7 @@ class PlaylistView(discord.ui.View):
         if (track_num := len(self.playlists[self.pl])) > 10:
             track_list += f'`+{track_num - 10} more`'
 
-        embed = discord.Embed(title = self.pl, description = track_list, color = colors.ADDED_TRACKINVALID_MUSIC_URL)
+        embed = discord.Embed(title = self.pl, description = track_list, color = colors.ADDED_TRACK)
         embed.set_author(name=f"Added Playlist to Queue ({len(self.playlists[self.pl])} tracks)", icon_url=self.ctx.author.display_avatar)
         
         await self.ctx.send(embed = embed)
@@ -409,14 +382,14 @@ class PlaylistView(discord.ui.View):
             elif button.custom_id == "remove":
                 # check if the receieved message is a number
                 if not res.isnumeric():
-                    await interaction.followup.send(err.INVALID_INDEXINVALID_MUSIC_URL, ephemeral=True)
+                    await interaction.followup.send(err.INVALID_INDEX, ephemeral=True)
                     continue
                 else:
                     res = int(res)
 
                 # if the number given is larger than the number of tracks in the playlist, send an error
                 if res > len(self.playlists[self.pl]):
-                    await interaction.followup.send(err.INVALID_INDEXINVALID_MUSIC_URL, ephemeral=True)
+                    await interaction.followup.send(err.INVALID_INDEX, ephemeral=True)
                     continue
                 
                 await message.delete()
@@ -471,43 +444,51 @@ class PlaylistView(discord.ui.View):
         await self.msg.edit(embed = self.msg.embeds[0], view = self)
 
 class TrackSelectView(discord.ui.View):
-    def __init__(self, ctx: commands.Context, msg: discord.Message, tracks: list):
+    def __init__(self, ctx: commands.Context, tracks: list[AudioTrack]):
         super().__init__(timeout = None)
         
         self.ctx = ctx
-        self.msg = msg
         self.tracks = tracks
-
         self.track = tracks[0]
-        self.selection = None
+
+        self.set_buttons()
+
+    @property
+    def track_embed(self):
+        embed = discord.Embed(
+            title = self.track.title,
+            url = self.track.uri,
+            description = f"Author: **{self.track.author}** | Duration: `{format_time(self.track.duration // 1000)}`",
+            color = discord.Color.embed_background()
+        )
+
+        embed.set_author(name = f"Result {self.tracks.index(self.track) + 1} out of {len(self.tracks)}")
+        embed.set_thumbnail(url = get_yt_thumbnail(self.track.identifier))
+
+        return embed
+
+    def set_buttons(self):
+        # disable 'back' button if on the first track, and 'next' button if last track is reached
+        self.children[1].disabled = (self.tracks[0] == self.track)
+        self.children[2].disabled = (self.tracks[-1] == self.track)
 
     async def refresh_msg(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        embed = discord.Embed(title = self.track.title, url = self.track.uri)
+        embed = self.track_embed
 
-        embed.set_author(name = f"Result {self.tracks.index(self.track) + 1} out of {len(self.tracks)}")
-        embed.set_thumbnail(url = f"https://img.youtube.com/vi/{self.track.identifier}/0.jpg")
+        self.set_buttons()
+        await self.message.edit(embed = embed, view = self)
 
-        embed.description = f"Author: **{self.track.author}** | Duration: `{format_time(self.track.duration // 1000)}`"
-
-        # disable 'back' button if on the first track
-        self.children[1].disabled = (self.tracks.index(self.track) == 0)
-
-        # disable 'next' button if last track is reached
-        self.children[2].disabled = (self.tracks.index(self.track) + 1 == len(self.tracks))
-
-        await self.msg.edit(embed = embed, view = self)
-
-    @discord.ui.button(label="nvm", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="nvm", style=discord.ButtonStyle.secondary, custom_id="ts:cancel")
     async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
             return
 
-        self.selection = None
+        self.track = None
         self.stop()
 
-    @discord.ui.button(label="back", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="back", style=discord.ButtonStyle.secondary, custom_id="ts:back")
     async def back(self, button: discord.ui.Button, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
             return
@@ -515,7 +496,7 @@ class TrackSelectView(discord.ui.View):
         self.track = self.tracks[self.tracks.index(self.track) - 1]
         await self.refresh_msg(interaction)
     
-    @discord.ui.button(label="next", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="next", style=discord.ButtonStyle.secondary, custom_id="ts:next")
     async def next(self, button: discord.ui.Button, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
             return
@@ -523,10 +504,83 @@ class TrackSelectView(discord.ui.View):
         self.track = self.tracks[self.tracks.index(self.track) + 1]
         await self.refresh_msg(interaction)
 
-    @discord.ui.button(label="this one", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="this one", style=discord.ButtonStyle.primary, custom_id="ts:play")
     async def play(self, button: discord.ui.Button, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
             return
 
-        self.selection = self.track
+        # self.track is now the selected track
         self.stop()
+
+class NowPlayingView(discord.ui.View):
+    def __init__(self, ctx: commands.Context, player: DefaultPlayer, msg: discord.Message):
+        super().__init__(timeout = None)
+        
+        self.id = f"{ctx.guild.id}:{player.current.identifier}"
+        self.embed = msg.embeds[0]
+        self.player = player
+        self.ctx = ctx
+        self.msg = msg
+
+        # change pause emoji to play emoji, if paused
+        if player.paused:
+            self.children[1].emoji = "▶️"
+        
+        # change loop emoji to whatever 🔂 is, if looped
+        if player.loop:
+            self.children[2].emoji = "🔂"
+
+    def disable(self, reason: str):
+        skip_btn = self.children[0]
+        skip_btn.label = reason
+
+        self.children = [skip_btn]
+        self.disable_all_items()
+        self.stop()
+
+        return self
+    
+    async def interaction_check(self, interaction: discord.Interaction):
+        if interaction.user != self.ctx.author:
+            return False
+
+        if not self.ctx.author.voice or (self.ctx.author.voice.channel.id != int(self.player.channel_id)):
+            await interaction.response.send_message(err.USER_NOT_IN_VC, ephemeral = True)
+            return False
+
+        await interaction.response.defer()
+        return True
+
+    @discord.ui.button(emoji = "⏩", custom_id = f"np:skip")
+    async def skip(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.disable("skipped")
+        self.player.set_loop(0)
+        
+        await self.msg.edit(view = self)
+        await self.player.skip()
+
+    @discord.ui.button(emoji = "⏸️", custom_id = "np:pause")
+    async def pause(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not self.player.paused:
+            await self.player.set_pause(True)
+            self.children[1].emoji = "▶️"
+            self.embed.description += " | **Paused**"
+        else:
+            await self.player.set_pause(False)
+            self.children[1].emoji = "⏸️"
+            self.embed.description = self.embed.description.replace(" | **Paused**", "")
+
+        await self.msg.edit(embed = self.embed, view = self)
+
+    @discord.ui.button(emoji = "🔁", custom_id = "np:loop")
+    async def loop(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not self.player.loop:
+            self.player.set_loop(1)
+            self.embed.set_footer(text = f"{self.embed.footer.text} • looped")
+            self.children[2].emoji = "🔂"
+        else:
+            self.player.set_loop(0)
+            self.embed.set_footer(text = self.embed.footer.text.replace(" • looped", ""))
+            self.children[2].emoji = "🔁"
+
+        await self.msg.edit(embed = self.embed, view = self)
