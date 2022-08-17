@@ -480,7 +480,7 @@ class TrackSelectView(discord.ui.View):
         embed = self.track_embed
 
         self.set_buttons()
-        await self.message.edit(embed = embed, view = self)
+        await interaction.message.edit(embed = embed, view = self)
 
     @discord.ui.button(label="nvm", style=discord.ButtonStyle.secondary, custom_id="ts:cancel")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
