@@ -29,6 +29,7 @@ class colors:
     PLAYING_TRACK = 0x4287f5  # used when a track starts playing
     ADDED_TRACK =   0x42f55a  # used when a track is added
     CURRENT_TRACK = 0x4e42f5  # used in .nowplaying
+    EMBED_BG =      0x2F3136  # same color as embed background
 
 @dataclass
 class emoji:

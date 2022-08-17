@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands, pages
+from discord.ext import commands, menus
 
 from utils.music.tracks import (
     create_music_embed,
@@ -258,7 +258,7 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     title = pl_name,
                     description = "(this playlist is empty)",
-                    color = discord.Color.embed_background()
+                    color = colors.EMBED_BG
                 )
             else:
                 track_list = ''
@@ -273,7 +273,7 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     title = f"{pl_name} - {len(playlists[pl_name])} track(s)",
                     description = track_list,
-                    color = discord.Color.embed_background()
+                    color = colors.EMBED_BG
                 )
 
             return embed
@@ -299,7 +299,7 @@ class Music(commands.Cog):
             embed = discord.Embed(
                 title = "Playlists",
                 description = list_of_playlists,
-                color = discord.Color.embed_background()
+                color = colors.EMBED_BG
             )
 
             return await ctx.send(embed = embed)
@@ -316,7 +316,8 @@ class Music(commands.Cog):
 
             # disable the play/remove track buttons if the playlist is empty
             if playlist_is_not_there or playlist_is_there_but_empty:
-                view.disable_all_items(exclusions = [view.children[0]])
+                for btn in view.children[1:]:
+                    btn.disabled = True
             
             await msg.edit(embed = embed, view = view)
             return await view.wait()
@@ -471,13 +472,13 @@ class Music(commands.Cog):
 
         # create the paginator using the embeds from get_queue
         queue_pages = await get_queue(player)
-        paginator = pages.Paginator(pages = queue_pages, loop_pages = True)
+        paginator =  menus.MenuPages(source = queue_pages, clear_reactions_after = True)
 
         # if the queue is 1 page (10 items or less), send the embed without buttons
         if len(player.queue) <= 10:
             return await ctx.send(embed = queue_pages[0])
 
-        await paginator.send(ctx)
+        await paginator.start(ctx)
     
     @commands.command(aliases=['np'])
     async def nowplaying(self, ctx: commands.Context):
@@ -528,7 +529,9 @@ class Music(commands.Cog):
 
         for view in self.client.persistent_views:
             if isinstance(view, NowPlayingView) and view.id == track_id:
-                view.disable_all_items()
+                for btn in view.children:
+                    btn.disabled = True
+                
                 await view.msg.edit(view = view)
 
         msg = await ctx.send(embed = embed)
@@ -538,5 +541,5 @@ class Music(commands.Cog):
         await msg.edit(embed = embed, view = view)
         await view.wait()
 
-def setup(bot):
-    bot.add_cog(Music(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Music(bot))

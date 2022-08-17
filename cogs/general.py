@@ -152,7 +152,7 @@ class General(commands.Cog):
     @commands.command()
     async def help(self, ctx: commands.Context, cmd: str = None):
         """Gets information about commands"""
-        embed = discord.Embed(color = discord.Color.embed_background())
+        embed = discord.Embed(color = colors.EMBED_BG)
 
         if cmd is None:
             # default embed to use
@@ -315,7 +315,7 @@ class General(commands.Cog):
         embed = discord.Embed(
             title = "Tags:",
             description = list,
-            color = discord.Color.embed_background()
+            color = colors.EMBED_BG
         )
 
         await ctx.send(embed = embed)
@@ -344,5 +344,5 @@ class General(commands.Cog):
         
         await ctx.send(f"{emoji.OK} set the welcome message and channel")
 
-def setup(bot):
-    bot.add_cog(General(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(General(bot))

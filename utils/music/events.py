@@ -91,7 +91,7 @@ class TrackEvents:
             title = track.title,
             url = track.uri,
             description = f"was played by <@{requester}> | Duration: `{duration}`",
-            color = discord.Color.embed_background()
+            color = colors.EMBED_BG
         )
 
         # edit the original "now playing" message with the embed

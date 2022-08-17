@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from utils.dataclasses import reg, err, ff
+from utils.dataclasses import reg, err, ff, colors
 from utils.clients import Clients, Keys
 
 from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
@@ -64,7 +64,7 @@ async def get_media(ctx: commands.Context, media_types: list[str], allow_gifs: b
             msg = ctx.message.reference.resolved
         else:
             # 0: bot msg --> 1: initial msg --> 2: [msg with link or image] 
-            msg = (await ctx.message.channel.history(limit=3).flatten())[2]
+            msg = [message async for message in ctx.channel.history(limit = 3)][2]
 
     if msg.attachments:
         att = msg.attachments[0]
@@ -164,7 +164,7 @@ async def get_attachment(ctx: commands.Context, interaction: discord.Interaction
 
             if not att_bytes:
                 if interaction:
-                    await interaction.edit_original_message(content = err.MOV_TO_MP4_ERROR)
+                    await interaction.edit_original_response(content = err.MOV_TO_MP4_ERROR)
                 else:
                     await ctx.send(err.MOV_TO_MP4_ERROR)
 
@@ -261,7 +261,7 @@ async def send_media(ctx: commands.Context, msg: discord.Message, content: Bytes
         if (Keys.imoog_port and Keys.imoog_domain and Keys.imoog_secret) and "video" not in filetype:
             url = await _upload_to_server(content, filetype)
 
-            embed = discord.Embed(color = discord.Color.embed_background())
+            embed = discord.Embed(color = colors.EMBED_BG)
             embed.set_image(url = url)
             embed.set_footer(text = f"uploaded to {Keys.imoog_domain.replace('https://', '')} | expires in 24h")
 

@@ -15,7 +15,8 @@ async-spotify = "^0.4.4"
 tweepy = "^4.10.0"
 pymongo = {extras = ["srv"], version = "^4.2.0"}
 pilmoji = {git = "https://github.com/jay3332/pilmoji", rev = "2.0"}
-py-cord = {extras = ["speed"], version = "^2.0.0"}
+"discord.py" = {git = "https://github.com/Rapptz/discord.py", extras = ["speed"]}
+discord-ext-menus = {git = "https://github.com/Rapptz/discord-ext-menus"}
 
 [tool.poetry.dev-dependencies]
 

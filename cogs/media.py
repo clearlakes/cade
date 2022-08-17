@@ -4,7 +4,7 @@ from discord.ext import commands
 from utils.image import EditImage, EditGif, create_caption_text, get_size
 from utils.functions import format_time, send_media, get_media, run
 from utils.video import EditVideo, get_size as get_video_size
-from utils.dataclasses import reg, err, ff, emoji
+from utils.dataclasses import reg, err, ff, emoji, colors
 from utils.views import ChoiceView
 
 from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
@@ -75,7 +75,7 @@ class Media(commands.Cog):
         # embed that will show the progress
         embed = discord.Embed(
             title = f"{emoji.PROCESSING()} Processing...",
-            color = discord.Color.embed_background()
+            color = colors.EMBED_BG
         )
 
         processing = await ctx.send(embed = embed)
@@ -399,5 +399,5 @@ class Media(commands.Cog):
                 
             await msg.delete()
 
-def setup(bot):
-    bot.add_cog(Media(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Media(bot))

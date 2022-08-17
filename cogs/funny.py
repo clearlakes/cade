@@ -199,5 +199,5 @@ class Funny(commands.Cog):
         else:
             return await ctx.send(err.WRONG_ATT_TYPE)
 
-def setup(bot):
-    bot.add_cog(Funny(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Funny(bot))

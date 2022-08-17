@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, menus
 
 from lavalink import (
     DeferredAudioTrack,
@@ -185,6 +185,13 @@ async def get_spotify(node: Node, type: str, id: str, requester_id: int):
     
     return tracks, (thumbnail, title)
 
+class QueuePages(menus.ListPageSource):
+    def __init__(self, data):
+        super().__init__(data, per_page=1)
+
+    async def format_page(self, _, entries):
+        return entries
+
 async def get_queue(player: DefaultPlayer):
     """Generates the queue list"""
     total_items = len(player.queue)
@@ -209,7 +216,7 @@ async def get_queue(player: DefaultPlayer):
         embed = discord.Embed(
             title = f"Queue ({len(player.queue)} total)",
             description = queue_list,
-            color = discord.Color.embed_background()
+            color = colors.EMBED_BG
         )
         
         # add page counter to footer if there's more than one page
@@ -220,4 +227,4 @@ async def get_queue(player: DefaultPlayer):
 
         current_page += 1
     
-    return pages
+    return QueuePages(pages)
