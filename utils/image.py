@@ -60,7 +60,7 @@ class EditImage:
         alpha_composite = Image.alpha_composite(background, file_rgba)
         self.image = alpha_composite.convert('RGB')  # converting to RGB for jpeg output
 
-        result = self.save("JPEG", 4)
+        result = self._save("JPEG", 4)
         return result
 
     def resize(self, size: tuple):
@@ -240,7 +240,7 @@ def create_caption_text(text: str, width: int):
     text_height = (font.getsize_multiline(caption, spacing = spacing)[1] + font_size)
 
     # get all emojis in text
-    emojis = [char for char in caption if char in emoji.UNICODE_EMOJI_ENGLISH.keys()]
+    emojis = emoji.distinct_emoji_list(caption)
 
     if emojis:
         # create a blank image using the given width and the text height
