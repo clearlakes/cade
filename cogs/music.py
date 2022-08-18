@@ -3,20 +3,18 @@ from discord.ext import commands, menus
 
 from utils.music.tracks import (
     create_music_embed,
-    select_tracks,
     find_tracks,
     get_queue
 )
-from utils.dataclasses import reg, err, colors, emoji
-from utils.views import PlaylistView, NowPlayingView
+from utils.views import PlaylistView, NowPlayingView, TrackSelectView
 from utils.music.voice import LavalinkVoiceClient
+from utils.dataclasses import err, colors, emoji
 from utils.music.events import TrackEvents
 from utils.functions import format_time
 from utils.clients import Keys
 from utils import database
 
 from lavalink import Client as LavalinkClient, DefaultPlayer
-from youtube_dl import YoutubeDL
 
 class Music(commands.Cog):
     def __init__(self, client):
@@ -112,7 +110,12 @@ class Music(commands.Cog):
 
         if track_selection:
             # creates a selection view using the search results
-            track, extra = await select_tracks(ctx, tracks)
+            view = TrackSelectView(ctx, tracks)
+
+            await ctx.send(embed = view.track_embed, view = view)
+            await view.wait()
+
+            track, extra = view.track, view.extra
 
             if not track:
                 return  # nothing was selected
@@ -244,151 +247,26 @@ class Music(commands.Cog):
         await ctx.send(f"`{player.current.title}` has been looped **{loopcount}** time(s)")
 
     @commands.command(aliases=['pl'])
-    async def playlist(self, ctx: commands.Context, pl_name: str = None, opt: str = None, res: str = None):
+    async def playlist(self, ctx: commands.Context, playlist: str = None):
         """Creates playlists and lets you add/remove tracks from them"""
-        # options that the user can use
-        add_opt = ["a", "add"]
-        remove_opt = ["r", "remove", "delete", "d"]
-        list_opt = ["l", "list"]
-
-        # function for creating a list of tracks from a playlists
-        async def get_track_embed():
-            # check if there are tracks in the playlist
-            if playlist_is_not_there or playlist_is_there_but_empty:
-                embed = discord.Embed(
-                    title = pl_name,
-                    description = "(this playlist is empty)",
-                    color = colors.EMBED_BG
-                )
-            else:
-                track_list = ''
-
-                # get details about each track in the playlist, as well as who added them
-                for i, track in enumerate(playlists[pl_name]):
-                    title = track['title']
-                    url = track['url']
-                    user = f"<@{track['user']}>"
-                    track_list += f"**{i + 1}.** [{title}]({url}) - {user}\n"
-                    
-                embed = discord.Embed(
-                    title = f"{pl_name} - {len(playlists[pl_name])} track(s)",
-                    description = track_list,
-                    color = colors.EMBED_BG
-                )
-
-            return embed
-        
         db = database.Guild(ctx.guild)
-        doc = db.get()
+        guild = db.get()
 
-        # use an empty dict if the 'playlists' field is not listed in the guild database
-        playlists = doc.playlists if doc.playlists else {}
-
-        # variables that hold True or False according to:
-        playlist_is_not_there = pl_name not in playlists.keys() # if the playlist is not listed in the database
-        playlist_is_there_but_empty = not playlist_is_not_there and playlists != {} and len(playlists[pl_name]) == 0  # if the playlist is listed in the database, but is empty
-
-        # if nothing is given
-        if pl_name is None:
-            list_of_playlists = "\n\ncommands:\n`.pl (name) [a]dd (url)` - add a track\n`.pl (name) [r]emove (index)|all` - remove a track / the entire playlist\n`.pl (name) [l]ist` - list tracks in a playlist"
-
-            # if the 'playlists' field is not empty, add a list of the playlists
-            if playlists != {}:
-                list_of_playlists = '**' + '**, **'.join(playlists) + '**' + list_of_playlists
-
+        if not playlist:
             embed = discord.Embed(
                 title = "Playlists",
-                description = list_of_playlists,
                 color = colors.EMBED_BG
             )
 
+            # create list of playlists
+            embed.description = "**" + "**, **".join(guild.playlists.keys()) + "**" if guild.playlists else "(none yet)"
+            embed.set_footer(text = "create, play, and edit playlists using .pl [playlist name]")
+
             return await ctx.send(embed = embed)
 
-        pl_name = pl_name.lower()
-
-        # if only a playlist name is given
-        if opt is None:
-            embed = await get_track_embed()
-
-            # set message to have buttons from the PlaylistView class (add, play, remove)
-            msg = await ctx.send(embed = embed)
-            view = PlaylistView(self.lavalink, ctx, msg, pl_name)
-
-            # disable the play/remove track buttons if the playlist is empty
-            if playlist_is_not_there or playlist_is_there_but_empty:
-                for btn in view.children[1:]:
-                    btn.disabled = True
-            
-            await msg.edit(embed = embed, view = view)
-            return await view.wait()
-        
-        opt = opt.lower()
-        
-        # if the user is trying to add a track
-        if opt in add_opt:
-            # if nothing is given as a url 
-            if res is None:
-                return await ctx.send(err.MUSIC_URL_NOT_FOUND)
-
-            # if the user input is not a youtube url
-            if not reg.youtube.match(res):
-                return await ctx.send(err.INVALID_MUSIC_URL)
-
-            # get track information from the url
-            with YoutubeDL() as ydl:
-                video = ydl.extract_info(res, download = False)
-                title = video['title']
-            
-            new_track = {"title": title, "url": res, "user": ctx.author.id}
-            
-            # update the playlist with the new track
-            db.push(f'playlists.{pl_name}', new_track)
-            
-            if pl_name in playlists.keys():
-                position = len(doc.playlists[pl_name])
-                return await ctx.send(f"{emoji.OK} Added track **{title}** (`#{position}`)")
-            else:        
-                return await ctx.send(f"{emoji.OK} Created playlist **{pl_name}** and added track **{title}**")
-
-        # if the user is trying to remove a track
-        if opt in remove_opt:
-            # if the playlist is empty
-            if playlist_is_not_there:
-                return await ctx.send(err.PLAYLIST_DOESNT_EXIST)
-
-            # if the user does not give an index, or if the index is "all", remove the playlist entirely
-            if res is None or res.lower() == "all":
-                db.del_obj('playlists', pl_name)
-                return await ctx.send(f"{emoji.OK} Removed **{pl_name}**")
-            
-            # check if the given index is numeric
-            if res.isnumeric():
-                if playlist_is_there_but_empty:
-                    return await ctx.send(err.PLAYLIST_IS_EMPTY)
-
-                if int(res) > len(playlists[pl_name]):
-                    return await ctx.send(err.INVALID_INDEX)
-                
-                track_id = int(res) - 1
-                title = playlists[pl_name][track_id]["title"]
-
-                # remove the track from the playlist
-                if len(playlists[pl_name]) > 1:
-                    db.del_obj(f'playlists.{pl_name}', track_id)
-                else:
-                    # remove the playlist completely if the final track was deleted
-                    db.del_obj('playlists', pl_name)
-
-                return await ctx.send(f"{emoji.OK} Removed track **{title}**")
-            else:
-                return await ctx.send(err.INVALID_INDEX)
-
-        # if the user only wants a list of tracks in the playlist
-        if opt in list_opt:
-            embed = await get_track_embed()
-            return await ctx.send(embed = embed)
-
-        raise commands.BadArgument()
+        # show playlist info if one is specified
+        view = PlaylistView(self.lavalink, ctx, playlist)
+        await ctx.send(embed = view.track_embed, view = view.updated_view)
     
     @commands.command(aliases=['pp', 'pause'])
     async def togglepause(self, ctx: commands.Context):
@@ -473,10 +351,6 @@ class Music(commands.Cog):
         # create the paginator using the embeds from get_queue
         queue_pages = await get_queue(player)
         paginator =  menus.MenuPages(source = queue_pages, clear_reactions_after = True)
-
-        # if the queue is 1 page (10 items or less), send the embed without buttons
-        if len(player.queue) <= 10:
-            return await ctx.send(embed = queue_pages[0])
 
         await paginator.start(ctx)
     

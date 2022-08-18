@@ -109,6 +109,7 @@ class err:
     USER_NOT_IN_VC =        f"{E} you're not in the vc"
     NO_MUSIC_PLAYING =      f"{E} nothing is playing right now"
     INVALID_MUSIC_URL =     f"{E} only youtube/spotify links can be used"
+    SINGLE_TRACK_ONLY =     f"{E} only one track can be added at a time"
     NO_MUSIC_RESULTS =      f"{E} no results were found with that query"
     BOT_IN_VC =             f"{E} i'm already in the vc"
     VALUE_NOT_IN_QUEUE =    f"{E} that is probably not in the queue"

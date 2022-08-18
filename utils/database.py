@@ -14,12 +14,12 @@ class Document:
     def __init__(self, document: dict):
         if document:
             # turn entry values into variables
-            get = lambda key: document.get(key)
+            get = lambda key, default: document.get(key, default)
 
-            self.guild_id: int = get('guild_id')
-            self.playlists: dict = get('playlists')
-            self.welcome: dict = get('welcome')
-            self.tags: dict = get('tags')
+            self.guild_id: int = get('guild_id', None)
+            self.playlists: dict = get('playlists', {})
+            self.welcome: dict = get('welcome', [])
+            self.tags: dict = get('tags', {})
 
 class Guild:
     def __init__(self, guild: discord.Guild):
@@ -51,6 +51,10 @@ class Guild:
     def push(self, field: str, value):
         """Adds a value to an array field"""
         _db.update_one(self.guild, {'$push': {field: value}})
+    
+    def pull(self, field: str, value):
+        """Removes a value from an array field"""
+        _db.update_one(self.guild, {'$pull': {field: value}})
     
     def add_obj(self, field: str, key: str, value):
         """Adds a value to a dictionary field"""

@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands, menus
+from discord.ext import menus
 
 from lavalink import (
     DeferredAudioTrack,
@@ -15,7 +15,6 @@ from lavalink import (
 from utils.functions import format_time, get_yt_thumbnail
 from utils.dataclasses import colors, reg
 from utils.clients import SpotifyClient
-from utils.views import TrackSelectView
 
 from async_spotify.spotify_errors import SpotifyAPIError
 from typing import Union
@@ -64,27 +63,6 @@ async def find_tracks(node: Node, query: str, requester_id: int, return_all: boo
 
     return tracks, extra
 
-async def select_tracks(ctx: commands.Context, tracks: list[AudioTrack, DeferredAudioTrack]):
-    """Creates a view where someone can select a track from youtube results"""
-    view = TrackSelectView(ctx, tracks)
-
-    selection = await ctx.send(embed = view.track_embed, view = view)
-    await view.wait()
-
-    thumbnail = None
-    title = None
-
-    track: AudioTrack = view.track
-    # track will still be None if nothing was selected
-
-    if track:
-        thumbnail = get_yt_thumbnail(track.identifier)
-        title = track.title
-
-    await selection.delete()
-    
-    return track, (thumbnail, title)
-
 def create_music_embed(query: str, tracks: list[AudioTrack], extra: tuple, player: DefaultPlayer, requester: discord.Member): 
     """Creates the embed for queued tracks or playlists"""
     thumbnail, title = extra
@@ -97,7 +75,9 @@ def create_music_embed(query: str, tracks: list[AudioTrack], extra: tuple, playe
         # infer that it is a playlist if there is more than one track
         embed.set_author(name = f"Queued Playlist - {len(tracks)} track(s)", icon_url = requester.display_avatar)
 
-        embed.url = reg.url.search(query).group(0)
+        if match := reg.url.search(query):
+            embed.url = match.group(0)
+
         duration = sum([track.duration for track in tracks])
     else:
         # infer that the track is being queued
