@@ -6,6 +6,7 @@ from utils.dataclasses import err
 from json import load
 import configparser
 import aiohttp
+import logging
 import time
 
 class Cade(commands.Bot):
@@ -27,16 +28,18 @@ class Cade(commands.Bot):
         config.read("config.ini")
 
         self.token = str(config.get("server", "token"))
-        self.session = None
+    
+    async def setup_hook(self):
+        self.session = aiohttp.ClientSession(loop = self.loop)
+
+        for cog in ["funny", "general", "media", "music"]:
+            await self.load_extension(f"cogs.{cog}")
 
     async def on_ready(self):
-        if not self.session:
-            self.session = aiohttp.ClientSession(loop = self.loop)
-            
-            for cog in ["funny", "general", "media", "music"]:
-                await self.load_extension(f"cogs.{cog}")
+        self.log = logging.getLogger('discord')
+        self.log.name = ""
 
-            print("cade ready to rumble")
+        self.log.warning("cade ready to rumble")
 
     async def on_command_error(self, ctx: commands.Context, error):
         # if the error was from an invalid argument
@@ -61,7 +64,6 @@ class Cade(commands.Bot):
             raise error
     
     async def close(self):
-        await super().close()
         await self.session.close()
 
     def run(self):
