@@ -16,7 +16,13 @@ class Funny(commands.Cog):
     def __init__(self, client):
         self.client: commands.Bot = client
         self.api = Clients().twitter()
-    
+
+        self.react_roles = {
+            "1️⃣": 820126482684313620,  # he/him
+            "2️⃣": 820126584442322984,  # she/her
+            "3️⃣": 820126629945933874,  # they/them
+        }
+
     async def cog_check(self, ctx):
         # check if command is sent from funny museum
         if ctx.guild.id != 783166876784001075:
@@ -25,38 +31,24 @@ class Funny(commands.Cog):
         else:
             return True
 
-    def get_reaction_role(self, emoji: discord.PartialEmoji, guild: discord.Guild):
-        if emoji.name == "1️⃣":
-            # selected "he/him"
-            role = guild.get_role(820126482684313620)
-        elif emoji.name == "2️⃣":
-            # selected "she/her"
-            role = guild.get_role(820126584442322984)
-        elif emoji.name == "3️⃣":
-            # selected "they/them"
-            role = guild.get_role(820126629945933874)
-
-        return role
-
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, event: discord.RawReactionActionEvent):
         # check if the message being reacted to is the one from funny museum
         if event.message_id == 820147742382751785:
-            guild: discord.Guild = self.client.get_guild(event.guild_id)
+            guild = self.client.get_guild(event.guild_id)
+            role = guild.get_role(self.react_roles[event.emoji.name])
 
-            # get the corresponding role from the reaction
-            role = self.get_reaction_role(event.emoji, guild)
+            # add the corresponding role from the reaction
             await event.member.add_roles(role)
     
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, event: discord.RawReactionActionEvent):
         # check if the message being reacted to is the one from funny museum
         if event.message_id == 820147742382751785:
-            guild: discord.Guild = self.client.get_guild(event.guild_id)
-            
-            # get the corresponding role from the reaction
-            role = self.get_reaction_role(event.emoji, guild)
+            guild = self.client.get_guild(event.guild_id)
+            role = guild.get_role(self.react_roles[event.emoji.name])
 
+            # remove the corresponding role
             member = guild.get_member(event.user_id)
             await member.remove_roles(role)
 
