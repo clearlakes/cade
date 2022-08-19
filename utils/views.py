@@ -330,6 +330,9 @@ class TrackSelectView(discord.ui.View):
 
         self.set_buttons()
 
+    async def interaction_check(self, interaction: discord.Interaction):
+        return interaction.user == self.ctx.author
+
     @property
     def track_embed(self):
         thumbnail = get_yt_thumbnail(self.track.identifier)
@@ -364,36 +367,24 @@ class TrackSelectView(discord.ui.View):
 
     @discord.ui.button(label="nvm", style=discord.ButtonStyle.secondary, custom_id="ts:cancel")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.ctx.author:
-            return
-
         self.track = None
         self.stop()
 
     @discord.ui.button(label="back", style=discord.ButtonStyle.secondary, custom_id="ts:back")
     async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.ctx.author:
-            return
-
         self.track = self.tracks[self.tracks.index(self.track) - 1]
         await self.refresh_msg(interaction)
     
     @discord.ui.button(label="next", style=discord.ButtonStyle.secondary, custom_id="ts:next")
     async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.ctx.author:
-            return
-
         self.track = self.tracks[self.tracks.index(self.track) + 1]
         await self.refresh_msg(interaction)
 
     @discord.ui.button(label="this one", style=discord.ButtonStyle.primary, custom_id="ts:play")
     async def play(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.ctx.author:
-            return
-
         await interaction.message.delete()
 
-        # self.track is now the selected track
+        # self.track/self.extra is now the selected track
         self.stop()
 
 class NowPlayingView(discord.ui.View):
