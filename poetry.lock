@@ -140,12 +140,11 @@ resolved_reference = "8686b5d1bbc1d3c862292eb436ab630d6e9c9b53"
 
 [[package]]
 name = "discord.py"
-version = "2.0.0a4522+g3aa3c36c"
+version = "2.0.0"
 description = "A Python wrapper for the Discord API"
 category = "main"
 optional = false
 python-versions = ">=3.8.0"
-develop = false
 
 [package.dependencies]
 aiodns = {version = ">=1.1", optional = true, markers = "extra == \"speed\""}
@@ -155,16 +154,10 @@ cchardet = {version = "*", optional = true, markers = "extra == \"speed\""}
 orjson = {version = ">=3.5.4", optional = true, markers = "extra == \"speed\""}
 
 [package.extras]
-docs = ["sphinx (==4.4.0)", "sphinxcontrib-trio (==1.1.2)", "sphinxcontrib-websupport", "typing-extensions"]
-speed = ["orjson (>=3.5.4)", "aiodns (>=1.1)", "brotli", "cchardet"]
-test = ["coverage", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock"]
 voice = ["PyNaCl (>=1.3.0,<1.6)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/Rapptz/discord.py"
-reference = "master"
-resolved_reference = "3aa3c36c4f401cd0c5483a7d78348548774beec7"
+test = ["typing-extensions (>=4.3,<5)", "pytest-mock", "pytest-cov", "pytest-asyncio", "pytest", "coverage"]
+speed = ["cchardet", "brotli", "aiodns (>=1.1)", "orjson (>=3.5.4)"]
+docs = ["typing-extensions (>=4.3,<5)", "sphinxcontrib-websupport", "sphinxcontrib-trio (==1.1.2)", "sphinx (==4.4.0)"]
 
 [[package]]
 name = "dnspython"
@@ -216,7 +209,6 @@ description = "A Lavalink WebSocket & API wrapper built around coverage, reliabi
 category = "main"
 optional = false
 python-versions = "*"
-develop = false
 
 [package.dependencies]
 aiohttp = ">=3.7.4,<3.9.0"
@@ -224,12 +216,6 @@ aiohttp = ">=3.7.4,<3.9.0"
 [package.extras]
 development = ["pylint", "flake8"]
 docs = ["sphinx", "pygments", "guzzle-sphinx-theme", "enum-tools", "sphinx-toolbox"]
-
-[package.source]
-type = "git"
-url = "https://github.com/Devoxin/Lavalink.py"
-reference = "dev"
-resolved_reference = "9a07d84cb87b9e6271bb9989481dc421cf84e740"
 
 [[package]]
 name = "multidict"
@@ -460,7 +446,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "2752e93e0ca5e4871d884a357beb1830f06dd11d3ca43d762f85eb8ac45fbd7f"
+content-hash = "d7d2ba924eb277dd41f5cb5597906fa5af1a28c01aa4f68183239e067f02d067"
 
 [metadata.files]
 aiodns = [
@@ -726,7 +712,10 @@ charset-normalizer = [
     {file = "charset_normalizer-2.1.0-py3-none-any.whl", hash = "sha256:5189b6f22b01957427f35b6a08d9a0bc45b46d3788ef5a92e978433c7a35f8a5"},
 ]
 discord-ext-menus = []
-"discord.py" = []
+"discord.py" = [
+    {file = "discord.py-2.0.0-py3-none-any.whl", hash = "sha256:18b06870bdc85d29e0d55f4a4b2abe9d7cdae2b197e23d49f82886ba27ba1aec"},
+    {file = "discord.py-2.0.0.tar.gz", hash = "sha256:c36f26935938194c3465c2abf8ecfbbf5560c50b189f1b746d6f00d1e78c0d3b"},
+]
 dnspython = [
     {file = "dnspython-2.2.1-py3-none-any.whl", hash = "sha256:a851e51367fb93e9e1361732c1d60dab63eff98712e503ea7d92e6eccb109b4f"},
     {file = "dnspython-2.2.1.tar.gz", hash = "sha256:0f7569a4a6ff151958b64304071d370daa3243d15941a7beedf0c9fe5105603e"},
@@ -799,7 +788,9 @@ idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
     {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
 ]
-lavalink = []
+lavalink = [
+    {file = "lavalink-4.0.0.tar.gz", hash = "sha256:5319446b95b288970cd55245bd70f288a2bfcf59833ab150a745fa75cf955986"},
+]
 multidict = [
     {file = "multidict-6.0.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:0b9e95a740109c6047602f4db4da9949e6c5945cefbad34a1299775ddc9a62e2"},
     {file = "multidict-6.0.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:ac0e27844758d7177989ce406acc6a83c16ed4524ebc363c1f748cba184d89d3"},
