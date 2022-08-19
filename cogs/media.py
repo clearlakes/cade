@@ -87,7 +87,7 @@ class Media(commands.Cog):
         result = await self.run_async(EditImage(res.obj).resize_even)
 
         # edit the embed to ask for audio
-        embed.title = f"{self.client.wait} Send a youtube url or an mp3 file to use as the audio"
+        embed.title = f"{emoji.WAITING} Send a youtube url or an mp3 file to use as the audio"
         embed.set_footer(text="or reply to any message that contains one")
         await processing.edit(embed = embed)
 
