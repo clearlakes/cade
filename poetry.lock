@@ -111,7 +111,7 @@ pycparser = "*"
 
 [[package]]
 name = "charset-normalizer"
-version = "2.1.0"
+version = "2.1.1"
 description = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
 category = "main"
 optional = false
@@ -204,7 +204,7 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "lavalink"
-version = "4.0.0"
+version = "4.0.1"
 description = "A Lavalink WebSocket & API wrapper built around coverage, reliability and performance."
 category = "main"
 optional = false
@@ -289,7 +289,6 @@ description = "Pilmoji is an emoji renderer for Pillow, Python's imaging library
 category = "main"
 optional = false
 python-versions = ">=3.8.0"
-develop = false
 
 [package.dependencies]
 emoji = "*"
@@ -297,12 +296,6 @@ Pillow = "*"
 
 [package.extras]
 requests = ["requests"]
-
-[package.source]
-type = "git"
-url = "https://github.com/jay3332/pilmoji"
-reference = "2.0"
-resolved_reference = "3f8a3c0f300694059968cf38924a1f8c523a3a67"
 
 [[package]]
 name = "pycares"
@@ -446,7 +439,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "d7d2ba924eb277dd41f5cb5597906fa5af1a28c01aa4f68183239e067f02d067"
+content-hash = "95a3535d3fc0abfd9436dab7bf83bba46dd417a6b4748f15095d3b61585b1720"
 
 [metadata.files]
 aiodns = [
@@ -708,8 +701,8 @@ cffi = [
     {file = "cffi-1.15.1.tar.gz", hash = "sha256:d400bfb9a37b1351253cb402671cea7e89bdecc294e8016a707f6d1d8ac934f9"},
 ]
 charset-normalizer = [
-    {file = "charset-normalizer-2.1.0.tar.gz", hash = "sha256:575e708016ff3a5e3681541cb9d79312c416835686d054a23accb873b254f413"},
-    {file = "charset_normalizer-2.1.0-py3-none-any.whl", hash = "sha256:5189b6f22b01957427f35b6a08d9a0bc45b46d3788ef5a92e978433c7a35f8a5"},
+    {file = "charset-normalizer-2.1.1.tar.gz", hash = "sha256:5a3d016c7c547f69d6f81fb0db9449ce888b418b5b9952cc5e6e66843e9dd845"},
+    {file = "charset_normalizer-2.1.1-py3-none-any.whl", hash = "sha256:83e9a75d1911279afd89352c68b45348559d1fc0506b054b346651b5e7fee29f"},
 ]
 discord-ext-menus = []
 "discord.py" = [
@@ -789,7 +782,7 @@ idna = [
     {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
 ]
 lavalink = [
-    {file = "lavalink-4.0.0.tar.gz", hash = "sha256:5319446b95b288970cd55245bd70f288a2bfcf59833ab150a745fa75cf955986"},
+    {file = "lavalink-4.0.1.tar.gz", hash = "sha256:3e8bb0e2d45c8bf6e10a03fc124912da0b77dea76e6ef45b063b0545ebb8d3b6"},
 ]
 multidict = [
     {file = "multidict-6.0.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:0b9e95a740109c6047602f4db4da9949e6c5945cefbad34a1299775ddc9a62e2"},
@@ -999,7 +992,10 @@ pillow = [
     {file = "Pillow-9.2.0-pp38-pypy38_pp73-win_amd64.whl", hash = "sha256:0030fdbd926fb85844b8b92e2f9449ba89607231d3dd597a21ae72dc7fe26927"},
     {file = "Pillow-9.2.0.tar.gz", hash = "sha256:75e636fd3e0fb872693f23ccb8a5ff2cd578801251f3a4f6854c6a5d437d3c04"},
 ]
-pilmoji = []
+pilmoji = [
+    {file = "pilmoji-2.0.2-py3-none-any.whl", hash = "sha256:70943bfa032904337fbda8bd63c4de0837e6ba8525229a6240ca7831d9cf4ecd"},
+    {file = "pilmoji-2.0.2.tar.gz", hash = "sha256:f66c7c73edd1e676fe42ac1f05a4d6134902a6bfc59f32151a4f24ce7eeadb05"},
+]
 pycares = [
     {file = "pycares-4.2.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:5dc6418e87729105d93162155793002b3fa95490e2f2df33afec08b0b0d44989"},
     {file = "pycares-4.2.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:9481ee42df7e34c9ef7b2f045e534062b980b2c971677868df9f17730b147ceb"},
