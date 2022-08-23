@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 
 from utils.functions import (
+    get_tweet_attachments,
     get_yt_thumbnail,
-    get_attachment,
     get_media_ids,
     format_time,
     btn_check,
@@ -128,13 +128,11 @@ class ReplyView(discord.ui.View):
             return await interaction.edit_original_response(content = "(canceled)", view = None)
 
         await message.delete()
-        
-        ctx = await interaction.client.get_context(message)
         status = message.content
         
         # same procedure as a reply command
-        content_given = await get_attachment(ctx, interaction)
-        media_ids = get_media_ids(content_given) if content_given else None
+        media = await get_tweet_attachments(interaction)
+        media_ids = get_media_ids(*media)
         
         # send the reply
         new_status = Clients().twitter().update_status(status=status, media_ids=media_ids, in_reply_to_status_id=self.reply_id, auto_populate_reply_metadata=True)

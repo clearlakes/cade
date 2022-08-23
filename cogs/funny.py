@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from utils.functions import get_attachment_obj, get_attachment, get_media_ids
+from utils.functions import get_attachment_obj, get_tweet_attachments, get_media_ids
 from utils.dataclasses import err, emoji, reg
 from utils.clients import Clients, handle
 from utils.views import ReplyView
@@ -11,6 +11,16 @@ from tweepy import NotFound
 from typing import Union
 from io import BytesIO
 from PIL import Image
+
+class TweetContent(commands.Converter):
+    async def convert(self, ctx: commands.Context, arg: str = None):
+        media_type, attachments = await get_tweet_attachments(ctx)
+
+        if not arg and not attachments:
+            # send error with the last parameter of the command (usually 'content')
+            raise commands.MissingRequiredArgument(list(ctx.command.params.values())[-1])
+
+        return arg, get_media_ids(media_type, attachments)
 
 class Funny(commands.Cog):
     def __init__(self, client):
@@ -23,7 +33,7 @@ class Funny(commands.Cog):
             "3️⃣": 820126629945933874,  # they/them
         }
 
-    async def cog_check(self, ctx):
+    async def cog_check(self, ctx: commands.Context):
         # check if command is sent from funny museum
         if ctx.guild.id != 783166876784001075:
             await ctx.send(err.FUNNY_ONLY)
@@ -53,18 +63,9 @@ class Funny(commands.Cog):
             await member.remove_roles(role)
 
     @commands.command()
-    async def tweet(self, ctx: commands.Context, *, status: str = None):
+    async def tweet(self, ctx: commands.Context, *, content: TweetContent):
         """Tweets any message from discord"""
-        content_given = await get_attachment(ctx)
-
-        # gets the media ids to use if an attachment is found
-        if content_given:
-            media_ids = get_media_ids(content_given)
-        else:
-            if status is None:
-                raise commands.BadArgument()
-
-            media_ids = None
+        status, media_ids = content
         
         # sends the tweet
         try:
@@ -79,8 +80,9 @@ class Funny(commands.Cog):
         await msg.edit(view = view)
 
     @commands.command()
-    async def reply(self, ctx: commands.Context, reply_to: Union[str, int] = None, *, status: str = None):
+    async def reply(self, ctx: commands.Context, reply_to: Union[str, int], *, content: TweetContent):
         """Replies to a given tweet"""
+        status, media_ids = content
         is_chain = False
 
         # checks if the user wants to reply to a tweet that is in a different message
@@ -90,10 +92,6 @@ class Funny(commands.Cog):
             status = f"{reply_to} {status}" if status else reply_to
             reply_to = ctx.message.reference.resolved.content
             is_chain = True
-        
-        # if nothing is given at all
-        if reply_to is None:
-            raise commands.BadArgument()
         
         # if reply_to is not numeric, treat it as a url
         if not reply_to.isnumeric():
@@ -111,17 +109,6 @@ class Funny(commands.Cog):
             # if an id is given
             reply_id = int(reply_to)
 
-        content_given = await get_attachment(ctx)
-
-        # check for attachments and create media ids
-        if content_given:
-            media_ids = get_media_ids(content_given)
-        else:
-            if status is None:
-                return commands.BadArgument()
-
-            media_ids = None
-        
         # send the reply
         try:
             new_status = self.api.update_status(status=status, media_ids=media_ids, in_reply_to_status_id=reply_id, auto_populate_reply_metadata=True)
@@ -141,18 +128,15 @@ class Funny(commands.Cog):
         await msg.edit(view = view)
         
     @commands.command(aliases=['pf'])
-    async def profile(self, ctx: commands.Context, kind: str = None):
+    async def profile(self, ctx: commands.Context, kind: str):
         """Changes the twitter account's profile picture/banner"""
-        if kind is None:
-            raise commands.BadArgument()
-
         att = get_attachment_obj(ctx)
 
         if not att:
             return await ctx.send(err.NO_ATTACHMENT_FOUND)
 
         # if an image is given
-        if "image" in att.content_type and any(att.content_type != x for x in ["image/gif", "image/apng"]):
+        if "image" in att.content_type and att.content_type.split("/")[1] not in ("gif", "apng"):
             processing = await ctx.send(f"{emoji.PROCESSING()} Resizing image...")
 
             img = Image.open(BytesIO(await att.read()))
@@ -160,7 +144,7 @@ class Funny(commands.Cog):
             try:
                 with create_temp(suffix=".png") as temp:
                     # resize into a square for pfp
-                    if any(kind == x for x in ["p", "picture"]):
+                    if kind in ("p", "picture"):
                         kind = "picture"
 
                         img = img.convert('RGBA').resize((512, 512))
@@ -169,7 +153,7 @@ class Funny(commands.Cog):
                         self.api.update_profile_image(filename=temp.name)
 
                     # resize into a rectangle for banner
-                    elif any(kind == x for x in ["b", "banner"]):
+                    elif kind in ("b", "banner"):
                         kind = "banner"
 
                         img = img.convert('RGBA').resize((1500, 500))

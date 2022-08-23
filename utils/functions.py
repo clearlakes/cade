@@ -135,14 +135,12 @@ def format_time(duration: int):
 
     return strftime(format, gmtime(duration))
 
-async def get_attachment(ctx: commands.Context, interaction: discord.Interaction = None):
-    """Gets the attachment to use for the tweet"""
+async def get_tweet_attachments(ctx: Union[commands.Context, discord.Interaction]):
+    """Gets the attachments to use for tweets"""
     # switch to the original message if it's a reply
     msg = ctx.message.reference.resolved if ctx.message.reference and not ctx.message.attachments else ctx.message
 
-    if not msg.attachments:
-        return
-
+    media_type = None
     attachments = []
 
     for i, att in enumerate(msg.attachments):
@@ -153,26 +151,34 @@ async def get_attachment(ctx: commands.Context, interaction: discord.Interaction
 
         if "image" in att.content_type:
             # if the content is animated, only one can be posted
-            if any(att.content_type == x for x in ["image/gif", "image/apng"]):
-                return ["gif", att_bytes]
-
+            if att.content_type.split("/")[1] in ("gif", "apng"):
+                media_type = "gif"
+                attachments = [att_bytes]
+                break
+            
+            media_type = "image"
             attachments.append(att_bytes)
             continue
-        
-        if att.filename.lower().endswith("mov"):
-            att_bytes = mov_to_mp4(att_bytes)
+        else:
+            if att.filename.lower().endswith("mov"):
+                att_bytes = mov_to_mp4(att_bytes)
 
-            if not att_bytes:
-                if interaction:
-                    await interaction.edit_original_response(content = err.MOV_TO_MP4_ERROR)
-                else:
-                    await ctx.send(err.MOV_TO_MP4_ERROR)
+                if not att_bytes:
+                    media_type = None
+                    attachments.clear()
 
-                return
+                    if isinstance(ctx, discord.Interaction):
+                        await ctx.edit_original_response(content = err.MOV_TO_MP4_ERROR)
+                    else:
+                        await ctx.send(err.MOV_TO_MP4_ERROR)
 
-        return ["video", att_bytes]
+                    break
 
-    return ["image", attachments]
+            media_type = "video"
+            attachments = [att_bytes]
+            break
+
+    return media_type, attachments
 
 def get_attachment_obj(ctx: commands.Context):
     """Gets the attachment object from a message"""
@@ -184,17 +190,17 @@ def get_attachment_obj(ctx: commands.Context):
     
     return msg.attachments[0]
     
-def get_media_ids(content):
+def get_media_ids(media_type: str, attachments: list[BytesIO]):
     """Gets the media ids for content in tweets"""
-    api = Clients().twitter()
+    if not attachments:
+        return  # in case get_attachment returns None
 
-    result = content[0]  # either "image", "video", or "gif"
-    media = content[1]  # BytesIO (or list if "image")
+    api = Clients().twitter()
     media_ids = []
 
     # chooses between either uploading multiple images or just one video/gif
-    if result == "image":
-        for image in media:
+    if media_type == "image":
+        for image in attachments:
             # create temporary file to store image data in
             with create_temp(suffix='.png') as temp:
                 # convert image into png in case of filetype conflicts
@@ -207,8 +213,8 @@ def get_media_ids(content):
     else:
         # store media data in a temporary file
         with create_temp() as temp:
-            temp.write(media.getvalue())
-            res = api.chunked_upload(temp.name, media_category=f"tweet_{result}")
+            temp.write(attachments[0].getvalue())
+            res = api.chunked_upload(temp.name, media_category=f"tweet_{media_type}")
             media_ids.append(res.media_id)
 
     return media_ids
