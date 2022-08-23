@@ -43,7 +43,7 @@ class Cade(commands.Bot):
 
     async def on_command_error(self, ctx: commands.Context, error):
         # if the error was from an invalid argument
-        if isinstance(error, commands.BadArgument):
+        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
             with open("commands.json", "r") as f:
                 data = load(f)
             

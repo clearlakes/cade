@@ -92,7 +92,7 @@ class Music(commands.Cog):
         
         # check if the query was empty
         if not query:
-            raise commands.BadArgument()
+            raise commands.MissingRequiredArgument(query)
 
         # get the player for this guild from cache
         player = self.get_player(ctx.guild.id)
@@ -164,7 +164,7 @@ class Music(commands.Cog):
         await ctx.message.add_reaction(emoji.OK)
     
     @commands.command(aliases=['s'])
-    async def skip(self, ctx: commands.Context, index = None):
+    async def skip(self, ctx: commands.Context, index: str = None):
         """Skips either the current track, a track in the queue, or the entire queue"""
         player = self.get_player(ctx.guild.id)
 
@@ -283,14 +283,10 @@ class Music(commands.Cog):
             await ctx.send(f"{emoji.OK} unpaused")
     
     @commands.command()
-    async def seek(self, ctx: commands.Context, time_input: str = None):
+    async def seek(self, ctx: commands.Context, time_input: str):
         """Seek to a given timestamp, or rewind/fast-forward the track"""
         player = self.get_player(ctx.guild.id)
         new_time = time_input
-
-        # if nothing is given
-        if time_input is None:
-            raise commands.BadArgument()
         
         # if the first character of the given time is not numeric (probably a + or -),
         # set new_time to whatever is after that character

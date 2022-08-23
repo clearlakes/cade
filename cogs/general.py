@@ -196,13 +196,13 @@ class General(commands.Cog):
         await ctx.send(embed = embed)
 
     @commands.command()
-    async def echo(self, ctx: commands.Context, channel: discord.TextChannel, *, msg = None):
+    async def echo(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str = None):
         """Sends a given message as itself"""
         # if nothing is given, throw an error
-        if msg is None and not ctx.message.attachments:
-            raise commands.BadArgument()
+        if not msg and not ctx.message.attachments:
+            raise commands.MissingRequiredArgument(msg)
 
-        # if the user can't send messages in the given channel
+        # if the user can't send messages in the ßgiven channel
         if channel.permissions_for(ctx.author).send_messages == False:
             return await ctx.send(err.NO_PERMISSIONS_USER)
         
@@ -217,7 +217,7 @@ class General(commands.Cog):
         await ctx.message.add_reaction(emoji.OK)
 
     @commands.command(aliases=['t'])
-    async def tag(self, ctx: commands.Context, tag_name: str = None, *, tag_content: str = None):
+    async def tag(self, ctx: commands.Context, tag_name: str, *, tag_content: str = None):
         """Creates/sends a tag"""
         def get_attachment(ctx: commands.Context):
             # use the replied message if it's there
@@ -231,10 +231,6 @@ class General(commands.Cog):
                     return False
             else:
                 return msg.attachments[0].url
-        
-        # if nothing is given
-        if tag_name is None:
-            raise commands.BadArgument()
         
         db = database.Guild(ctx.guild)
         doc = db.get()
@@ -275,11 +271,8 @@ class General(commands.Cog):
                 return await ctx.send(err.TAG_EXISTS)
 
     @commands.command(aliases=['tagdel', 'tdel'])
-    async def tagdelete(self, ctx: commands.Context, tag: str = None):
+    async def tagdelete(self, ctx: commands.Context, tag: str):
         """Deletes a given tag"""
-        if tag is None:
-            raise commands.BadArgument()
-
         tag = str(tag).lower()
 
         db = database.Guild(ctx.guild)
@@ -322,11 +315,8 @@ class General(commands.Cog):
     
     @commands.command()
     @commands.has_permissions(administrator = True)
-    async def welcome(self, ctx: commands.Context, channel: discord.TextChannel = None, *, msg: str = None):
+    async def welcome(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str = None):
         """Sets the welcome message of the server"""
-        if channel is None:
-            raise commands.BadArgument()
-
         db = database.Guild(ctx.guild)
 
         # if nothing is given, disable the welcome message by setting it as None

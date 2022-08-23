@@ -193,7 +193,7 @@ class Media(commands.Cog):
         """Resizes the given attachment"""
         # if nothing is given
         if width == 'auto' and height == 'auto':
-            raise commands.BadArgument()
+            raise commands.MissingRequiredArgument(width)
 
         # if a given size is over 2000 pixels, send an error
         if any(x.isnumeric() and int(x) > 2000 for x in (width, height)):
@@ -244,11 +244,8 @@ class Media(commands.Cog):
         await processing.delete()
 
     @commands.command()
-    async def caption(self, ctx: commands.Context, *, text: str = None):
+    async def caption(self, ctx: commands.Context, *, text: str):
         """Captions the given image/gif/video"""
-        if text is None:
-            raise commands.BadArgument()
-
         processing = await ctx.send(f"{emoji.PROCESSING()} Processing...")
 
         # get either an image, gif, or tenor url
@@ -287,7 +284,6 @@ class Media(commands.Cog):
     @commands.command()
     async def uncaption(self, ctx: commands.Context):
         """Removes the caption from the given image/gif/video"""
-
         processing = await ctx.send(f"{emoji.PROCESSING()} Processing...")
 
         # get either an image, gif, or tenor url
@@ -313,11 +309,8 @@ class Media(commands.Cog):
         await send_media(ctx, processing, result, res.type, filename)
 
     @commands.command()
-    async def get(self, ctx: commands.Context, url: str = None, start: str = None, end: str = None):
+    async def get(self, ctx: commands.Context, url: str, start: str = None, end: str = None):
         """Downloads either the audio or video from a given youtube url"""
-        if url is None:
-            raise commands.BadArgument()
-
         # if the given url is not a link (probably sent as ".get 1:00 2:00"), try to get the url from the message being replied to
         if not reg.youtube.match(url):
             # check if there is a reply and that the message being replied to contains a yt link
