@@ -200,7 +200,7 @@ class General(commands.Cog):
         """Sends a given message as itself"""
         # if nothing is given, throw an error
         if not msg and not ctx.message.attachments:
-            raise commands.MissingRequiredArgument(msg)
+            raise commands.MissingRequiredArgument(ctx.command.params["msg"])
 
         # if the user can't send messages in the ßgiven channel
         if channel.permissions_for(ctx.author).send_messages == False:

@@ -92,7 +92,7 @@ class Music(commands.Cog):
         
         # check if the query was empty
         if not query:
-            raise commands.MissingRequiredArgument(query)
+            raise commands.MissingRequiredArgument(ctx.command.params["query"])
 
         # get the player for this guild from cache
         player = self.get_player(ctx.guild.id)

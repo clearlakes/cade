@@ -193,7 +193,7 @@ class Media(commands.Cog):
         """Resizes the given attachment"""
         # if nothing is given
         if width == 'auto' and height == 'auto':
-            raise commands.MissingRequiredArgument(width)
+            raise commands.MissingRequiredArgument(ctx.command.params["width"])
 
         # if a given size is over 2000 pixels, send an error
         if any(x.isnumeric() and int(x) > 2000 for x in (width, height)):
