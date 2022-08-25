@@ -17,7 +17,6 @@ from utils import database
 
 from lavalink import DefaultPlayer, AudioTrack, Client
 import asyncio
-import json
 
 class ChoiceView(discord.ui.View):
     def __init__(self, ctx: commands.Context, choices: list):
@@ -38,71 +37,57 @@ class ChoiceView(discord.ui.View):
             button.callback = callback
             self.add_item(button)
 
-class Dropdown(discord.ui.Select):
-    def __init__(self, ctx: commands.Context):
-        # dropdown options
-        options = [
-            discord.SelectOption(
-                label="General",
-                description="regular commands"
-            ),
-            discord.SelectOption(
-                label="Music",
-                description="so much groove"
-            ),
-            discord.SelectOption(
-                label="Media",
-                description="image and audio commands"
-            )
-        ]
-        
-        # add funny museum commands if guild matches the id
-        if ctx.guild.id == 783166876784001075:
-            options.extend([
-                discord.SelectOption(
-                    label="Funny Museum",
-                    description="made for funny"
-                )
-            ])
+class HelpView(discord.ui.View):
+    def __init__(self, client: commands.Bot, ctx: commands.Context):
+        super().__init__(timeout = None)
+        self.client = client
+        self.ctx = ctx
 
-        # placeholder and setup
-        super().__init__(
-            placeholder="select le category",
-            options=options,
-        )
-
-    # callback runs whenever something is selected
-    async def callback(self, interaction: discord.Interaction):
-        category = self.values[0].lower()
-
-        with open("commands.json", "r") as f:
-            data = json.load(f)
-        
-        desc = ""
-        for cmd in data[category]:
-            about: str = data[category][cmd]["desc"]
-            usage: str = data[category][cmd]["usage"]
+        for cog in client.cogs.keys():
+            # don't show funny museum commands if not funny museum
+            if cog == "Funny" and ctx.guild.id != 783166876784001075:
+                continue
             
-            # add backticks to each word in 'usage' if the usage isn't nothing
-            usage_str = ' `' + '` `'.join(usage.split()) + '`' if usage else ''
+            button = discord.ui.Button(label = cog, custom_id = f"h:{cog}")
+            button.callback = self.callback
+            self.add_item(button)
 
-            # add the command to the description
-            desc += f"**.{cmd}**{usage_str} - {about}\n"
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user != self.ctx.author:
+            return
+        
+        await interaction.response.defer()
+
+        # get cog name from button id
+        interaction_id = interaction.data["custom_id"]
+        cog = interaction_id.split(":")[1]
+
+        commands = [c for c in self.client.get_cog(cog).get_commands() if not c.hidden]
+        command_list = ""
+
+        longest = max([cmd.name for cmd in commands], key = len)
+
+        for command in commands:
+            # pad command name to match the longest one
+            padding = len(longest) - len(command.name)
+            cmd_name = f"`.{command.name}" + (" " * padding) + "`"
+
+            command_list += f"{cmd_name} - {command.help}\n"
+        
+        for btn in self.children:
+            # highlight the selected button
+            if btn.custom_id == interaction_id:
+                btn.style = discord.ButtonStyle.primary
+            else:
+                btn.style = discord.ButtonStyle.secondary
 
         embed = discord.Embed(
-            title = f"Commands - {category}",
-            description = desc,
+            title = f"{cog} Commands",
+            description = command_list,
             color = colors.EMBED_BG
         )
-        
-        await interaction.response.edit_message(embed = embed)
 
-class DropdownView(discord.ui.View):
-    def __init__(self, ctx: commands.Context):
-        super().__init__(timeout = None)
-
-        # build the dropdown list
-        self.add_item(Dropdown(ctx))
+        await interaction.message.edit(embed = embed, view = self)
 
 class ReplyView(discord.ui.View):
     def __init__(self, ctx: commands.Context, msg: discord.Message, reply_id):

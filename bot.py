@@ -3,7 +3,6 @@ from discord.ext import commands
 
 from utils.dataclasses import err
 
-from json import load
 import configparser
 import aiohttp
 import logging
@@ -42,26 +41,12 @@ class Cade(commands.Bot):
         self.log.warning("cade ready to rumble")
 
     async def on_command_error(self, ctx: commands.Context, error):
-        # if the error was from an invalid argument
         if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
-            with open("commands.json", "r") as f:
-                data = load(f)
-            
-            cmd = ctx.command.name
-
-            # get category and command information (from help command)
-            cat, cmd = next(((cat, x) for cat, x in data.items() 
-                for x in data[cat] if cmd == x or data[cat][x]["alt"] is not None 
-                and any(cmd == alt for alt in data[cat][x]["alt"])))
-                
-            usage = data[cat][cmd]["usage"]
-
-            return await ctx.send(err.USAGE(cmd, usage))
+            return await ctx.send(err.USAGE(ctx.command))
         elif isinstance(error, commands.CheckFailure):
-            # ignore check failures
-            pass
-        else:
-            raise error
+            return  # ignore check failures
+
+        raise error
     
     async def close(self):
         await self.session.close()

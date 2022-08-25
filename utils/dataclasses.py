@@ -125,4 +125,4 @@ class err:
     INVALID_SEEK =          f"{E} cannot skip that far into the track"
     MOV_TO_MP4_ERROR =      f"{E} there was an issue converting from mov to mp4"
     UNEXPECTED =            f"{E} unexpected response uhh try again?"
-    USAGE = lambda c, u:    f"{E} usage: `.{c}" + f" {u}`" if u else "`" 
+    USAGE = lambda c:       f"{E} usage: `.{c.name}" + f" {c.usage}`" if c.usage else "`"

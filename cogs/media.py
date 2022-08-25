@@ -20,9 +20,9 @@ class Media(commands.Cog):
     async def run_async(self, func, *args) -> BytesIO:
         return await self.client.loop.run_in_executor(None, partial(func, *args))
 
-    @commands.command()
+    @commands.command(usage = "(image)")
     async def jpeg(self, ctx: commands.Context):
-        """Decreases the quality of a given image"""
+        """lowers the quality of the given image"""
         processing = await ctx.send(f"{emoji.PROCESSING()} Processing...")
 
         # get an image from the user's message
@@ -38,9 +38,9 @@ class Media(commands.Cog):
         except:
             return await processing.edit(content = err.CANT_SEND_FILE)
     
-    @commands.command(aliases=["img"])
+    @commands.command(aliases = ["img"], usage = "*[seconds] (image)")
     async def imgaudio(self, ctx: commands.Context, length: int = None):
-        """Creates a video of a set length with a given image and audio source"""
+        """converts an image into a video with audio"""
         global audio; global audio_type
 
         def check_audio(ctx: commands.Context):
@@ -188,9 +188,9 @@ class Media(commands.Cog):
             except:
                 await processing.edit(content = err.CANT_SEND_FILE, embed = None)
     
-    @commands.command()
+    @commands.command(usage = "[width]/auto *[height]/auto (gif/image/video)")
     async def resize(self, ctx: commands.Context, width = 'auto', height = 'auto'):
-        """Resizes the given attachment"""
+        """resizes the given attachment"""
         # if nothing is given
         if width == 'auto' and height == 'auto':
             raise commands.MissingRequiredArgument(ctx.command.params["width"])
@@ -243,9 +243,9 @@ class Media(commands.Cog):
         
         await processing.delete()
 
-    @commands.command()
+    @commands.command(usage = "[text] (gif/image/video)")
     async def caption(self, ctx: commands.Context, *, text: str):
-        """Captions the given image/gif/video"""
+        """captions the specified gif or image in the style of iFunny's captions"""
         processing = await ctx.send(f"{emoji.PROCESSING()} Processing...")
 
         # get either an image, gif, or tenor url
@@ -281,9 +281,9 @@ class Media(commands.Cog):
 
         await send_media(ctx, processing, result, res.type, filename)
 
-    @commands.command()
+    @commands.command(usage = "(gif/image/video)")
     async def uncaption(self, ctx: commands.Context):
-        """Removes the caption from the given image/gif/video"""
+        """removes the caption from the given attachment"""
         processing = await ctx.send(f"{emoji.PROCESSING()} Processing...")
 
         # get either an image, gif, or tenor url
@@ -308,9 +308,9 @@ class Media(commands.Cog):
 
         await send_media(ctx, processing, result, res.type, filename)
 
-    @commands.command()
+    @commands.command(usage = "[youtube-url] *[start-time] *[end-time]")
     async def get(self, ctx: commands.Context, url: str, start: str = None, end: str = None):
-        """Downloads either the audio or video from a given youtube url"""
+        """downloads a youtube video (or a part of it)"""
         # if the given url is not a link (probably sent as ".get 1:00 2:00"), try to get the url from the message being replied to
         if not reg.youtube.match(url):
             # check if there is a reply and that the message being replied to contains a yt link

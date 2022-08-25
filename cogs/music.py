@@ -78,9 +78,9 @@ class Music(commands.Cog):
 
         return True
 
-    @commands.command(aliases=['p'])
+    @commands.command(aliases = ["p"], usage = "[url/query]")
     async def play(self, ctx: commands.Context, *, query: str = ''):
-        """Plays a track from a given url/query"""
+        """plays a track/playlist from youtube or spotify"""
         query = query.strip('<>')
 
         # check if the user wants to select a track
@@ -132,9 +132,9 @@ class Music(commands.Cog):
         
         await player.play(no_replace = True)
 
-    @commands.command(aliases=['j'])
+    @commands.command(aliases = ["j"])
     async def join(self, ctx: commands.Context):
-        """Makes the bot join a VC"""
+        """makes the bot join a voice channel"""
         # create a player for the guild
         player = self.create_player(ctx)
 
@@ -148,9 +148,9 @@ class Music(commands.Cog):
         await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
         await ctx.message.add_reaction(emoji.OK)
 
-    @commands.command(aliases=['dc', 'leave'])
+    @commands.command(aliases = ["dc", "leave"])
     async def disconnect(self, ctx: commands.Context):
-        """Disconnects the bot from the VC and clears the queue"""
+        """makes the bot leave a voice channel"""
         player = self.get_player(ctx.guild.id)
 
         # clear the queue
@@ -163,9 +163,9 @@ class Music(commands.Cog):
         await ctx.voice_client.disconnect(force = True)
         await ctx.message.add_reaction(emoji.OK)
     
-    @commands.command(aliases=['s'])
+    @commands.command(aliases = ["s"], usage = "*[index]/all")
     async def skip(self, ctx: commands.Context, index: str = None):
-        """Skips either the current track, a track in the queue, or the entire queue"""
+        """skips the current track (or queued tracks)"""
         player = self.get_player(ctx.guild.id)
 
         # if nothing is given, skip the current track
@@ -200,7 +200,7 @@ class Music(commands.Cog):
 
     @commands.command()
     async def shuffle(self, ctx: commands.Context):
-        """Shuffles the playing order of the queue"""
+        """shuffles the order of the queue"""
         player = self.get_player(ctx.guild.id)
         
         # check if the queue is empty
@@ -216,9 +216,9 @@ class Music(commands.Cog):
         else:
             await ctx.send(f"{emoji.OK} Picking a random song from now on")
     
-    @commands.command(aliases=['l'])
+    @commands.command(aliases = ["l"])
     async def loop(self, ctx: commands.Context):
-        """Loops the current track"""
+        """begins/stops looping the current track"""
         player = self.get_player(ctx.guild.id)
         
         # set the loop status to it's opposite (true -> false, false -> true)
@@ -234,9 +234,9 @@ class Music(commands.Cog):
 
             await ctx.send(f"{emoji.OK} Stopped loop (ended at **{loopcount}** loop(s)) ")
     
-    @commands.command(aliases=['lc'])
+    @commands.command(aliases = ["lc"])
     async def loopcount(self, ctx: commands.Context):
-        """Shows how many times the current track has been looped"""
+        """shows how many times the current track has been looped"""
         player = self.get_player(ctx.guild.id)
         
         # check if the current track is being looped
@@ -246,9 +246,9 @@ class Music(commands.Cog):
         loopcount = player.fetch("loopcount")
         await ctx.send(f"`{player.current.title}` has been looped **{loopcount}** time(s)")
 
-    @commands.command(aliases=['pl'])
+    @commands.command(aliases = ["pl"], usage = "*[playlist]")
     async def playlist(self, ctx: commands.Context, playlist: str = None):
-        """Creates playlists and lets you add/remove tracks from them"""
+        """lists every playlist and the controls for each"""
         db = database.Guild(ctx.guild)
         guild = db.get()
 
@@ -268,9 +268,9 @@ class Music(commands.Cog):
         view = PlaylistView(self.lavalink, ctx, playlist)
         await ctx.send(embed = view.track_embed, view = view.updated_view)
     
-    @commands.command(aliases=['pp', 'pause'])
-    async def togglepause(self, ctx: commands.Context):
-        """Pauses/unpauses the current track"""
+    @commands.command(aliases = ["pp"])
+    async def pause(self, ctx: commands.Context):
+        """pauses/unpauses the current track"""
         player = self.get_player(ctx.guild.id)
 
         # set the pause status to it's opposite value (paused -> unpaused, etc.)
@@ -282,9 +282,9 @@ class Music(commands.Cog):
         else:
             await ctx.send(f"{emoji.OK} unpaused")
     
-    @commands.command()
+    @commands.command(usage = "[time]")
     async def seek(self, ctx: commands.Context, time_input: str):
-        """Seek to a given timestamp, or rewind/fast-forward the track"""
+        """skips to a specific point in the current track"""
         player = self.get_player(ctx.guild.id)
         new_time = time_input
         
@@ -336,9 +336,9 @@ class Music(commands.Cog):
         await player.seek(new_time)
         return await ctx.send(f"{emoji.OK} {res}")
 
-    @commands.command(aliases=['q'])
+    @commands.command(aliases = ["q"])
     async def queue(self, ctx: commands.Context):
-        """Displays the queue of the server"""
+        """lists all of the tracks in the queue"""
         player = self.get_player(ctx.guild.id)
 
         if not player.queue:
@@ -350,9 +350,9 @@ class Music(commands.Cog):
 
         await paginator.start(ctx)
     
-    @commands.command(aliases=['np'])
+    @commands.command(aliases = ["np"])
     async def nowplaying(self, ctx: commands.Context):
-        """Displays information about the current track"""
+        """shows information about the current track"""
         player = self.get_player(ctx.guild.id)
 
         requester = await self.client.fetch_user(player.current.requester)

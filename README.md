@@ -1,7 +1,7 @@
 <div align="center">
 
 <pre>
-<a href="#features">features</a> • <a href="commands.json">commands</a> • <a href="#credits">credits</a>
+<a href="#features">features</a> • <a href="commands.md">commands</a> • <a href="#credits">credits</a>
 </pre>
 
 <p><img src="https://i.imgur.com/VcvrhfV.png" width="400"></p>

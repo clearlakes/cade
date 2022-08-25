@@ -2,13 +2,12 @@ import discord
 from discord.ext import commands
 
 from utils.dataclasses import reg, err, colors, emoji, CAT
-from utils.views import DropdownView
+from utils.views import HelpView
 from utils.functions import run
 from utils import database
 
 from datetime import timedelta
 from time import time
-from json import load
 
 class General(commands.Cog):
     def __init__(self, client):
@@ -45,8 +44,54 @@ class General(commands.Cog):
         welcome_msg: str = welcome_msg.replace(r"{user}", member.mention)
         
         await channel.send(welcome_msg)
-    
-    @commands.command(aliases=["re"])
+
+    @commands.command(aliases = ["gen"], hidden = True)
+    @commands.is_owner()
+    async def generate(self, ctx: commands.Context):
+        processing = await ctx.send(f"{emoji.PROCESSING()}")
+
+        cool_fire = "<img src='https://i.imgur.com/yxm0XNL.gif' width='20'>"
+
+        markdown = "\n".join([
+            f"# {cool_fire} cade commands {cool_fire}", 
+            "arguments starting with `*` are optional<br>",
+            "(commands are linked to where their code is)"
+        ]) + "\n\n"
+
+        # add links to command sections
+        markdown += "go to:&nbsp; " + " • ".join(f"[**{c}**](#{c.lower()})" for c in self.client.cogs) + "\n"
+
+        # somewhat hacky way to generate a command list (commands.md)
+        for cog in reversed(self.client.cogs.values()):  # reversed so that funny cog is at the bottom
+            cog_name = cog.qualified_name
+            cog_filename = f"cogs/{cog_name.lower()}.py"
+
+            markdown += f"\n### {cog_name}\n"
+
+            if cog_name == "Funny":
+                markdown += "> note: these commands are specific to funny museum\n"
+
+            commands = [c for c in cog.get_commands() if not c.hidden]
+
+            for cmd in commands:
+                # get line number of command function
+                with open(cog_filename) as f:
+                    content = f.readlines()
+                    line_num = [x for x in range(len(content)) if f"def {cmd.name}(" in content[x]][0]
+
+                line = f"https://github.com/source64/cade/blob/main/{cog_filename}#L{line_num}"
+
+                markdown += f"- [**`.{cmd.name}`**]({line}) - {cmd.help}\n"
+
+                if cmd.usage:
+                    markdown += f"\t- how to use: `.{cmd.name} {cmd.usage}`\n"
+
+        with open("commands.md", "w") as f:
+            f.write(markdown)
+
+        await processing.edit(content = f"{emoji.OK} created commands.md")
+
+    @commands.command(aliases = ["re"], hidden = True)
     @commands.is_owner()
     async def reload(self, ctx: commands.Context, cog_to_reload: str = None):
         processing = await ctx.send(f"{emoji.PROCESSING()}")
@@ -65,7 +110,7 @@ class General(commands.Cog):
         await processing.delete()
         await ctx.message.add_reaction(emoji.OK)
 
-    @commands.command(aliases=["u"])
+    @commands.command(aliases = ["u"], hidden = True)
     @commands.is_owner()
     async def update(self, ctx: commands.Context):
         processing = await ctx.send(f"{emoji.PROCESSING()} looking for update...")
@@ -98,7 +143,7 @@ class General(commands.Cog):
 
     @commands.command()
     async def info(self, ctx: commands.Context):
-        """Gets information about the bot"""
+        """get information about the bot"""
         wait = await ctx.send(f"{emoji.PROCESSING()} Loading information..")
 
         # make embed
@@ -149,55 +194,51 @@ class General(commands.Cog):
         await wait.delete()
         await ctx.send(embed = embed)
 
-    @commands.command()
+    @commands.command(usage = "*[command]")
     async def help(self, ctx: commands.Context, cmd: str = None):
-        """Gets information about commands"""
+        """see a list of commands"""
         embed = discord.Embed(color = colors.EMBED_BG)
 
         if cmd is None:
             # default embed to use
             embed.title = "Commands"
-            embed.description = "Use the dropdown menu to select a command category.\n(command options that have an asterisk in front of them are optional)"
+            embed.description = "choose a category below to see the commands for it"
 
-            # send message with dropdown
-            view = DropdownView(ctx)
+            # send message with buttons
+            view = HelpView(self.client, ctx)
             return await ctx.send(embed = embed, view = view)
 
-        cmd = cmd.lower()
-
-        with open("commands.json", "r") as f:
-            data = load(f)
+        command = self.client.get_command(cmd)
         
-        try:
-            # for every category and item in that category, if the item itself is equal to the command given, or if one of
-            # the item's "alt" values is equal to it, return both the name of the category and the item
-            cat, cmd = next(((cat, x) for cat, x in data.items() for x in data[cat] if cmd == x or data[cat][x]["alt"] is not None and any(cmd == alt for alt in data[cat][x]["alt"])))
-        except StopIteration:
-            # if neither the item nor any of the "alt" values matched the command 
+        if not command or command.hidden:
             return await ctx.send(err.HELP_NOT_FOUND)
 
-        usage = data[cat][cmd]["usage"]
+        embed = discord.Embed(
+            description = f"**.{command.name}** - {command.help}",
+            color = colors.EMBED_BG
+        )
 
-        # if the usage isn't nothing, format it
-        if usage is not None: usage_str = '`' + '` `'.join(usage.split()) + '`' if usage != '' else ''
-        else: usage_str = ""
+        if usage := command.usage:
+            if "*" in usage:
+                embed.set_footer(text = "* - optional")
 
-        description = data[cat][cmd]["desc"]
-        alt = data[cat][cmd]["alt"]
+            if "(" in usage:
+                att_index = usage.index("(")
+                att_types = usage[att_index:].strip("()")
+                usage = usage[:att_index]
 
-        embed.description = f"**.{cmd}** - {description}\n\nUsage: **.{cmd}** {usage_str}"
-        embed.set_footer(text = f"category: {cat}")
-        
-        # format alts if there are any
-        if alt is not None:
-            alt = ", .".join(x for x in alt)
-            embed.description += f"\nAliases: `.{alt}`"
+                embed.add_field(name = "takes:", value = att_types)
+
+            embed.insert_field_at(index = 0, name = "how to use:", value = f"`.{command.name} {usage}`".strip())
+
+        if command.aliases:
+            embed.add_field(name = "other names:", value = " ".join(f"`.{a}`" for a in command.aliases))
         
         await ctx.send(embed = embed)
 
-    @commands.command()
+    @commands.command(usage = "[channel] [message]")
     async def echo(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str = None):
-        """Sends a given message as itself"""
+        """repeats a message in the specified text channel"""
         # if nothing is given, throw an error
         if not msg and not ctx.message.attachments:
             raise commands.MissingRequiredArgument(ctx.command.params["msg"])
@@ -216,9 +257,9 @@ class General(commands.Cog):
         # react with ok
         await ctx.message.add_reaction(emoji.OK)
 
-    @commands.command(aliases=['t'])
+    @commands.command(aliases = ["t"], usage = "[tag] *[message]")
     async def tag(self, ctx: commands.Context, tag_name: str, *, tag_content: str = None):
-        """Creates/sends a tag"""
+        """sends/creates a tag containing a given message"""
         def get_attachment(ctx: commands.Context):
             # use the replied message if it's there
             msg = ctx.message.reference.resolved if ctx.message.reference and not ctx.message.attachments else ctx.message
@@ -270,9 +311,9 @@ class General(commands.Cog):
             else:
                 return await ctx.send(err.TAG_EXISTS)
 
-    @commands.command(aliases=['tagdel', 'tdel'])
+    @commands.command(aliases = ["tagdel", "tdel"], usage = "[tag]")
     async def tagdelete(self, ctx: commands.Context, tag: str):
-        """Deletes a given tag"""
+        """deletes the specified tag if it exists"""
         tag = str(tag).lower()
 
         db = database.Guild(ctx.guild)
@@ -290,9 +331,9 @@ class General(commands.Cog):
 
         await ctx.send(f"{emoji.OK} Removed tag `{tag}`")
     
-    @commands.command(aliases=['tlist', 'tags'])
+    @commands.command(aliases = ["tlist", "tags"])
     async def taglist(self, ctx: commands.Context):
-        """Lists every tag in the guild"""
+        """lists every tag in the server"""
         db = database.Guild(ctx.guild)
         doc = db.get()
 
@@ -313,10 +354,10 @@ class General(commands.Cog):
 
         await ctx.send(embed = embed)
     
-    @commands.command()
+    @commands.command(usage = "[channel] *[message]")
     @commands.has_permissions(administrator = True)
     async def welcome(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str = None):
-        """Sets the welcome message of the server"""
+        """sets the welcome message for the server"""
         db = database.Guild(ctx.guild)
 
         # if nothing is given, disable the welcome message by setting it as None

@@ -62,9 +62,9 @@ class Funny(commands.Cog):
             member = guild.get_member(event.user_id)
             await member.remove_roles(role)
 
-    @commands.command()
+    @commands.command(usage = "[message]")
     async def tweet(self, ctx: commands.Context, *, content: TweetContent):
-        """Tweets any message from discord"""
+        """tweets out a message"""
         status, media_ids = content
         
         # sends the tweet
@@ -79,9 +79,9 @@ class Funny(commands.Cog):
         view = ReplyView(ctx, msg, new_status.id)
         await msg.edit(view = view)
 
-    @commands.command()
+    @commands.command(usage = "[tweet-id]/latest [message]")
     async def reply(self, ctx: commands.Context, reply_to: Union[str, int], *, content: TweetContent):
-        """Replies to a given tweet"""
+        """replies to a given tweet by its url/id (or the latest tweet)"""
         status, media_ids = content
         is_chain = False
 
@@ -127,15 +127,14 @@ class Funny(commands.Cog):
         view = ReplyView(ctx, msg, new_status.id)
         await msg.edit(view = view)
         
-    @commands.command(aliases=['pf'])
+    @commands.command(aliases = ["pf"], usage = "profile/banner (image)")
     async def profile(self, ctx: commands.Context, kind: str):
-        """Changes the twitter account's profile picture/banner"""
+        """replaces the profile/banner of the twita account"""
         att = get_attachment_obj(ctx)
 
         if not att:
             return await ctx.send(err.NO_ATTACHMENT_FOUND)
 
-        # if an image is given
         if "image" in att.content_type and att.content_type.split("/")[1] not in ("gif", "apng"):
             processing = await ctx.send(f"{emoji.PROCESSING()} Resizing image...")
 
