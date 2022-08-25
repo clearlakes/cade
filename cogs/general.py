@@ -118,10 +118,10 @@ class General(commands.Cog):
         # get the last update's information
         # .decode('UTF-8') - convert byte string to regular text
         # .replace('\n', '') - replace newlines with an empty space
-        previous = await run_cmd("git rev-parse --short HEAD", decode = True)[0]
+        previous = (await run_cmd("git rev-parse --short HEAD", decode = True))[0]
 
         # check if on the latest commit
-        if (utd := "already up to date") in await run_cmd("git pull", decode = True)[0]:
+        if (utd := "already up to date") in (await run_cmd("git pull", decode = True))[0]:
             return await processing.edit(f"**{utd}**")
 
         # reload cogs after update
@@ -129,7 +129,7 @@ class General(commands.Cog):
             self.client.reload_extension(f"cogs.{cog}")
 
         # get information about new update
-        commit_data = await run_cmd("git log -1 --pretty=format:%h%x09%s", decode = True)[0].split('\t')
+        commit_data = (await run_cmd("git log -1 --pretty=format:%h%x09%s", decode = True))[0].split('\t')
         
         url = lambda commit: f"https://github.com/source64/cade/commit/{commit}"
 
@@ -178,10 +178,10 @@ class General(commands.Cog):
         await run_cmd("git fetch")
 
         # get the total number of commits so far
-        commit_num = await run_cmd("git rev-list --all --count", decode = True)[0]
+        commit_num = (await run_cmd("git rev-list --all --count", decode = True))[0]
 
         # get the commit hash, timestamp, and message
-        commit_data = await run_cmd("git log -1 --pretty=format:%h%x09%at%x09%s", decode = True)[0].split('\t')
+        commit_data = (await run_cmd("git log -1 --pretty=format:%h%x09%at%x09%s", decode = True))[0].split('\t')
 
         # url that links to the commit
         commit_url = f"https://github.com/source64/cade/commit/{commit_data[0]}"
