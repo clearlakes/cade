@@ -1,24 +1,31 @@
 import discord
 from discord.ext import commands
 
+from utils.functions import (
+    format_time,
+    send_media,
+    get_media,
+    run_async,
+    run_cmd
+)
 from utils.image import EditImage, EditGif, create_caption_text, get_size
-from utils.functions import format_time, send_media, get_media, run
 from utils.video import EditVideo, get_size as get_video_size
 from utils.dataclasses import reg, err, ff, emoji, colors
 from utils.views import ChoiceView
 
 from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
-from youtube_dl import YoutubeDL
 from asyncio import TimeoutError
-from functools import partial
-from io import BytesIO
+from yt_dlp import YoutubeDL
 
 class Media(commands.Cog):
     def __init__(self, client):
         self.client: commands.Bot = client
 
-    async def run_async(self, func, *args) -> BytesIO:
-        return await self.client.loop.run_in_executor(None, partial(func, *args))
+    def yt_extract(self, url: str, audio_only: bool = True):
+        yt_format = "bestaudio" if audio_only else "best"
+
+        with YoutubeDL({"format": yt_format, "quiet": True}) as ydl:
+            return ydl.extract_info(url, download = False)
 
     @commands.command(usage = "(image)")
     async def jpeg(self, ctx: commands.Context):
@@ -29,7 +36,7 @@ class Media(commands.Cog):
         res, error = await get_media(ctx, ["image"])
         if error: return await processing.edit(content = error)
 
-        result = await self.run_async(EditImage(res.obj).jpeg)
+        result = await run_async(EditImage(res.obj).jpeg)
 
         # send the created image
         try:
@@ -84,7 +91,7 @@ class Media(commands.Cog):
         res, error = await get_media(ctx, ["image"])
         if error: return await processing.edit(content = error, embed = None)
 
-        result = await self.run_async(EditImage(res.obj).resize_even)
+        result = await run_async(EditImage(res.obj).resize_even)
 
         # edit the embed to ask for audio
         embed.title = f"{emoji.WAITING} Send a youtube url or an mp3 file to use as the audio"
@@ -115,8 +122,7 @@ class Media(commands.Cog):
 
             # get video information
             try:
-                with YoutubeDL({'format': 'bestaudio'}) as ydl:
-                    video = ydl.extract_info(audio, download = False)
+                video = await run_async(self.yt_extract, audio)
             except Exception:
                 await processing.delete()
                 return await ctx.send(err.YOUTUBE_ERROR)
@@ -135,7 +141,7 @@ class Media(commands.Cog):
                 audio_bytes = await audio.read()
 
                 # get mp3 duration
-                duration, returncode = run(ff.GET_DURATION(temp.name))
+                duration, returncode = await run_cmd(ff.GET_DURATION(temp.name))
 
                 if returncode != 0:
                     return await ctx.send(err.FFMPEG_ERROR)
@@ -169,7 +175,7 @@ class Media(commands.Cog):
 
             source = '-' if audio_type == "file" else stream_url
 
-            _, returncode = run(ff.IMGAUDIO(temp, source, length), audio_bytes)
+            _, returncode = await run_cmd(ff.IMGAUDIO(temp, source, length), audio_bytes)
 
             if returncode != 0:
                 await processing.delete()
@@ -207,7 +213,7 @@ class Media(commands.Cog):
 
         # if the attachment is a video
         if "video" in res.type:
-            result = await self.run_async(EditVideo(res.obj).resize, (width, height))
+            result = await EditVideo(res.obj).resize(width, height)
 
             if not result:
                 return await processing.edit(content = err.FFMPEG_ERROR)
@@ -215,7 +221,7 @@ class Media(commands.Cog):
             await ctx.send(file = discord.File(result, f"{res.name}.mp4"))
             return await processing.delete()
 
-        orig_width, orig_height = await self.run_async(get_size, res.obj)
+        orig_width, orig_height = await run_async(get_size, res.obj)
         
         # calculate 'auto' sizes
         if height == 'auto':
@@ -229,10 +235,10 @@ class Media(commands.Cog):
 
         # resize the attachment depending on file type
         if "gif" in res.type:
-            result = await self.run_async(EditGif(res.obj).resize, new_size)
+            result = await run_async(EditGif(res.obj).resize, new_size)
             filename = f"{res.name}.gif"
         else:
-            result = await self.run_async(EditImage(res.obj).resize, new_size)
+            result = await run_async(EditImage(res.obj).resize, new_size)
             filename = f"{res.name}.png"
 
         # send the resized attachment
@@ -252,27 +258,29 @@ class Media(commands.Cog):
         res, error = await get_media(ctx, ["image", "video"], allow_gifs = True, allow_urls = True)
         if error: return await processing.edit(content = error)
 
-        get_size_func = get_size if "image" in res.type else get_video_size
-        size = await self.run_async(get_size_func, res.obj)
+        if "image" in res.type:
+            size = await run_async(get_size, res.obj)
+        else:
+            size = await get_video_size(res.obj)
 
         if not size:
             return await ctx.send(err.FFMPEG_ERROR)
 
         # now we start generating the caption image
-        caption = await self.run_async(create_caption_text, text, size[0])
+        caption = await run_async(create_caption_text, text, size[0])
 
         # run respective functions for captioning gifs/images/videos
 
         if "gif" in res.type:
-            result = await self.run_async(EditGif(res.obj).caption, caption)
+            result = await run_async(EditGif(res.obj).caption, caption)
             filename = f"{res.name}.gif"
 
         elif "image" in res.type:
-            result = await self.run_async(EditImage(res.obj).caption, caption)
+            result = await run_async(EditImage(res.obj).caption, caption)
             filename = f"{res.name}.png"
 
         else:
-            result = await self.run_async(EditVideo(res.obj).caption, caption)
+            result = await EditVideo(res.obj).caption(caption)
 
             if not result:
                 return await ctx.send(err.FFMPEG_ERROR)
@@ -291,15 +299,15 @@ class Media(commands.Cog):
         if error: return await processing.edit(content = error)
 
         if "gif" in res.type:
-            result = await self.run_async(EditGif(res.obj).uncaption)
+            result = await run_async(EditGif(res.obj).uncaption)
             filename = f"{res.name}.gif"
 
         elif "image" in res.type:
-            result = await self.run_async(EditImage(res.obj).uncaption)
+            result = await run_async(EditImage(res.obj).uncaption)
             filename = f"{res.name}.png"
 
         else:
-            result = await self.run_async(EditVideo(res.obj).uncaption)
+            result = await EditVideo(res.obj).uncaption()
 
             if not result:
                 return await ctx.send(err.FFMPEG_ERROR)
@@ -356,16 +364,10 @@ class Media(commands.Cog):
 
         await msg.edit(content = f"{emoji.PROCESSING()} downloading {view.choice}...", view = None)
 
-        # get the stream url according to the user's choice            
-        if view.choice == "video":
-            with YoutubeDL({'format': 'best'}) as ydl:
-                video = ydl.extract_info(url, download = False)
-                stream_url = video['url']
-        else:
-            with YoutubeDL({'format': 'bestaudio'}) as ydl:
-                video = ydl.extract_info(url, download = False)
-                stream_url = video['formats'][0]['url']
+        # get the stream url according to the user's choice
+        video = await run_async(self.yt_extract, url, view.choice == "audio")
 
+        stream_url = video['url']
         video_title = video['title']
         suffix = '.mp3' if view.choice == 'audio' else '.mp4'
 
@@ -377,7 +379,7 @@ class Media(commands.Cog):
             else:
                 cmd = ff.GET_FULL_STREAM(stream_url, temp.name)
             
-            _, returncode = run(cmd)
+            _, returncode = await run_cmd(cmd)
 
             # if the command failed
             if returncode != 0:

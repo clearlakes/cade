@@ -147,10 +147,9 @@ class PlaylistView(discord.ui.View):
             bool(self.guild_playlists[self.playlist])
         )
 
-    @property
-    def track_embed(self):
+    async def get_track_embed(self):
         """Generates the track list for the playlist"""
-        self.guild_playlists = self.db.get().playlists
+        self.guild_playlists = (await self.db.get()).playlists
 
         embed = discord.Embed(
             title = self.playlist,
@@ -214,11 +213,11 @@ class PlaylistView(discord.ui.View):
             await message.delete()
 
             # add track information and the user who added it
-            self.db.push(f"playlists.{self.playlist}", [tracks[0]._raw, interaction.user.id])
+            await self.db.push(f"playlists.{self.playlist}", [tracks[0]._raw, interaction.user.id])
             tracks_added += 1
 
             await interaction.edit_original_response(content = f"{prompt}\n - Added **{tracks[0].title}**")
-            await interaction.message.edit(embed = self.track_embed, view = self.updated_view)
+            await interaction.message.edit(embed = await self.get_track_embed(), view = self.updated_view)
         
         await interaction.edit_original_response(content = f"{emoji.OK} added {tracks_added} track(s)", view = None)
 
@@ -286,18 +285,18 @@ class PlaylistView(discord.ui.View):
             await message.delete()
 
             # remove track from playlist
-            self.db.pull(f"playlists.{self.playlist}", track_entry)
+            await self.db.pull(f"playlists.{self.playlist}", track_entry)
             tracks_removed += 1
 
             if not self.playlist_exists:
                 # stop and delete playlist entirely if it's now empty 
-                self.db.del_obj("playlists", self.playlist)
+                await self.db.del_obj("playlists", self.playlist)
                 break
 
             track_title = track_entry[0]['info']['title']
 
             await interaction.edit_original_response(content = f"{prompt}\n - Removed **{track_title}**")
-            await interaction.message.edit(embed = self.track_embed, view = self.updated_view)
+            await interaction.message.edit(embed = await self.get_track_embed(), view = self.updated_view)
 
         await interaction.edit_original_response(content = f"{emoji.OK} removed {tracks_removed} track(s)", view = None)
 

@@ -7,16 +7,17 @@ authors = ["source64 <65923236+source64@users.noreply.github.com>"]
 [tool.poetry.dependencies]
 python = "^3.9"
 lavalink = "^4.0.1"
-youtube_dl = "^2021.12.17"
 Pillow = "^9.2.0"
 opencv-python = "^4.6.0"
 Wand = "^0.6.9"
 async-spotify = "^0.4.4"
 tweepy = "^4.10.0"
-pymongo = {extras = ["srv"], version = "^4.2.0"}
 pilmoji = "^2.0.2"
 "discord.py" = {extras = ["speed"], version = "^2.0.0"}
 discord-ext-menus = {git = "https://github.com/Rapptz/discord-ext-menus"}
+yt-dlp = "^2022.8.19"
+motor = "^3.0.0"
+dnspython = "^2.2.1"
 
 [tool.poetry.dev-dependencies]
 

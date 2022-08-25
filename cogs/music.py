@@ -250,7 +250,7 @@ class Music(commands.Cog):
     async def playlist(self, ctx: commands.Context, playlist: str = None):
         """lists every playlist and the controls for each"""
         db = database.Guild(ctx.guild)
-        guild = db.get()
+        guild = await db.get()
 
         if not playlist:
             embed = discord.Embed(
@@ -266,7 +266,7 @@ class Music(commands.Cog):
 
         # show playlist info if one is specified
         view = PlaylistView(self.lavalink, ctx, playlist)
-        await ctx.send(embed = view.track_embed, view = view.updated_view)
+        await ctx.send(embed = await view.get_track_embed(), view = view.updated_view)
     
     @commands.command(aliases = ["pp"])
     async def pause(self, ctx: commands.Context):

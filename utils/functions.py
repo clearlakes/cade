@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord.ext import commands
 
@@ -7,6 +8,7 @@ from utils.clients import Clients, Keys
 from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
 from subprocess import Popen, PIPE
 from time import strftime, gmtime
+from functools import partial
 from os.path import splitext
 from typing import Union
 from shlex import split
@@ -161,7 +163,7 @@ async def get_tweet_attachments(ctx: Union[commands.Context, discord.Interaction
             continue
         else:
             if att.filename.lower().endswith("mov"):
-                att_bytes = mov_to_mp4(att_bytes)
+                att_bytes = await mov_to_mp4(att_bytes)
 
                 if not att_bytes:
                     media_type = None
@@ -234,13 +236,13 @@ async def _upload_to_server(b: BytesIO, mime: str):
 
     return f"{domain}/image/{id.upper()}.{ext}"
 
-def mov_to_mp4(file: BytesIO):
+async def mov_to_mp4(file: BytesIO):
     """Converts mov files to mp4"""
     with TemporaryDirectory() as temp:
         with open(f'{temp}/input.mov', 'wb') as input:
             input.write(file.getvalue())
         
-        _, returncode = run(ff.MOV_TO_MP4(temp))
+        _, returncode = await run_cmd(ff.MOV_TO_MP4(temp))
 
         if returncode != 0:
             return None
@@ -253,11 +255,21 @@ def mov_to_mp4(file: BytesIO):
 def get_yt_thumbnail(identifier: str):
     return f"https://img.youtube.com/vi/{identifier}/0.jpg"
 
-def run(cmd: str, b1: bytes = None, decode: bool = False):
-    p = Popen(split(cmd), stdin = PIPE, stdout = PIPE)
-    result: bytes = p.communicate(input = b1)[0]
+async def run_async(func, *args):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, partial(func, *args))
 
-    return (result.decode('utf-8').strip('\n') if decode else result), p.returncode
+async def run_cmd(cmd: str, b1: bytes = None, decode: bool = False):
+    def _run(cmd: str, b1: bytes = None, decode: bool = False):
+        p = Popen(split(cmd), stdin = PIPE, stdout = PIPE)
+        result: bytes = p.communicate(input = b1)[0]
+
+        if decode:
+            result = result.decode('utf-8').strip('\n')
+
+        return result, p.returncode
+
+    return await run_async(_run, cmd, b1, decode)
 
 async def send_media(ctx: commands.Context, msg: discord.Message, content: BytesIO, filetype: str, filename: str):
     """Sends the given media to discord or the image server depending on its size"""

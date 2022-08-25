@@ -1,13 +1,13 @@
 import discord
 import configparser
-import pymongo
+import motor.motor_asyncio
 
 # load config file
 _config = configparser.ConfigParser()
 _config.read("config.ini")
 
 _mongo_url = str(_config.get("server", "mongodb"))
-_mongo_client = pymongo.MongoClient(_mongo_url)
+_mongo_client = motor.motor_asyncio.AsyncIOMotorClient(_mongo_url)
 _db = _mongo_client.cade.main
 
 class Document:
@@ -18,7 +18,7 @@ class Document:
 
             self.guild_id: int = get('guild_id', None)
             self.playlists: dict = get('playlists', {})
-            self.welcome: dict = get('welcome', [])
+            self.welcome: list = get('welcome', [])
             self.tags: dict = get('tags', {})
 
 class Guild:
@@ -26,41 +26,41 @@ class Guild:
         self.guild = {'guild_id': guild.id}
         self.id = guild.id
 
-    def add(self):
+    async def add(self):
         """Adds a guild to the database"""
-        _db.insert_one({
+        await _db.insert_one({
             'guild_id': self.id,
             'tags': {},
             'playlists': {},
             'welcome': [None, None],
         })
     
-    def remove(self):
+    async def remove(self):
         """Removes a guild from the database"""
-        _db.delete_one(self.guild)
+        await _db.delete_one(self.guild)
 
-    def get(self):
+    async def get(self):
         """Returns the guild's database entry as a class"""
-        _doc = _db.find_one(self.guild)
+        _doc = await _db.find_one(self.guild)
         return Document(_doc) if _doc else None
 
-    def set(self, field: str, value):
+    async def set(self, field: str, value):
         """Sets a field's value"""
-        _db.update_one(self.guild, {'$set': {field: value}})
+        await _db.update_one(self.guild, {'$set': {field: value}})
 
-    def push(self, field: str, value):
+    async def push(self, field: str, value):
         """Adds a value to an array field"""
-        _db.update_one(self.guild, {'$push': {field: value}})
+        await _db.update_one(self.guild, {'$push': {field: value}})
     
-    def pull(self, field: str, value):
+    async def pull(self, field: str, value):
         """Removes a value from an array field"""
-        _db.update_one(self.guild, {'$pull': {field: value}})
+        await _db.update_one(self.guild, {'$pull': {field: value}})
     
-    def add_obj(self, field: str, key: str, value):
+    async def add_obj(self, field: str, key: str, value):
         """Adds a value to a dictionary field"""
-        _db.update_one(self.guild, {'$set': {f'{field}.{key}': value}})
+        await _db.update_one(self.guild, {'$set': {f'{field}.{key}': value}})
     
-    def del_obj(self, field: str, key: str):
+    async def del_obj(self, field: str, key: str):
         """Removes a value from a dictionary (or array) field"""
-        _db.update_one(self.guild, {'$unset': {f'{field}.{key}': 1}})
-        _db.update_one(self.guild, {'$pull': {f'{field}.{key}': None}})
+        await _db.update_one(self.guild, {'$unset': {f'{field}.{key}': 1}})
+        await _db.update_one(self.guild, {'$pull': {f'{field}.{key}': None}})

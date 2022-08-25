@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 
 from utils.dataclasses import reg, err, colors, emoji, CAT
+from utils.functions import run_cmd
 from utils.views import HelpView
-from utils.functions import run
 from utils import database
 
 from datetime import timedelta
@@ -16,16 +16,16 @@ class General(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
         # add guild to database on join
-        database.Guild(guild).add()
+        await database.Guild(guild).add()
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
         # remove guild from database on leave
-        database.Guild(guild).remove()
+        await database.Guild(guild).remove()
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        doc = database.Guild(member.guild).get()
+        doc = await database.Guild(member.guild).get()
 
         # if the welcome field wasn't found
         if doc.welcome is None:
@@ -118,10 +118,10 @@ class General(commands.Cog):
         # get the last update's information
         # .decode('UTF-8') - convert byte string to regular text
         # .replace('\n', '') - replace newlines with an empty space
-        previous = run("git rev-parse --short HEAD", decode = True)[0]
+        previous = await run_cmd("git rev-parse --short HEAD", decode = True)[0]
 
         # check if on the latest commit
-        if (utd := "already up to date") in run("git pull", decode = True)[0]:
+        if (utd := "already up to date") in await run_cmd("git pull", decode = True)[0]:
             return await processing.edit(f"**{utd}**")
 
         # reload cogs after update
@@ -129,7 +129,7 @@ class General(commands.Cog):
             self.client.reload_extension(f"cogs.{cog}")
 
         # get information about new update
-        commit_data = run("git log -1 --pretty=format:%h%x09%s", decode = True)[0].split('\t')
+        commit_data = await run_cmd("git log -1 --pretty=format:%h%x09%s", decode = True)[0].split('\t')
         
         url = lambda commit: f"https://github.com/source64/cade/commit/{commit}"
 
@@ -175,13 +175,13 @@ class General(commands.Cog):
         embed.add_field(name="Commands", value=f"`{num_of_commands}`")
 
         # get latest metadata
-        run("git fetch")
+        await run_cmd("git fetch")
 
         # get the total number of commits so far
-        commit_num = run("git rev-list --all --count", decode = True)[0]
+        commit_num = await run_cmd("git rev-list --all --count", decode = True)[0]
 
         # get the commit hash, timestamp, and message
-        commit_data = run("git log -1 --pretty=format:%h%x09%at%x09%s", decode = True)[0].split('\t')
+        commit_data = await run_cmd("git log -1 --pretty=format:%h%x09%at%x09%s", decode = True)[0].split('\t')
 
         # url that links to the commit
         commit_url = f"https://github.com/source64/cade/commit/{commit_data[0]}"
@@ -274,7 +274,7 @@ class General(commands.Cog):
                 return msg.attachments[0].url
         
         db = database.Guild(ctx.guild)
-        doc = db.get()
+        doc = await db.get()
 
         # if 'tags' is not in guild database, use an empty dict
         data = doc.tags if doc.tags else {}  
@@ -286,7 +286,7 @@ class General(commands.Cog):
             # if an attachment is given
             if att_url != False:
                 if tag_name not in data.keys():
-                    db.add_obj('tags', tag_name, att_url)
+                    await db.add_obj('tags', tag_name, att_url)
                     return await ctx.send(f"{emoji.OK} Added tag `{tag_name}`")
 
             # post the tag if it exists, or if the tag was found from the last if statement
@@ -306,7 +306,7 @@ class General(commands.Cog):
                 else:
                     new_tag = f"{att_url} {tag_content}"
 
-                db.add_obj('tags', tag_name, new_tag)
+                await db.add_obj('tags', tag_name, new_tag)
                 return await ctx.send(f"{emoji.OK} Added tag `{tag_name}`")
             else:
                 return await ctx.send(err.TAG_EXISTS)
@@ -317,7 +317,7 @@ class General(commands.Cog):
         tag = str(tag).lower()
 
         db = database.Guild(ctx.guild)
-        doc = db.get()
+        doc = await db.get()
 
         # if 'tags' is not in guild database, use an empty dict
         tags = doc.tags if doc.tags else {}
@@ -327,7 +327,7 @@ class General(commands.Cog):
             return await ctx.send(err.TAG_DOESNT_EXIST)
         
         # remove the tag
-        db.del_obj('tags', tag)
+        await db.del_obj('tags', tag)
 
         await ctx.send(f"{emoji.OK} Removed tag `{tag}`")
     
@@ -335,7 +335,7 @@ class General(commands.Cog):
     async def taglist(self, ctx: commands.Context):
         """lists every tag in the server"""
         db = database.Guild(ctx.guild)
-        doc = db.get()
+        doc = await db.get()
 
         # if 'tags' is empty or not in the guild database
         if not doc.tags:
@@ -362,7 +362,7 @@ class General(commands.Cog):
 
         # if nothing is given, disable the welcome message by setting it as None
         if not msg and not ctx.message.attachments:
-            db.set('welcome', [None, None])
+            await db.set('welcome', [None, None])
             return await ctx.send(f"{emoji.OK} disabled welcome message")
 
         # get attachment url if there is one
@@ -371,7 +371,7 @@ class General(commands.Cog):
             msg = msg + '\n' + att.url if msg else att.url
 
         # update 'welcome' with the given message and channel id
-        db.set('welcome', [msg, channel.id])
+        await db.set('welcome', [msg, channel.id])
         
         await ctx.send(f"{emoji.OK} set the welcome message and channel")
 
