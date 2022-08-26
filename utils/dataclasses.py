@@ -1,3 +1,4 @@
+from discord import ActivityType as act
 from dataclasses import dataclass
 import random
 import re
@@ -11,6 +12,21 @@ PAD_EVEN = "-vf pad=\"width=ceil(iw/2)*2:height=ceil(ih/2)*2\""
 
 # error prefix
 E = "<a:fire:1004208282585530408> **error:**"
+
+STATUS = lambda : random.choice([
+    [act.listening, "to relaxing white noise 10 hours"],
+    [act.listening, "to cheezer"],
+    [act.watching, "food battle 2014"],
+    [act.playing, "there's the hat, ohhh he went too far! is this guy a rookie"],
+    [act.playing, "let me out!!!! get me out of here"],
+    [act.playing, "coming back from applebees"],
+    [act.playing, "stole 418852014401 bobux"],
+    [act.playing, "aint that nathaniel b"],
+    [act.playing, "going to applebees"],
+    [act.playing, "i miss my wife"],
+    [act.playing, "i need money"],
+    [act.playing, "mario"]
+])
 
 CAT = lambda : random.choice([
     "https://i.imgur.com/1WCgVB5.jpg", 

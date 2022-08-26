@@ -1,7 +1,7 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
-from utils.dataclasses import err
+from utils.dataclasses import err, STATUS
 
 import configparser
 import aiohttp
@@ -13,11 +13,7 @@ class Cade(commands.Bot):
         super().__init__(
             help_command = None,
             command_prefix = commands.when_mentioned_or('.'),
-            intents = discord.Intents.all(),
-            activity = discord.Activity(
-                type = discord.ActivityType.watching, 
-                name = "food battle 2014"
-            )
+            intents = discord.Intents.all()
         )
 
         self.init_time = time.time()
@@ -34,11 +30,23 @@ class Cade(commands.Bot):
         for cog in ["funny", "general", "media", "music"]:
             await self.load_extension(f"cogs.{cog}")
 
+        self.random_activity.start()
+
     async def on_ready(self):
         self.log = logging.getLogger('discord')
         self.log.name = ""
 
         self.log.warning("cade ready to rumble")
+
+    @tasks.loop(minutes = 10)
+    async def random_activity(self):
+        # change activity every 10 minutes
+        type, name = STATUS()
+        await self.change_presence(activity = discord.Activity(type = type, name = name))
+
+    @random_activity.before_loop
+    async def _before(self):
+        await self.wait_until_ready()
 
     async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
