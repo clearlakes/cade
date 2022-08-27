@@ -100,10 +100,10 @@ class General(commands.Cog):
             # reload all cogs if nothing is specified
             if cog_to_reload is None:
                 for cog in ["funny", "general", "media", "music"]:
-                    self.client.reload_extension(f"cogs.{cog}")
+                    await self.client.reload_extension(f"cogs.{cog}")
             else:
                 # reload the specified extension
-                self.client.reload_extension(f"cogs.{cog_to_reload.lower()}")
+                await self.client.reload_extension(f"cogs.{cog_to_reload.lower()}")
         except:
             return await ctx.send(err.COG_RELOAD_ERROR)
         
@@ -121,12 +121,12 @@ class General(commands.Cog):
         previous = (await run_cmd("git rev-parse --short HEAD", decode = True))[0]
 
         # check if on the latest commit
-        if (utd := "already up to date") in (await run_cmd("git pull", decode = True))[0]:
-            return await processing.edit(f"**{utd}**")
+        if (utd := "Already up to date.") in (await run_cmd("git pull", decode = True))[0]:
+            return await processing.edit(content = f"**{utd.lower().strip('.')}**")
 
         # reload cogs after update
         for cog in ["funny", "general", "media", "music"]:
-            self.client.reload_extension(f"cogs.{cog}")
+            await self.client.reload_extension(f"cogs.{cog}")
 
         # get information about new update
         commit_data = (await run_cmd("git log -1 --pretty=format:%h%x09%s", decode = True))[0].split('\t')
@@ -136,7 +136,8 @@ class General(commands.Cog):
         await processing.delete()
 
         embed = discord.Embed(
-            description = f"{emoji.OK} **updated from [`{previous}`]({url(previous)}) to [`{commit_data[0]}`]({url(commit_data[0])})**"
+            description = f"{emoji.OK} **updated from [`{previous}`]({url(previous)}) to [`{commit_data[0]}`]({url(commit_data[0])})**",
+            color = colors.EMBED_BG
         )
 
         await ctx.send(embed = embed)
