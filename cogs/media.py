@@ -14,8 +14,8 @@ from utils.dataclasses import reg, err, ff, emoji, colors
 from utils.views import ChoiceView
 
 from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
+from yt_dlp import YoutubeDL, DownloadError
 from asyncio import TimeoutError
-from yt_dlp import YoutubeDL
 
 class Media(commands.Cog):
     def __init__(self, client):
@@ -24,8 +24,12 @@ class Media(commands.Cog):
     def yt_extract(self, url: str, audio_only: bool = True):
         yt_format = "bestaudio" if audio_only else "best"
 
-        with YoutubeDL({"format": yt_format, "quiet": True}) as ydl:
-            return ydl.extract_info(url, download = False)
+        try:
+            with YoutubeDL({"format": yt_format, "quiet": True}) as ydl:
+                return ydl.extract_info(url, download = False)
+        except DownloadError as e:
+            # clean error and include it in the message
+            return "(from youtube) " + f"\"{reg.color.sub('', e.msg).split(':')[2].strip()}\""
 
     @commands.command(usage = "(image)")
     async def jpeg(self, ctx: commands.Context):
@@ -121,11 +125,11 @@ class Media(commands.Cog):
             audio_bytes = None
 
             # get video information
-            try:
-                video = await run_async(self.yt_extract, audio)
-            except Exception:
-                await processing.delete()
-                return await ctx.send(err.YOUTUBE_ERROR)
+            video = await run_async(self.yt_extract, audio)
+
+            if type(video) is str:
+                error_msg = video
+                return await ctx.send(err.YT_ERROR(error_msg))
 
             stream_url = video['url']
             duration = video['duration']
@@ -367,6 +371,10 @@ class Media(commands.Cog):
         # get the stream url according to the user's choice
         video = await run_async(self.yt_extract, url, view.choice == "audio")
 
+        if type(video) is str:
+            error_msg = video
+            return await msg.edit(content = err.YT_ERROR(error_msg))
+
         stream_url = video['url']
         video_title = video['title']
         suffix = '.mp3' if view.choice == 'audio' else '.mp4'
@@ -384,7 +392,7 @@ class Media(commands.Cog):
             # if the command failed
             if returncode != 0:
                 await msg.delete()
-                return await ctx.send(err.YOUTUBE_ERROR)
+                return await ctx.send(err.YT_ERROR("can get info just can't download"))
             
             # send the downloaded file
             try:

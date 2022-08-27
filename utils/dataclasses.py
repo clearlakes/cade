@@ -67,6 +67,7 @@ class reg:
     youtube = re.compile(r'https?:\/\/(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(watch|v|embed|shorts|playlist)?(?:\.php)?(?:\?(?:v=|list=)|\/))([a-zA-Z0-9\_-]+)') # group 1: type, group 2: id
     twitter = re.compile(r'https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)')  # group 1: handle, group 2: status id
     tenor = re.compile(r'https?:\/\/tenor.com\/view\/.*-(\d+)')  # group 1: tenor id
+    color = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
 @dataclass
 class ff:
@@ -117,7 +118,7 @@ class err:
     TAG_EXISTS =            f"{E} that tag already exists"
     NO_TAGS_AT_ALL =        f"{E} no tags were found"
     CANT_SEND_FILE =        f"{E} could not send the file for some reason"
-    YOUTUBE_ERROR =         f"{E} could not get video information for some reason"
+    YT_ERROR = lambda e:    f"{E} could not get video: {e}"
     AUDIO_MAX_LENGTH =      f"{E} audio length is too long (max: 30 minutes)"
     FILE_MAX_SIZE =         f"{E} size too large (max: 2000px)"
     FFMPEG_ERROR =          f"{E} processing the command failed for some reason"
