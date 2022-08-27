@@ -14,8 +14,8 @@ PAD_EVEN = "-vf pad=\"width=ceil(iw/2)*2:height=ceil(ih/2)*2\""
 E = "<a:fire:1004208282585530408> **error:**"
 
 STATUS = lambda : random.choice([
-    [act.listening, "to relaxing white noise 10 hours"],
-    [act.listening, "to cheezer"],
+    [act.listening, "relaxing white noise 10 hours"],
+    [act.listening, "cheezer"],
     [act.watching, "food battle 2014"],
     [act.playing, "there's the hat, ohhh he went too far! is this guy a rookie"],
     [act.playing, "let me out!!!! get me out of here"],
