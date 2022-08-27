@@ -7,10 +7,10 @@ from utils.clients import Clients, Keys
 
 from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
 from subprocess import Popen, PIPE
+from typing import Mapping, Union
 from time import strftime, gmtime
 from functools import partial
 from os.path import splitext
-from typing import Union
 from shlex import split
 from io import BytesIO
 from PIL import Image
@@ -253,13 +253,16 @@ async def mov_to_mp4(file: BytesIO):
         return result
 
 def get_yt_thumbnail(identifier: str):
+    """Gets a link to the thumbnail of the youtube video"""
     return f"https://img.youtube.com/vi/{identifier}/0.jpg"
 
 async def run_async(func, *args):
+    """Runs blocking functions in async"""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, partial(func, *args))
 
 async def run_cmd(cmd: str, b1: bytes = None, decode: bool = False):
+    """Executes ffmpeg/git commands and returns the output"""
     def _run(cmd: str, b1: bytes = None, decode: bool = False):
         p = Popen(split(cmd), stdin = PIPE, stdout = PIPE)
         result: bytes = p.communicate(input = b1)[0]
@@ -288,3 +291,44 @@ async def send_media(ctx: commands.Context, msg: discord.Message, content: Bytes
             return await msg.edit(content = err.CANT_SEND_FILE)
     
     await msg.delete()
+
+def generate_cmd_list(cogs: Mapping[str, commands.Cog]):
+    """Generates the command list (commands.md)"""
+    cool_fire = "<img src='https://i.imgur.com/yxm0XNL.gif' width='20'>"
+
+    markdown = "\n".join([
+        f"# {cool_fire} cade commands {cool_fire}", 
+        "arguments starting with `*` are optional<br>",
+        "(commands are linked to where their code is)"
+    ]) + "\n\n"
+
+    # add links to command sections
+    markdown += "go to:&nbsp; " + " • ".join(f"[**{c}**](#{c.lower()})" for c in cogs) + "\n"
+
+    # somewhat hacky way to generate a command list (commands.md)
+    for cog in reversed(cogs.values()):  # reversed so that funny cog is at the bottom
+        cog_name = cog.qualified_name
+        cog_filename = f"cogs/{cog_name.lower()}.py"
+
+        markdown += f"\n### {cog_name}\n"
+
+        if cog_name == "Funny":
+            markdown += "> note: these commands are specific to funny museum\n"
+
+        commands = [c for c in cog.get_commands() if not c.hidden]
+
+        for cmd in commands:
+            # get line number of command function
+            with open(cog_filename) as f:
+                content = f.readlines()
+                line_num = [x for x in range(len(content)) if f"def {cmd.name}(" in content[x]][0]
+
+            line = f"https://github.com/source64/cade/blob/main/{cog_filename}#L{line_num}"
+
+            markdown += f"- [**`.{cmd.name}`**]({line}) - {cmd.help}\n"
+
+            if cmd.usage:
+                markdown += f"\t- how to use: `.{cmd.name} {cmd.usage}`\n"
+
+    with open("commands.md", "w") as f:
+        f.write(markdown)

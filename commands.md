@@ -37,17 +37,17 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 	- how to use: `.get [youtube-url] *[start-time] *[end-time]`
 
 ### General
-- [**`.info`**](https://github.com/source64/cade/blob/main/cogs/general.py#L144) - get information about the bot
-- [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L197) - see a list of commands
+- [**`.info`**](https://github.com/source64/cade/blob/main/cogs/general.py#L108) - get information about the bot
+- [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L161) - see a list of commands
 	- how to use: `.help *[command]`
-- [**`.echo`**](https://github.com/source64/cade/blob/main/cogs/general.py#L239) - repeats a message in the specified text channel
+- [**`.echo`**](https://github.com/source64/cade/blob/main/cogs/general.py#L203) - repeats a message in the specified text channel
 	- how to use: `.echo [channel] [message]`
-- [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L260) - sends/creates a tag containing a given message
+- [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L224) - sends/creates a tag containing a given message
 	- how to use: `.tag [tag] *[message]`
-- [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L314) - deletes the specified tag if it exists
+- [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L278) - deletes the specified tag if it exists
 	- how to use: `.tagdelete [tag]`
-- [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L334) - lists every tag in the server
-- [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L358) - sets the welcome message for the server
+- [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L298) - lists every tag in the server
+- [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L322) - sets the welcome message for the server
 	- how to use: `.welcome [channel] *[message]`
 
 ### Funny

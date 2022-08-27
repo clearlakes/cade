@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 
+from utils.functions import run_cmd, generate_cmd_list
 from utils.dataclasses import err, STATUS
 
 import configparser
@@ -23,11 +24,12 @@ class Cade(commands.Bot):
         config.read("config.ini")
 
         self.token = str(config.get("server", "token"))
+        self.cog_files = ["funny", "general", "media", "music"]
     
     async def setup_hook(self):
         self.session = aiohttp.ClientSession(loop = self.loop)
 
-        for cog in ["funny", "general", "media", "music"]:
+        for cog in self.cog_files:
             await self.load_extension(f"cogs.{cog}")
 
         self.random_activity.start()
@@ -57,6 +59,13 @@ class Cade(commands.Bot):
         raise error
     
     async def close(self):
+        for cog in self.cog_files:
+            # generate command list again if any changes were made
+            if (await run_cmd(f"git diff --quiet cogs/{cog}.py"))[1]:
+                self.log.info("generating commands.md")
+                generate_cmd_list(self.cogs)
+                break
+
         await self.session.close()
 
     def run(self):
