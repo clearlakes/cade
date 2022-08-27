@@ -23,17 +23,17 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 - [**`.nowplaying`**](https://github.com/source64/cade/blob/main/cogs/music.py#L353) - shows information about the current track
 
 ### Media
-- [**`.jpeg`**](https://github.com/source64/cade/blob/main/cogs/media.py#L30) - lowers the quality of the given image
+- [**`.jpeg`**](https://github.com/source64/cade/blob/main/cogs/media.py#L34) - lowers the quality of the given image
 	- how to use: `.jpeg (image)`
-- [**`.imgaudio`**](https://github.com/source64/cade/blob/main/cogs/media.py#L48) - converts an image into a video with audio
+- [**`.imgaudio`**](https://github.com/source64/cade/blob/main/cogs/media.py#L52) - converts an image into a video with audio
 	- how to use: `.imgaudio *[seconds] (image)`
-- [**`.resize`**](https://github.com/source64/cade/blob/main/cogs/media.py#L197) - resizes the given attachment
+- [**`.resize`**](https://github.com/source64/cade/blob/main/cogs/media.py#L201) - resizes the given attachment
 	- how to use: `.resize [width]/auto *[height]/auto (gif/image/video)`
-- [**`.caption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L252) - captions the specified gif or image in the style of iFunny's captions
+- [**`.caption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L256) - captions the specified gif or image in the style of iFunny's captions
 	- how to use: `.caption [text] (gif/image/video)`
-- [**`.uncaption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L292) - removes the caption from the given attachment
+- [**`.uncaption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L296) - removes the caption from the given attachment
 	- how to use: `.uncaption (gif/image/video)`
-- [**`.get`**](https://github.com/source64/cade/blob/main/cogs/media.py#L319) - downloads a youtube video (or a part of it)
+- [**`.get`**](https://github.com/source64/cade/blob/main/cogs/media.py#L323) - downloads a youtube video (or a part of it)
 	- how to use: `.get [youtube-url] *[start-time] *[end-time]`
 
 ### General
