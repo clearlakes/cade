@@ -12,15 +12,14 @@ from typing import Union
 from io import BytesIO
 from PIL import Image
 
-class TweetContent(commands.Converter):
-    async def convert(self, ctx: commands.Context, arg: str = None):
-        media_type, attachments = await get_tweet_attachments(ctx)
+async def get_tweet_content(ctx: commands.Context, status: str = None):
+    media_type, attachments = await get_tweet_attachments(ctx)
 
-        if not arg and not attachments:
-            # send error with the last parameter of the command (usually 'content')
-            raise commands.MissingRequiredArgument(list(ctx.command.params.values())[-1])
+    if not status and not attachments:
+        # send error with the last parameter of the command (usually 'content')
+        raise commands.MissingRequiredArgument(list(ctx.command.params.values())[-1])
 
-        return arg, get_media_ids(media_type, attachments)
+    return status, get_media_ids(media_type, attachments)
 
 class Funny(commands.Cog):
     def __init__(self, client):
@@ -63,9 +62,9 @@ class Funny(commands.Cog):
             await member.remove_roles(role)
 
     @commands.command(usage = "[message]")
-    async def tweet(self, ctx: commands.Context, *, content: TweetContent):
+    async def tweet(self, ctx: commands.Context, *, content: str = None):
         """tweets out a message"""
-        status, media_ids = content
+        status, media_ids = await get_tweet_content(ctx, content)
         
         # sends the tweet
         try:
@@ -80,9 +79,9 @@ class Funny(commands.Cog):
         await msg.edit(view = view)
 
     @commands.command(usage = "[tweet-id]/latest [message]")
-    async def reply(self, ctx: commands.Context, reply_to: Union[str, int], *, content: TweetContent):
+    async def reply(self, ctx: commands.Context, reply_to: Union[str, int], *, content: str = None):
         """replies to a given tweet by its url/id (or the latest tweet)"""
-        status, media_ids = content
+        status, media_ids = await get_tweet_content(ctx, content)
         is_chain = False
 
         # checks if the user wants to reply to a tweet that is in a different message

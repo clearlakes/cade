@@ -52,9 +52,9 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 
 ### Funny
 > note: these commands are specific to funny museum
-- [**`.tweet`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L65) - tweets out a message
+- [**`.tweet`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L64) - tweets out a message
 	- how to use: `.tweet [message]`
-- [**`.reply`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L82) - replies to a given tweet by its url/id (or the latest tweet)
+- [**`.reply`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L81) - replies to a given tweet by its url/id (or the latest tweet)
 	- how to use: `.reply [tweet-id]/latest [message]`
-- [**`.profile`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L130) - replaces the profile/banner of the twita account
+- [**`.profile`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L129) - replaces the profile/banner of the twita account
 	- how to use: `.profile profile/banner (image)`
