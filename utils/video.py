@@ -1,8 +1,8 @@
-from utils.image import _get_content_bounds
-from utils.functions import run_cmd
-from utils.dataclasses import ff
+from utils.image import get_content_bounds
+from utils.useful import run_cmd
+from utils.data import ff
 
-from tempfile import NamedTemporaryFile as create_temp, TemporaryDirectory
+from tempfile import TemporaryDirectory
 from io import BytesIO
 from PIL import Image
 import numpy
@@ -12,13 +12,13 @@ class EditVideo:
     def __init__(self, video: BytesIO):
         self.video = video
 
-    def _get_frames(self, dir):
+    def _get_frames(self, path):
         """Returns the fps and frames of a video for editing"""
-        input_video = f"{dir}/input.mp4"
+        input_video = f"{path}/input.mp4"
 
         with open(input_video, "wb") as v_file:
             v_file.write(self.video.getvalue())
-        
+
         # get first frame of video and its fps
         video = cv2.VideoCapture(input_video)
         success, frame = video.read()
@@ -32,29 +32,31 @@ class EditVideo:
 
         return fps, frames
 
-    async def _create_from_frames(self, dir, fps):
+    async def _create_from_frames(self, path, fps):
         """Creates a video using all images in a directory"""
         # make new frames into a video and add audio from original file
-        _, returncode = await run_cmd(ff.CREATE_MP4(dir, fps, "input.mp4"))
+        _, returncode = await run_cmd(ff.CREATE_MP4(path, fps))
 
         if returncode != 0:
             return
 
-        with open(f"{dir}/output.mp4", "rb") as output:
+        with open(f"{path}/output.mp4", "rb") as output:
             return BytesIO(output.read())
 
     async def resize(self, new_size: tuple[int]):
         """Resizes the video to the specified size"""
-        with create_temp(suffix = ".mp4") as temp:
-            temp.write(self.video.getvalue())
+        with TemporaryDirectory() as temp:
+            with open(f"{temp}/input.mp4", "wb") as input:
+                input.write(self.video.getvalue())
 
-            # resize the video using the given size (and replace "auto" with -2, which means the same thing for ffmpeg)
-            result, returncode = await run_cmd(ff.RESIZE(temp.name, new_size))
+            # resize the video using the given size
+            result, returncode = await run_cmd(ff.RESIZE(temp, *new_size))
 
             if returncode != 0:
                 return
 
-            result = BytesIO(result)
+            with open(f"{temp}/output.mp4", "rb") as output:
+                result = BytesIO(output.read())
 
         return result
 
@@ -62,7 +64,7 @@ class EditVideo:
         """Captions the video using a caption image"""
         # convert caption image to cv2 image
         c_img = cv2.cvtColor(numpy.array(caption), cv2.COLOR_RGB2BGR)
-        
+
         with TemporaryDirectory() as temp:
             fps, frames = self._get_frames(temp)
 
@@ -70,7 +72,7 @@ class EditVideo:
             for i, frame in enumerate(frames):
                 new_frame = cv2.vconcat([c_img, frame])
                 cv2.imwrite(f"{temp}/{i}.png", new_frame)
-            
+
             result = await self._create_from_frames(temp, fps)
 
         return result
@@ -80,20 +82,20 @@ class EditVideo:
         with TemporaryDirectory() as temp:
             fps, frames = self._get_frames(temp)
 
-            x, y, w, h = _get_content_bounds(frames[0])
+            x, y, w, h = get_content_bounds(frames[0])
 
             for i, frame in enumerate(frames):
                 # crop each frame down to its content
                 cropped_frame = frame[y:y+h, x:x+w]
                 cv2.imwrite(f"{temp}/{i}.png", cropped_frame)
-            
+
             result = await self._create_from_frames(temp, fps)
 
         return result
 
-async def get_size(video: BytesIO):
+async def get_video_size(video: BytesIO) -> tuple[int, int]:
     """Gets the dimensions of a video"""
-    result, returncode = await run_cmd(ff.GET_DIMENSIONS('-'), video.getvalue(), decode = True)
+    result, returncode = await run_cmd(ff.GET_DIMENSIONS, video.getvalue(), decode = True)
 
     if returncode != 0:
         return
