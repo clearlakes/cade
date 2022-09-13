@@ -24,16 +24,10 @@ class Document:
 class GuildDB:
     def __init__(self, guild: discord.Guild):
         self.guild = {"guild_id": guild.id}
-        self.id = guild.id
 
-    async def add(self):
-        """Adds a guild to the database"""
-        await _db.insert_one({
-            "guild_id": self.id,
-            "tags": {},
-            "playlists": {},
-            "welcome": [None, None],
-        })
+    async def _update(self, fields: dict):
+        # adds default options to update_one
+        return await _db.update_one(self.guild, fields, upsert = True)
 
     async def remove(self):
         """Removes a guild from the database"""
@@ -42,25 +36,25 @@ class GuildDB:
     async def get(self):
         """Returns the guild's database entry as a class"""
         _doc = await _db.find_one(self.guild)
-        return Document(_doc)
+        return Document(_doc) if _doc else Document()
 
     async def set(self, field: str, value):
         """Sets a field's value"""
-        await _db.update_one(self.guild, {"$set": {field: value}})
+        await self._update({"$set": {field: value}})
 
     async def push(self, field: str, value):
         """Adds a value to an array field"""
-        await _db.update_one(self.guild, {"$push": {field: value}})
+        await self._update({"$push": {field: value}})
 
     async def pull(self, field: str, value):
         """Removes a value from an array field"""
-        await _db.update_one(self.guild, {"$pull": {field: value}})
+        await self._update({"$pull": {field: value}})
 
     async def add_obj(self, field: str, key: str, value):
         """Adds a value to a dictionary field"""
-        await _db.update_one(self.guild, {"$set": {f'{field}.{key}': value}})
+        await self._update({"$set": {f'{field}.{key}': value}})
 
     async def del_obj(self, field: str, key: str):
         """Removes a value from a dictionary (or array) field"""
-        await _db.update_one(self.guild, {"$unset": {f'{field}.{key}': 1}})
-        await _db.update_one(self.guild, {"$pull": {f'{field}.{key}': None}})
+        await self._update({"$unset": {f'{field}.{key}': 1}})
+        await self._update({"$pull": {f'{field}.{key}': None}})

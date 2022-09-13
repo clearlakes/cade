@@ -31,10 +31,6 @@ class BotEvents:
             "3️⃣": 820126629945933874,  # they/them
         }
 
-    async def on_guild_join(self, guild: discord.Guild):
-        # add guild to database on join
-        await GuildDB(guild).add()
-
     async def on_guild_remove(self, guild: discord.Guild):
         # remove guild from database on leave
         await GuildDB(guild).remove()
