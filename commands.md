@@ -42,16 +42,16 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 -  [**`.imgaudio`**](https://github.com/source64/cade/blob/main/cogs/media.py#L68) - converts an image into a video with audio
    -  how to use: `.imgaudio *[seconds] (image)`
 
--  [**`.resize`**](https://github.com/source64/cade/blob/main/cogs/media.py#L197) - resizes the given attachment
+-  [**`.resize`**](https://github.com/source64/cade/blob/main/cogs/media.py#L196) - resizes the given attachment
    -  how to use: `.resize [width]/auto *[height]/auto (gif/image/video)`
 
--  [**`.caption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L257) - captions the specified gif or image in the style of iFunny's captions
+-  [**`.caption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L256) - captions the specified gif or image in the style of iFunny's captions
    -  how to use: `.caption [text] (gif/image/video)`
 
--  [**`.uncaption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L299) - removes the caption from the given attachment
+-  [**`.uncaption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L298) - removes the caption from the given attachment
    -  how to use: `.uncaption (gif/image/video)`
 
--  [**`.get`**](https://github.com/source64/cade/blob/main/cogs/media.py#L326) - downloads a youtube video (or a part of it)
+-  [**`.get`**](https://github.com/source64/cade/blob/main/cogs/media.py#L325) - downloads a youtube video (or a part of it)
    -  how to use: `.get [youtube-url] *[start-time] *[end-time]`
 
 

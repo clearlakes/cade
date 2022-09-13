@@ -114,7 +114,7 @@ def check(ctx: Union[commands.Context, discord.Interaction]):
     """Checks if a message is sent by the command sender"""
     def check_inner(message: discord.Message):
         # get author from either interaction or context
-        author = ctx.author if isinstance(commands.Context) else ctx.user
+        author = ctx.author if isinstance(ctx, commands.Context) else ctx.user
 
         # check if the message if from the original author and channel
         return (message.author == author and message.channel == ctx.channel)

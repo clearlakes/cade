@@ -69,7 +69,7 @@ class Media(BaseCog):
     async def imgaudio(self, ctx: commands.Context, length: str = None):
         """converts an image into a video with audio"""
         # if a length is given, check if it's a number
-        length = int(length) if length.isnumeric() else None
+        length = int(length) if length and length.isnumeric() else None
 
         # embed that will show the progress
         embed = BaseEmbed(title = f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
@@ -110,8 +110,7 @@ class Media(BaseCog):
             audio = url
         else:
             # cancel if nothing was found
-            await processing.delete()
-            return await ctx.send(err.NO_AUDIO_FOUND)
+            return await processing.edit(content = err.NO_AUDIO_FOUND, embed = None)
 
         # edit the embed to show that it's in step 1
         embed.title = f"{bot.PROCESSING()} getting {audio_type} information..."
