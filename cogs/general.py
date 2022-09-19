@@ -50,29 +50,29 @@ class General(BaseCog):
     @commands.is_owner()
     async def update(self, ctx: commands.Context):
         processing = await ctx.send(f"{bot.PROCESSING()} looking for update...")
+        embed = BaseEmbed()
 
-        # get the last update's information
-        previous = (await run_cmd("git rev-parse --short HEAD", decode = True))[0]
+        link_to = lambda c_hash, c_num: f"[`#{c_num}`](https://github.com/source64/cade/commit/{c_hash})"
 
-        # check if on the latest commit
+        # get the previous update's information
+        prev_num = (await run_cmd("git rev-list --count HEAD", decode = True))[0]
+        prev_hash = (await run_cmd("git rev-parse --short HEAD", decode = True))[0]
+
+        # check if on the latest update already
         if (utd := "Already up to date.") in (await run_cmd("git pull", decode = True))[0]:
-            return await processing.edit(content = f"**{utd.lower().strip('.')}**")
+            embed.description = f"{bot.OK} **{utd.lower().strip('.')}** ({link_to(prev_hash, prev_num)})"
+        else:
+            # reload cogs after update
+            for cog in ["funny", "general", "media", "music"]:
+                await self.client.reload_extension(f"cogs.{cog}")
 
-        # reload cogs after update
-        for cog in ["funny", "general", "media", "music"]:
-            await self.client.reload_extension(f"cogs.{cog}")
+            # get the new update's information
+            new_num = (await run_cmd("git rev-list --count HEAD", decode = True))[0]
+            new_hash = (await run_cmd("git rev-parse --short HEAD", decode = True))[0]
 
-        # get information about new update
-        new_commit = (await run_cmd("git log -1 --pretty=format:%h%x09%s", decode = True))[0].split("\t")
+            embed.description = f"{bot.OK} **updated from {link_to(prev_hash, prev_num)} to {link_to(new_hash, new_num)}**"
 
-        link_to = lambda commit: f"[`{commit}`](https://github.com/source64/cade/commit/{commit})"
-
-        await processing.delete()
-
-        embed = BaseEmbed(
-            description = f"{bot.OK} **updated from {link_to(previous)} to {link_to(new_commit)}**"
-        )
-        await ctx.send(embed = embed)
+        await processing.edit(content = None, embed = embed)
 
     @commands.command()
     async def info(self, ctx: commands.Context):
