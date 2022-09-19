@@ -77,16 +77,7 @@ class General(BaseCog):
     @commands.command()
     async def info(self, ctx: commands.Context):
         """get information about the bot"""
-        wait = await ctx.send(f"{bot.PROCESSING()} loading...")
-
-        # make embed
-        embed = discord.Embed(
-            description = "made in the funny museum\nuse `.help` or `.help [command]` for help.\ncreated <t:1596846209:R>!",
-            color = colors.CADE
-        )
-
-        # link to github
-        embed.set_author(name = "cade bot", url = "https://github.com/source64/cade")
+        gh = "https://github.com/source64/cade"
 
         # get the uptime by subtracting the current time by the init time
         uptime = str(datetime.now() - self.client.init_time).split(".")[0]
@@ -94,35 +85,33 @@ class General(BaseCog):
         # get the ping, which is client.latency times 1000 (for ms)
         ping = round(self.client.latency * 1000, 3)
 
-        # get random picture of cat
+        # get the number of usable commands
+        cmds = len([x for x in self.client.commands if not x.hidden])
+
+        # get the latest github commit
+        number = (await run_cmd("git rev-list --count HEAD", decode = True))[0]
+        commit_hash, timestamp, message = (await run_cmd("git log -1 --pretty=format:%h%n%at%n%s", decode = True))[0].split("\n")
+
+        latest_update = f"<t:{timestamp}:R> [`#{number}`]({gh}/commit/{commit_hash}) - {message}"
+
+        embed = discord.Embed(
+            title = "cade",
+            color = colors.CADE
+        )
+
+        embed.description = f"""cool bot made by steve859 (buh#7797)
+        **[more info]({gh})** • **[commands]({gh}/blob/main/commands.md)** • use `.help` for help
+        created <t:1596846209:R>!
+        """
+
+        embed.add_field(name = "uptime", value = f"`{uptime}`")
+        embed.add_field(name = "ping (ms)", value = f"`{ping}`")
+        embed.add_field(name = "commands", value = f"`{cmds}`")
+        embed.add_field(name = "latest update", value = latest_update, inline = False)
+
         embed.set_thumbnail(url = bot.CAT())
+        embed.set_footer(text = "v3 • made in funny museum")
 
-        # get the number of commands
-        num_of_commands = len([x for x in self.client.commands if not x.hidden])
-
-        # add fields to embed
-        embed.add_field(name = "Uptime", value = f"`{uptime}`")
-        embed.add_field(name = "Ping (ms)", value = f"`{ping}`")
-        embed.add_field(name = "Commands", value = f"`{num_of_commands}`")
-
-        # get latest metadata
-        await run_cmd("git fetch")
-
-        # get the total number of commits so far
-        commit_num = (await run_cmd("git rev-list --all --count", decode = True))[0]
-
-        # get the commit hash, timestamp, and message
-        commit_data = (await run_cmd("git log -1 --pretty=format:%h%x09%at%x09%s", decode = True))[0].split("\t")
-
-        # url that links to the commit
-        commit_url = f"https://github.com/source64/cade/commit/{commit_data[0]}"
-
-        latest_update = f"<t:{commit_data[1]}:R> [`#{commit_num}`]({commit_url}) - {commit_data[2]}"
-
-        embed.add_field(name = "Latest update (from github):", value = latest_update, inline = False)
-        embed.set_footer(text = "version 3 • by steve859")
-
-        await wait.delete()
         await ctx.send(embed = embed)
 
     @commands.command(usage = "*[command]")
@@ -131,13 +120,11 @@ class General(BaseCog):
         embed = BaseEmbed()
 
         if cmd is None:
-            # default embed to use
-            embed.title = "Commands"
-            embed.description = "choose a category below to see the commands for it"
+            # show list of commands
+            view = HelpView(self.client, ctx)
+            return await ctx.send(embed = view.main_embed, view = view)
 
-            # send message with buttons
-            return await ctx.send(embed = embed, view = HelpView(self.client, ctx))
-
+        # start getting command information
         command = self.client.get_command(cmd)
 
         if not command or command.hidden:

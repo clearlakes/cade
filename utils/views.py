@@ -46,6 +46,21 @@ class HelpView(discord.ui.View):
         self.client = client
         self.ctx = ctx
 
+        # set default help page
+        self.main_embed = BaseEmbed(
+            description = """
+            choose a category below to see the commands for it.
+            use `.help [command]` to see more information!
+
+            **[long list of all commands](https://github.com/source64/cade/blob/main/commands.md)**
+            """
+        )
+
+        main_btn = discord.ui.Button(label = "yo", custom_id = f"h:none", style = discord.ButtonStyle.primary)
+        main_btn.callback = self.callback
+        self.add_item(main_btn)
+
+        # add button for each cog
         for cog in client.cogs.keys():
             # don't show funny museum commands if not funny museum
             if cog == "Funny" and ctx.guild.id != 783166876784001075:
@@ -65,6 +80,16 @@ class HelpView(discord.ui.View):
         interaction_id = interaction.data["custom_id"]
         cog = interaction_id.split(":")[1]
 
+        for btn in self.children:
+            # highlight the selected button
+            if btn.custom_id == interaction_id:
+                btn.style = discord.ButtonStyle.primary
+            else:
+                btn.style = discord.ButtonStyle.secondary
+
+        if cog == "none":
+            return await interaction.message.edit(embed = self.main_embed, view = self)
+
         commands = [c for c in self.client.get_cog(cog).get_commands() if not c.hidden]
         command_list = ""
 
@@ -76,13 +101,6 @@ class HelpView(discord.ui.View):
             cmd_name = f"`.{command.name}" + (" " * padding) + "`"
 
             command_list += f"{cmd_name} - {command.help}\n"
-
-        for btn in self.children:
-            # highlight the selected button
-            if btn.custom_id == interaction_id:
-                btn.style = discord.ButtonStyle.primary
-            else:
-                btn.style = discord.ButtonStyle.secondary
 
         embed = BaseEmbed(
             title = f"{cog} Commands",
