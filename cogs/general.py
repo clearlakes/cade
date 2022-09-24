@@ -99,18 +99,22 @@ class General(BaseCog):
             color = colors.CADE
         )
 
-        embed.description = f"""cool bot made by steve859 (buh#7797)
-        **[more info]({gh})** • **[commands]({gh}/blob/main/commands.md)** • use `.help` for help
-        created <t:1596846209:R>!
+        embed.description = f"""cool insane bot made by buh#7797
+        **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[i found an issue!!]({gh}/issues/new)**
+        use `.help` for help. created <t:1596846209:R>!
         """
 
         embed.add_field(name = "uptime", value = f"`{uptime}`")
-        embed.add_field(name = "ping (ms)", value = f"`{ping}`")
+        embed.add_field(name = "ping", value = f"`{ping} ms`")
         embed.add_field(name = "commands", value = f"`{cmds}`")
         embed.add_field(name = "latest update", value = latest_update, inline = False)
 
         embed.set_thumbnail(url = bot.CAT())
-        embed.set_footer(text = "v3 • made in funny museum")
+
+        guilds = len(self.client.guilds)  # get number of guilds
+        users = len([u for u in self.client.users if not u.bot])  # get number of users that aren't bots
+
+        embed.set_footer(text = f"v3 • in {guilds} servers with {users} people • made in funny museum")
 
         await ctx.send(embed = embed)
 

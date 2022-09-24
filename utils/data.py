@@ -16,7 +16,7 @@ E = "<a:fire:1004208282585530408> **error:**"
 @dataclass
 class colors:
     """colors used in embeds"""
-    CADE =          0xd9ba93  # used in .info
+    CADE =          0xeac597  # used in .info
     PLAYING_TRACK = 0x4287f5  # used when a track starts playing
     ADDED_TRACK =   0x42f55a  # used when a track is added
     CURRENT_TRACK = 0x4e42f5  # used in .nowplaying

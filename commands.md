@@ -58,18 +58,18 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 ## General
 -  [**`.info`**](https://github.com/source64/cade/blob/main/cogs/general.py#L77) - get information about the bot
 
--  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L117) - see a list of commands
+-  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L121) - see a list of commands
    -  how to use: `.help *[command]`
 
--  [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L153) - sends/creates a tag containing a given message
+-  [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L157) - sends/creates a tag containing a given message
    -  how to use: `.tag [tag-name] *[message]`
 
--  [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L177) - deletes the specified tag if it exists
+-  [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L181) - deletes the specified tag if it exists
    -  how to use: `.tagdelete [tag-name]`
 
--  [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L194) - lists every tag in the server
+-  [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L198) - lists every tag in the server
 
--  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L212) - sets the welcome message for the server (admin)
+-  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L216) - sets the welcome message for the server (admin)
    -  how to use: `.welcome [channel] *[message]`
 
 
