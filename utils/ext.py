@@ -10,15 +10,17 @@ async def serve_very_big_file(b: BytesIO, mime: str):
     form = aiohttp.FormData()
     form.add_field("file", b.getvalue(), content_type = mime)
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f'{Keys.image.domain}:{Keys.image.port}/upload', data = form, headers = {"Authorization": Keys.image.secret}) as resp:
-            resp = await resp.json()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f'{Keys.image.domain}/upload', data = form, headers = {"Authorization": Keys.image.secret}) as post:
+                res: dict[str, str] = await post.json()
 
-    id: str = resp["file_id"]
-    ext: str = resp["file_ext"]
-    domain = Keys.image.domain
+        filename = f"{res['file_id'].upper()}.{res['file_ext']}"
+        file_url = f"{Keys.image.domain}/image/{filename}"
+    except (aiohttp.ClientConnectionError, aiohttp.ContentTypeError):
+        file_url = None
 
-    return f"{domain}/image/{id.upper()}.{ext}"
+    return file_url
 
 def generate_cmd_list(cogs: Mapping[str, commands.Cog]):
     """Generates the command list (commands.md)"""

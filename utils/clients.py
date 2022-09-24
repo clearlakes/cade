@@ -55,7 +55,6 @@ class SpotifyKeys(BaseKey):
 class ImageServerKeys(BaseKey):
     def __init__(self):
         super().__init__("image-server")
-        self.port = self.get("port")
         self.domain = self.get("domain")
         self.secret = self.get("secret")
 

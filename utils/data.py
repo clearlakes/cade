@@ -123,6 +123,7 @@ class err:
     TAG_ALREADY_EXISTS =         f"{E} that tag already exists"
     NO_TAGS_AT_ALL =             f"{E} no tags were found"
     CANT_SEND_FILE =             f"{E} could not send the file (too large maybe)"
+    IMAGE_SERVER_ERROR =         f"{E} can't find image server (not your fault i need to fix this)"
     YT_ERROR = lambda e:         f"{E} could not get video: {e}"
     AUDIO_MAX_LENGTH =           f"{E} audio length is too long (max: 30 minutes)"
     FILE_MAX_SIZE =              f"{E} size too large (max: 2000px)"

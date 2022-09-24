@@ -62,7 +62,7 @@ async def _link_bytes(link: str, allow_gifs: bool, media_types: list[str]):
             if (link_type[0] not in media_types) or (link_type[1] in ("gif", "apng") and not allow_gifs):
                 return
 
-            return AttObj(BytesIO(await r.read()), "url", link_type)
+            return AttObj(BytesIO(await r.read()), "url", r.content_type)
 
 async def get_media(ctx: commands.Context, media_types: list[str], allow_gifs: bool = False, allow_urls: bool = False):
     """Main function for getting attachments from either messages, replies, or previous messages"""
@@ -272,9 +272,13 @@ async def send_media(ctx: commands.Context, msg: discord.Message, content: Bytes
         if Keys.image and "video" not in filetype:
             url = await serve_very_big_file(content, filetype)
 
+            if not url:
+                # send error if uploading failed
+                return await msg.edit(content = err.IMAGE_SERVER_ERROR)
+
             embed = BaseEmbed()
             embed.set_image(url = url)
-            embed.set_footer(text = f"uploaded to {Keys.image.domain.replace('https://', '')} | deletes in 24h!!")
+            embed.set_footer(text = f"uploaded to {Keys.image.domain.replace('https://', '')} (larger than 8 mb), deletes in 24h!!")
 
             await ctx.reply(embed = embed)
         else:
