@@ -58,10 +58,11 @@ class ImageServerKeys(BaseKey):
         self.domain = self.get("domain")
         self.secret = self.get("secret")
 
-class TenorKeys(BaseKey):
+class OtherKeys(BaseKey):
     def __init__(self):
-        super().__init__("tenor")
-        self.key = self.get("key")
+        super().__init__("other")
+        self.tenor = self.get("tenor")
+        self.gyazo = self.get("gyazo")
 
 @dataclass
 class Keys:
@@ -69,7 +70,8 @@ class Keys:
     twitter = TwitterKeys()
     spotify = SpotifyKeys()
     image = ImageServerKeys()
-    tenor = TenorKeys()
+    tenor = OtherKeys().tenor
+    gyazo = OtherKeys().gyazo
 
 def get_spotify_client():
     auth = ClientCredentialsFlow(*Keys.spotify.key_pair)

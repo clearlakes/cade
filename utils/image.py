@@ -1,4 +1,4 @@
-from utils.useful import run_async
+from utils.useful import AttObj, run_async
 
 from PIL import Image, ImageFont, UnidentifiedImageError
 from wand.image import Image as WImage
@@ -10,14 +10,16 @@ import emoji
 import numpy
 import cv2
 
+from tempfile import TemporaryDirectory
 from subprocess import Popen, PIPE
 from typing import Union
 from shlex import split
 from io import BytesIO
 
 class EditImage:
-    def __init__(self, file: BytesIO):
-        self.image = Image.open(file).convert("RGBA")
+    def __init__(self, image: AttObj):
+        self.filename = image.filename
+        self.image = Image.open(image.filebyte).convert("RGBA")
 
     def _save(self, img_format: str = "PNG", quality: int = 95):
         """General function for saving images as byte objects"""
@@ -26,7 +28,7 @@ class EditImage:
         self.image.save(img_byte_arr, img_format, quality = quality)
         result = BytesIO(img_byte_arr.getvalue())
 
-        return result
+        return (result, f"{self.filename}.{img_format.lower()}")
 
     @run_async
     def resize_even(self):
@@ -102,11 +104,12 @@ class EditImage:
         return result
 
 class EditGif:
-    def __init__(self, gif: BytesIO):
-        self.b = gif
-        self.gif = Image.open(gif)
-        self.mode = self._analyse()
+    def __init__(self, gif: AttObj):
+        self.filename = gif.filename
+        self.gif = Image.open(gif.filebyte)
         self.last_frame = self.gif.convert("RGBA")
+        self.mode = self._analyse()
+
         self.frames: list[Image.Image] = []
         self.durations: list[int] = []
 
@@ -136,37 +139,32 @@ class EditGif:
 
         self.new_frame.paste(self.gif, (0,0), self.gif.convert("RGBA"))
 
-    def _append_frame(self, image: Image.Image):
+    def _append_frame(self, image: Image.Image, delay: int = 0):
         """Appends the given frame to a list (along with its duration"""
         self.frames.append(image)
-        self.durations.append(self.gif.info["duration"])
         self.last_frame = self.new_frame
+
+        self.durations.append(delay if delay else self.gif.info["duration"])
 
     def _save(self):
         """Converts the saved images into a gif byte object"""
-        # --nextfile: read from bytes, -O: optimize, +x -w: remove gif extensions and warnings
-        cmd = "gifsicle --nextfile -O +x -w "
+        with TemporaryDirectory() as temp:
+            cmd = "convert -loop 0 -alpha set -dispose 2 "
 
-        # generate delay information
-        for duration in self.durations:
-            cmd += f"-d{duration // 10} - "
+            # save each frame and add them to the command
+            for i, (frame, delay) in enumerate(zip(self.frames, self.durations)):
+                saved_path = f"{temp}/{i}.png"
+                frame.save(saved_path)
 
-        # loop forever and read output as bytes
-        cmd += "--loopcount=0 --dither -o -"
+                cmd += f"-delay {delay // 10} {saved_path} "
 
-        p = Popen(split(cmd), stdin = PIPE, stdout = PIPE)
+            # read output as bytes
+            cmd += " gif:-"
 
-        # send frames to gifsicle
-        for frame in self.frames:
-            b = BytesIO()
-            frame.save(b, format = "GIF")
+            p = Popen(split(cmd), stdout = PIPE)
+            result = p.communicate()[0]
 
-            p.stdin.write(b.getvalue())
-
-        p.stdin.close()
-        result = p.stdout.read()
-
-        return BytesIO(result)
+        return (BytesIO(result), f"{self.filename}.gif")
 
     @run_async
     def resize(self, new_size: tuple[int]):
@@ -215,6 +213,24 @@ class EditGif:
             cropped_frame = self.new_frame.crop(bounds)
 
             self._append_frame(cropped_frame)
+
+        result = self._save()
+        return result
+
+    @run_async
+    def speed(self, amount: float):
+        "Speeds up the gif by a specified amount"
+        for self.i in range(self.gif.n_frames):
+            self._next_frame()
+
+            # reduce frame duration (divide by amount)
+            new_delay = int(self.gif.info["duration"] // amount)
+            self._append_frame(self.new_frame, delay = new_delay)
+
+        # start reducing frames instead if smallest duration (20) is reached
+        if all(x <= 20 for x in self.durations):
+            self.frames = self.frames[::2]
+            self.durations = [20 for _ in range(len(self.frames))]
 
         result = self._save()
         return result

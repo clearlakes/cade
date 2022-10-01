@@ -25,6 +25,7 @@ from utils.main import Cade
 from yt_dlp import YoutubeDL, DownloadError
 from tempfile import TemporaryDirectory
 from asyncio import TimeoutError
+import random
 
 class Media(BaseCog):
     def __init__(self, client: Cade):
@@ -56,14 +57,10 @@ class Media(BaseCog):
         res, error = await get_media(ctx, ["image"])
         if error: return await processing.edit(content = error)
 
-        result = await EditImage(res.filebyte).jpeg()
+        result = await EditImage(res).jpeg()
 
         # send the created image
-        try:
-            await ctx.send(file = discord.File(result, f"{res.filename}.jpg"))
-            await processing.delete()
-        except discord.HTTPException:
-            return await processing.edit(content = err.CANT_SEND_FILE)
+        await send_media(ctx, processing, result, res.filetype)
 
     @commands.command(aliases = ["img"], usage = "*[seconds] (image)")
     async def imgaudio(self, ctx: commands.Context, length: str = None):
@@ -80,7 +77,7 @@ class Media(BaseCog):
         res, error = await get_media(ctx, ["image"])
         if error: return await processing.edit(content = error, embed = None)
 
-        result = await EditImage(res.filebyte).resize_even()
+        result, _ = await EditImage(res).resize_even()
 
         # edit the embed to ask for audio
         embed.title = f"{bot.WAITING} send a youtube url or an mp3 file to use as the audio"
@@ -207,51 +204,41 @@ class Media(BaseCog):
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         # get either an image, gif, or video attachment
-        res, error = await get_media(ctx, ["image", "video"], allow_gifs = True, allow_urls = True)
+        res, error = await get_media(ctx, ["image", "video", "gif"])
         if error: return await processing.edit(content = error)
 
         # if the attachment is a video
         if "video" in res.filetype:
-            result = await EditVideo(res.filebyte).resize((width, height))
+            result = await EditVideo(res).resize((width, height))
 
             if not result:
                 return await processing.edit(content = err.FFMPEG_ERROR)
-
-            await ctx.send(file = discord.File(result, f"{res.filename}.mp4"))
-            return await processing.delete()
-
-        orig_size = await get_image_size(res.filebyte)
-
-        if not orig_size:
-            return await ctx.send(err.PIL_ERROR)
-
-        orig_width, orig_height = orig_size
-
-        # calculate "auto" sizes
-        if height == "auto":
-            wpercent = (int(width) / float(orig_width))
-            height = int((float(orig_height) * float(wpercent)))
-        elif width == "auto":
-            hpercent = (int(height) / float(orig_height))
-            width = int((float(orig_width) * float(hpercent)))
-
-        new_size = (int(width), int(height))
-
-        # resize the attachment depending on file type
-        if "gif" in res.filetype:
-            result = await EditGif(res.filebyte).resize(new_size)
-            filename = f"{res.filename}.gif"
         else:
-            result = await EditImage(res.filebyte).resize(new_size)
-            filename = f"{res.filename}.png"
+            orig_size = await get_image_size(res.filebyte)
+
+            if not orig_size:
+                return await ctx.send(err.PIL_ERROR)
+
+            orig_width, orig_height = orig_size
+
+            # calculate "auto" sizes
+            if height == "auto":
+                wpercent = (int(width) / float(orig_width))
+                height = int((float(orig_height) * float(wpercent)))
+            elif width == "auto":
+                hpercent = (int(height) / float(orig_height))
+                width = int((float(orig_width) * float(hpercent)))
+
+            new_size = (int(width), int(height))
+
+            # resize the attachment depending on file type
+            if "gif" in res.filetype:
+                result = await EditGif(res).resize(new_size)
+            else:
+                result = await EditImage(res).resize(new_size)
 
         # send the resized attachment
-        try:
-            await ctx.send(file = discord.File(result, filename))
-        except discord.HTTPException:
-            await ctx.send(err.CANT_SEND_FILE)
-
-        await processing.delete()
+        await send_media(ctx, processing, result, res.filetype)
 
     @commands.command(usage = "[text] (gif/image/video)")
     async def caption(self, ctx: commands.Context, *, text: str):
@@ -259,7 +246,7 @@ class Media(BaseCog):
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         # get either an image, gif, or tenor url
-        res, error = await get_media(ctx, ["image", "video"], allow_gifs = True, allow_urls = True)
+        res, error = await get_media(ctx, ["image", "video", "gif"])
         if error: return await processing.edit(content = error)
 
         if "image" in res.filetype:
@@ -278,22 +265,16 @@ class Media(BaseCog):
         # run respective functions for captioning gifs/images/videos
 
         if "gif" in res.filetype:
-            result = await EditGif(res.filebyte).caption(caption)
-            filename = f"{res.filename}.gif"
-
+            result = await EditGif(res).caption(caption)
         elif "image" in res.filetype:
-            result = await EditImage(res.filebyte).caption(caption)
-            filename = f"{res.filename}.png"
-
+            result = await EditImage(res).caption(caption)
         else:
-            result = await EditVideo(res.filebyte).caption(caption)
+            result = await EditVideo(res).caption(caption)
 
             if not result:
                 return await ctx.send(err.FFMPEG_ERROR)
 
-            filename = f"{res.filename}.mp4"
-
-        await send_media(ctx, processing, result, res.filetype, filename)
+        await send_media(ctx, processing, result, res.filetype)
 
     @commands.command(usage = "(gif/image/video)")
     async def uncaption(self, ctx: commands.Context):
@@ -301,26 +282,46 @@ class Media(BaseCog):
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         # get either an image, gif, or tenor url
-        res, error = await get_media(ctx, ["image", "video"], allow_gifs = True, allow_urls = True)
+        res, error = await get_media(ctx, ["image", "video", "gif"])
         if error: return await processing.edit(content = error)
 
         if "gif" in res.filetype:
-            result = await EditGif(res.filebyte).uncaption()
-            filename = f"{res.filename}.gif"
-
+            result = await EditGif(res).uncaption()
         elif "image" in res.filetype:
-            result = await EditImage(res.filebyte).uncaption()
-            filename = f"{res.filename}.png"
-
+            result = await EditImage(res).uncaption()
         else:
-            result = await EditVideo(res.filebyte).uncaption()
+            result = await EditVideo(res).uncaption()
 
             if not result:
                 return await ctx.send(err.FFMPEG_ERROR)
 
-            filename = f"{res.filename}.mp4"
+        await send_media(ctx, processing, result, res.filetype)
 
-        await send_media(ctx, processing, result, res.filetype, filename)
+    @commands.command(usage = "*[multiplier] (gif/video)")
+    async def speed(self, ctx: commands.Context, amount: str = "1.25"):
+        """speeds up a gif/video by a given amount (1.25x by default)"""
+        try:
+            # get valid multiplier
+            amount = float(amount.strip("x"))
+        except ValueError:
+            error = err.INVALID_MULTIPLIER
+
+            if bool(random.getrandbits(1)):
+                error = error.replace("mult", "mark")
+
+            return await ctx.send(error)
+
+        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+
+        res, error = await get_media(ctx, ["video", "gif"])
+        if error: return await processing.edit(content = error)
+
+        if "gif" in res.filetype:
+            result = await EditGif(res).speed(amount)
+        else:
+            result = await EditVideo(res).speed(amount)
+
+        await send_media(ctx, processing, result, res.filetype)
 
     @commands.command(usage = "[youtube-url] *[start-time] *[end-time]")
     async def get(self, ctx: commands.Context, url: str = None, start: str = None, end: str = None):

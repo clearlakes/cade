@@ -30,6 +30,7 @@ def _get_link(text: str):
     # links that can be read directly
     valid_urls = (
         "https://tenor",
+        "https://gyazo",
         "https://cdn.discordapp",
         "https://media.discordapp",
         "https://i.imgur",
@@ -42,29 +43,44 @@ def _get_link(text: str):
 
         return link if link.startswith(valid_urls) else None
 
-async def _link_bytes(link: str, allow_gifs: bool, media_types: list[str]):
+async def _link_bytes(link: str, media_types: list[str]):
     if res := reg.tenor.search(link):
         if not Keys.tenor:
             return
 
         # get direct gif link through tenor's api
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={Keys.tenor.key}') as r:
+            async with session.get(f"https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={Keys.tenor}") as r:
                 res = await r.json()
 
-        link = res["results"][0]["media"][0]["gif"]["url"]
+        try:
+            link = res["results"][0]["media"][0]["gif"]["url"]
+        except IndexError:
+            return
 
-    # read bytes from the link
+    elif res := reg.gyazo.search(link):
+        if not Keys.gyazo:
+            return
+
+        # get direct gif link through gyazo's api
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.gyazo.com/api/images/{res.group(1)}?access_token={Keys.gyazo}") as r:
+                res = await r.json()
+
+        try:
+            link = res["url"]
+        except IndexError:
+            return
+
+    # try reading bytes from the link
     async with aiohttp.ClientSession() as session:
         async with session.get(link) as r:
-            link_type = r.content_type.split("/")
-
-            if (link_type[0] not in media_types) or (link_type[1] in ("gif", "apng") and not allow_gifs):
+            if not any(t in media_types for t in r.content_type.split("/")):
                 return
 
             return AttObj(BytesIO(await r.read()), "url", r.content_type)
 
-async def get_media(ctx: commands.Context, media_types: list[str], allow_gifs: bool = False, allow_urls: bool = False):
+async def get_media(ctx: commands.Context, media_types: list[str]):
     """Main function for getting attachments from either messages, replies, or previous messages"""
     att_obj = None
     error = None
@@ -78,35 +94,30 @@ async def get_media(ctx: commands.Context, media_types: list[str], allow_gifs: b
             # 0: bot msg --> 1: initial msg --> 2: [msg with link or image]
             msg = [message async for message in ctx.channel.history(limit = 3)][2]
 
+    # see if message contains an attachment
     if msg.attachments:
         att = msg.attachments[0]
-        full_type = att.content_type
-        type_name, ext = full_type.split("/")
 
-        # don't use animated gifs/pngs if allow_gifs is false
-        if (ext in ("gif", "apng") and not allow_gifs) or (type_name not in media_types):
+        if not any(t in media_types for t in att.content_type.split("/")):
             error = err.WRONG_ATT_TYPE
         else:
             att_obj = AttObj(BytesIO(await att.read()), splitext(att.filename)[0], att.content_type)
-    else:
-        # if allow_urls is true, read the image/gif from the link
-        if allow_urls:
-            link = _get_link(msg.content)
 
-            if link:
-                link_att_obj = await _link_bytes(link, allow_gifs, media_types)
+    # see if message contains a link
+    elif link := _get_link(msg.content):
+        link_att_obj = await _link_bytes(link, media_types)
 
-                if link_att_obj:
-                    att_obj = link_att_obj
-                else:
-                    error = err.WRONG_ATT_TYPE
-            else:
-                error = err.NO_ATT_OR_URL_FOUND
-
-                if "//imgur.com" in msg.content:
-                    error += " (cant use imgur link it doesn't start with \"i.\")"
+        if link_att_obj:
+            att_obj = link_att_obj
         else:
-            error = err.NO_ATTACHMENT_FOUND
+            error = err.WRONG_ATT_TYPE
+
+    # send an error if message doesn't have attachment or link
+    else:
+        error = err.NO_ATT_OR_URL_FOUND
+
+        if "//imgur.com" in msg.content:
+            error += " (cant use imgur link it doesn't start with \"i.\")"
 
     return att_obj, error
 
@@ -264,17 +275,17 @@ def run_cmd(cmd: str, b1: bytes = None, decode: bool = False) -> tuple[Union[str
 
     return result, p.returncode
 
-async def send_media(ctx: commands.Context, msg: discord.Message, content: BytesIO, filetype: str, filename: str):
+async def send_media(ctx: commands.Context, orig_msg: discord.Message, media: tuple[BytesIO, str], filetype: str):
     """Sends the given media to discord or the image server depending on its size"""
     try:
-        await ctx.reply(file = discord.File(content, filename), mention_author = False)
+        await ctx.reply(file = discord.File(*media), mention_author = False)
     except discord.HTTPException:
         if Keys.image and "video" not in filetype:
-            url = await serve_very_big_file(content, filetype)
+            url = await serve_very_big_file(media[0], filetype)
 
             if not url:
                 # send error if uploading failed
-                return await msg.edit(content = err.IMAGE_SERVER_ERROR)
+                return await orig_msg.edit(content = err.IMAGE_SERVER_ERROR)
 
             embed = BaseEmbed()
             embed.set_image(url = url)
@@ -282,6 +293,6 @@ async def send_media(ctx: commands.Context, msg: discord.Message, content: Bytes
 
             await ctx.reply(embed = embed)
         else:
-            return await msg.edit(content = err.CANT_SEND_FILE)
+            return await orig_msg.edit(content = err.CANT_SEND_FILE)
 
-    await msg.delete()
+    await orig_msg.delete()

@@ -75,6 +75,7 @@ class reg:
     spotify =   re.compile(r"https?:\/\/open\.spotify\.com\/(track|playlist|album)\/([a-zA-Z0-9\_-]+)")  # group 1: type, group 2: id
     twitter =   re.compile(r"https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)")  # group 1: handle, group 2: status id
     tenor =     re.compile(r"https?:\/\/tenor.com\/view\/.*-(\d+)")  # group 1: tenor id
+    gyazo =     re.compile(r"https?:\/\/gyazo.com\/(.*)") # group 1: gyazo id
     color =     re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 @dataclass
@@ -100,6 +101,9 @@ class ff:
     )
     IMGAUDIO = lambda path, audio, length: (
         f"{FFMPEG} -loop 1 -i {path}/input.png -i {audio} -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p -shortest {path}/output.mp4"
+    )
+    SPEED_UP = lambda path, amount: (
+        f"{FFMPEG} -i {path}/input.mp4 -vf 'setpts={1 / amount}*PTS' -af 'atempo={amount}' {path}/output.mp4"
     )
 
 @dataclass
@@ -131,6 +135,7 @@ class err:
     PIL_ERROR =                  f"{E} processing the file failed for some reason (wrong file type?)"
     INVALID_URL =                f"{E} invalid url"
     INVALID_TIMESTAMP =          f"{E} invalid timestamp (must be min:sec, hr:min:sec, or sec)"
+    INVALID_MULTIPLIER =         f"{E} invalid multiplier (should be something like 2x, 1.5, etc.)"
     WEIRD_TIMESTAMPS =           f"{E} the start time must come before the end time"
     BOT_NOT_IN_VC =              f"{E} i'm not in a vc"
     USER_NOT_IN_VC =             f"{E} you're not in the vc"

@@ -1,5 +1,5 @@
 from utils.image import get_content_bounds
-from utils.useful import run_cmd
+from utils.useful import AttObj, run_cmd
 from utils.data import ff
 
 from tempfile import TemporaryDirectory
@@ -9,8 +9,9 @@ import numpy
 import cv2
 
 class EditVideo:
-    def __init__(self, video: BytesIO):
-        self.video = video
+    def __init__(self, video: AttObj):
+        self.filename = video.filename
+        self.video = video.filebyte
 
     def _get_frames(self, path):
         """Returns the fps and frames of a video for editing"""
@@ -43,20 +44,35 @@ class EditVideo:
         with open(f"{path}/output.mp4", "rb") as output:
             return BytesIO(output.read())
 
+    async def _run_ffmpeg(self, path: str, command: str):
+        with open(f"{path}/input.mp4", "wb") as input:
+            input.write(self.video.getvalue())
+
+        # resize the video using the given size
+        _, returncode = await run_cmd(command)
+
+        if returncode != 0:
+            return
+
+        with open(f"{path}/output.mp4", "rb") as output:
+            result_bytes = BytesIO(output.read())
+
+        return (result_bytes, f"{self.filename}.mp4")
+
     async def resize(self, new_size: tuple[int]):
         """Resizes the video to the specified size"""
         with TemporaryDirectory() as temp:
-            with open(f"{temp}/input.mp4", "wb") as input:
-                input.write(self.video.getvalue())
+            result = await self._run_ffmpeg(temp, ff.RESIZE(temp, *new_size))
 
-            # resize the video using the given size
-            result, returncode = await run_cmd(ff.RESIZE(temp, *new_size))
+        return result
 
-            if returncode != 0:
-                return
+    async def speed(self, amount: float):
+        """Speeds up the video by the given amount"""
+        if amount < 0.5:
+            amount = 0.5  # smallest multiplier for videos
 
-            with open(f"{temp}/output.mp4", "rb") as output:
-                result = BytesIO(output.read())
+        with TemporaryDirectory() as temp:
+            result = await self._run_ffmpeg(temp, ff.SPEED_UP(temp, amount))
 
         return result
 
@@ -75,7 +91,7 @@ class EditVideo:
 
             result = await self._create_from_frames(temp, fps)
 
-        return result
+        return (result, f"{self.filename}.mp4") if result else None
 
     async def uncaption(self):
         """Removes captions from the video"""
@@ -91,7 +107,7 @@ class EditVideo:
 
             result = await self._create_from_frames(temp, fps)
 
-        return result
+        return (result, f"{self.filename}.mp4") if result else None
 
 async def get_video_size(video: BytesIO) -> tuple[int, int]:
     """Gets the dimensions of a video"""
