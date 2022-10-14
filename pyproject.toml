@@ -5,7 +5,7 @@ description = ""
 authors = ["source64 <65923236+source64@users.noreply.github.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 lavalink = "^4.0.1"
 Pillow = "^9.2.0"
 opencv-python = "^4.6.0"

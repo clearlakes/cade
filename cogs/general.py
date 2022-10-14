@@ -20,7 +20,7 @@ class General(BaseCog):
 
     @commands.command(aliases = ["gen"], hidden = True)
     @commands.is_owner()
-    async def generate(self, ctx: commands.Context = None):
+    async def generate(self, ctx: commands.Context):
         processing = await ctx.send(bot.PROCESSING())
 
         generate_cmd_list(self.client.cogs)
@@ -29,7 +29,7 @@ class General(BaseCog):
 
     @commands.command(aliases = ["re"], hidden = True)
     @commands.is_owner()
-    async def reload(self, ctx: commands.Context, cog_to_reload: str = None):
+    async def reload(self, ctx: commands.Context, cog_to_reload: str | None):
         processing = await ctx.send(bot.PROCESSING())
 
         try:
@@ -94,10 +94,7 @@ class General(BaseCog):
 
         latest_update = f"<t:{timestamp}:R> [`#{number}`]({gh}/commit/{commit_hash}) - {message}"
 
-        embed = discord.Embed(
-            title = "cade",
-            color = colors.CADE
-        )
+        embed = discord.Embed(title = "cade", color = colors.CADE)
 
         embed.description = f"""cool insane bot made by buh#7797
         **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[i found an issue!!]({gh}/issues/new)**
@@ -119,7 +116,7 @@ class General(BaseCog):
         await ctx.send(embed = embed)
 
     @commands.command(usage = "*[command]")
-    async def help(self, ctx: commands.Context, cmd: str = None):
+    async def help(self, ctx: commands.Context, cmd: str | None):
         """see a list of commands"""
         embed = BaseEmbed()
 
@@ -135,6 +132,9 @@ class General(BaseCog):
             return await ctx.send(err.HELP_NOT_FOUND)
 
         embed = BaseEmbed(description = f"**.{command.name}** - {command.help}")
+
+        if command.name == "help":
+            embed.description = "are you serious"
 
         if usage := command.usage:
             if "*" in usage:
@@ -205,16 +205,12 @@ class General(BaseCog):
         if not tags:
             return await ctx.send(err.NO_TAGS_AT_ALL)
 
-        embed = BaseEmbed(
-            title = "Tags:",
-            from_list = (tags, None)
-        )
-
+        embed = BaseEmbed(title = "Tags:", from_list = (tags, None))
         await ctx.send(embed = embed)
 
     @commands.command(usage = "[channel] *[message]")
     @commands.has_permissions(administrator = True)
-    async def welcome(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str = None):
+    async def welcome(self, ctx: commands.Context, channel: discord.TextChannel, *, msg: str | None):
         """sets the welcome message for the server (admin)"""
         db = GuildDB(ctx.guild)
 

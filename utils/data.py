@@ -1,4 +1,5 @@
 from discord import ActivityType as act
+
 from dataclasses import dataclass
 import random
 import re
@@ -11,7 +12,7 @@ FFPROBE = "ffprobe -v error"
 PAD_EVEN = "-vf pad=\"width=ceil(iw/2)*2:height=ceil(ih/2)*2\""
 
 # error prefix
-E = "<a:fire:1004208282585530408> **error:**"
+E = "<a:fire:1004208282585530408>"
 
 @dataclass
 class colors:
@@ -64,6 +65,15 @@ class bot:
         "un momento..."
     ])
 
+    SUPPORTED_SITES = (
+        "https://tenor",
+        "https://gyazo",
+        "https://cdn.discordapp",
+        "https://media.discordapp",
+        "https://i.imgur",
+        "https://c.tenor"
+    )
+
     WAITING = "<a:cadewait:945424680351850506>"
     OK = "<:cadeok:934934539124502598>"
 
@@ -97,10 +107,10 @@ class ff:
         f"{FFMPEG} -framerate {fps} -i '{path}/%d.png' -vn -i {path}/input.mp4 -c:v libx264 -pix_fmt yuv420p {PAD_EVEN} {path}/output.mp4"
     )
     RESIZE = lambda path, width, height: (
-        f"{FFMPEG} -i {path}/input.mp4 -vf scale={width}:{height} {path}/output.mp4".replace("auto", "-2")
+        f"{FFMPEG} -i {path}/input.mp4 -vf scale={width}:{height} {path}/output.mp4"
     )
     IMGAUDIO = lambda path, audio, length: (
-        f"{FFMPEG} -loop 1 -i {path}/input.png -i {audio} -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p -shortest {path}/output.mp4"
+        f"{FFMPEG} -loop 1 -i {path}/input.png -i {audio} -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p {PAD_EVEN} -shortest {path}/output.mp4"
     )
     SPEED_UP = lambda path, amount: (
         f"{FFMPEG} -i {path}/input.mp4 -vf 'setpts={1 / amount}*PTS' -af 'atempo={amount}' {path}/output.mp4"
@@ -113,30 +123,31 @@ class err:
     COG_RELOAD_ERROR = lambda c: f"{E} could not reload {c}"
     FUNNY_ONLY =                 f"{E} that only works in funny museum"
     TWEET_ERROR =                f"{E} could not send tweet"
-    TWITTER_PROFILE_ERROR =      f"{E} could not change profile information"
-    TWEET_URL_NOT_FOUND =        f"{E} could not find tweet url/id"
+    TWITTER_PROFILE_ERROR =      f"{E} could not change twita profile"
+    TWEET_URL_NOT_FOUND =        f"{E} could not find a tweet url/id"
     TWEET_NOT_FOUND =            f"{E} could not find tweet from the given url/id"
     NO_ATTACHMENT_FOUND =        f"{E} no attachment was found"
     NO_ATT_OR_URL_FOUND =        f"{E} no attachment or url was found"
     NO_AUDIO_FOUND =             f"{E} could not find audio file or url"
     WRONG_ATT_TYPE =             f"{E} wrong attachment type"
+    UNSUPPORTED_URL =            f"{E} unsupported url (lmk if you think it should be)"
     HELP_NOT_FOUND =             f"{E} command not found"
     NO_PERMISSIONS_USER =        f"{E} you're missing permissions"
     NO_PERMISSIONS_BOT =         f"{E} i'm missing permissions"
     TAG_DOESNT_EXIST =           f"{E} that tag has not been created yet"
     TAG_ALREADY_EXISTS =         f"{E} that tag already exists"
-    NO_TAGS_AT_ALL =             f"{E} no tags were found"
+    NO_TAGS_AT_ALL =             f"{E} no tags have been made yet"
     CANT_SEND_FILE =             f"{E} could not send the file (too large maybe)"
     IMAGE_SERVER_ERROR =         f"{E} can't find image server (not your fault i need to fix this)"
     YT_ERROR = lambda e:         f"{E} could not get video: {e}"
     AUDIO_MAX_LENGTH =           f"{E} audio length is too long (max: 30 minutes)"
     FILE_MAX_SIZE =              f"{E} size too large (max: 2000px)"
     FFMPEG_ERROR =               f"{E} processing the command failed for some reason (maybe not your fault)"
-    PIL_ERROR =                  f"{E} processing the file failed for some reason (wrong file type?)"
+    MEDIA_EDIT_ERROR =           f"{E} processing the file failed for some reason (wrong file type?)"
     INVALID_URL =                f"{E} invalid url"
     INVALID_TIMESTAMP =          f"{E} invalid timestamp (must be min:sec, hr:min:sec, or sec)"
     INVALID_MULTIPLIER =         f"{E} invalid multiplier (should be something like 2x, 1.5, etc.)"
-    WEIRD_TIMESTAMPS =           f"{E} the start time must come before the end time"
+    WEIRD_TIMESTAMPS =           f"{E} the starting position must come before the end position"
     BOT_NOT_IN_VC =              f"{E} i'm not in a vc"
     USER_NOT_IN_VC =             f"{E} you're not in the vc"
     NO_MUSIC_PLAYING =           f"{E} nothing is playing right now"
@@ -144,11 +155,11 @@ class err:
     NO_MUSIC_RESULTS =           f"{E} no results were found with that query"
     CANT_LOAD_MUSIC =            f"{E} can't play music (could be private/age-restricted/copyrighted)"
     BOT_IN_VC =                  f"{E} i'm already in the vc"
-    NOT_IN_QUEUE =               f"{E} that is probably not in the queue"
+    NOT_IN_QUEUE =               f"{E} that isn't in the queue"
     MUSIC_NOT_LOOPED =           f"{E} the current song is not being looped (use `.l` to do so)"
     NO_SPOTIFY_ON_YT = lambda t: f"{E} couldn't find `{t}` on youtube sorry (skipping)"
     INVALID_INDEX =              f"{E} invalid index"
     INVALID_SEEK =               f"{E} cannot skip that far into the track"
-    MOV_TO_MP4_ERROR =           f"{E} there was an issue converting from mov to mp4"
+    MOV_TO_MP4_ERROR =           f"{E} broke something while converting from mov to mp4"
     UNEXPECTED =                 f"{E} weird response, try again"
-    CMD_USAGE = lambda c:        f"{E} usage: `.{c.name}" + f" {c.usage}`" if c.usage else "`"
+    CMD_USAGE = lambda c:        f"{E} no it's like this: `.{c.name}" + f" {c.usage}`" if c.usage else "`"

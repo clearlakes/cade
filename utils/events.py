@@ -16,10 +16,10 @@ from utils.db import GuildDB
 from utils.main import Cade
 
 def add_bot_events(client: Cade):
-    events = BotEvents(client)
+    bot_events = BotEvents(client)
 
-    for listener in [x for x in dir(events) if not x.startswith(("_", "client", "react_roles"))]:
-        client.add_listener(getattr(events, listener))
+    for listener_func in [x for x in dir(bot_events) if x.startswith("on")]:
+        client.add_listener(getattr(bot_events, listener_func))
 
 class BotEvents:
     def __init__(self, client: Cade):

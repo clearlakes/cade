@@ -17,7 +17,6 @@ from utils.main import Cade
 
 from async_spotify.spotify_errors import SpotifyAPIError
 from dataclasses import dataclass
-from typing import Union
 
 @dataclass
 class QueryInfo:
@@ -69,7 +68,7 @@ async def find_tracks(
     requester_id: int,
     return_all: bool = False
 ) -> tuple[
-    list[Union[AudioTrack, DeferredSpotifyTrack]],
+    list[AudioTrack | DeferredSpotifyTrack],
     QueryInfo,
     bool
 ]:
@@ -115,7 +114,7 @@ async def get_youtube(client: Cade, query: str, return_all: bool = False):
 
 async def get_spotify(client: Cade, url_type: str, url_id: str, requester_id: int):
     """Gets tracks from spotify"""
-    tracks: list[Union[DeferredSpotifyTrack, AudioTrack]] = []
+    tracks: list[DeferredSpotifyTrack | AudioTrack] = []
     info = QueryInfo()
 
     failed = False
@@ -215,10 +214,7 @@ async def get_queue(player: DefaultPlayer):
             requester = f"<@{track.requester}>"
             queue_list += f'**{index + 1}.** [**{track.title}**]({track.uri}) `{duration}` - {requester}\n'
 
-        embed = BaseEmbed(
-            title = f"Queue ({len(player.queue)} total)",
-            description = queue_list
-        )
+        embed = BaseEmbed(title = f"Queue ({len(player.queue)} total)", description = queue_list)
 
         # add page counter to footer if there's more than one page
         page_count = f"page {current_page} out of {total_pages}" if total_pages > 1 else ""

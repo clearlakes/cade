@@ -4,8 +4,8 @@ from discord.ext import commands
 from utils.data import colors
 from utils.main import Cade
 
-from typing import Optional, Union, Any
 from datetime import datetime
+from typing import Any
 
 class BaseCog(commands.Cog):
     """like a regular cog but adds self.client (more stuff could be added later if needed)"""
@@ -15,11 +15,11 @@ class BaseCog(commands.Cog):
 class BaseEmbed(discord.Embed):
     """like a regular embed but with gray as the default color (also able to create lists)"""
     def __init__(self, *,
-        color: Optional[Union[int, discord.Colour]] = colors.EMBED_BG,
-        title: Optional[Any] = None,
-        url: Optional[Any] = None,
-        description: Optional[Any] = None,
-        timestamp: Optional[datetime] = None,
+        color: int | discord.Colour | None = colors.EMBED_BG,
+        title: Any | None = None,
+        url: Any | None = None,
+        description: Any | None = None,
+        timestamp: datetime | None = None,
         from_list: tuple[list, str] = None
     ):
         if from_list:

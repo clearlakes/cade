@@ -36,32 +36,32 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 
 
 ## Media
--  [**`.jpeg`**](https://github.com/source64/cade/blob/main/cogs/media.py#L51) - lowers the quality of the given image
+-  [**`.jpeg`**](https://github.com/source64/cade/blob/main/cogs/media.py#L45) - lowers the quality of the given image
    -  how to use: `.jpeg (image)`
 
--  [**`.imgaudio`**](https://github.com/source64/cade/blob/main/cogs/media.py#L65) - converts an image into a video with audio
+-  [**`.imgaudio`**](https://github.com/source64/cade/blob/main/cogs/media.py#L59) - converts an image into a video with audio
    -  how to use: `.imgaudio *[seconds] (image)`
 
--  [**`.resize`**](https://github.com/source64/cade/blob/main/cogs/media.py#L193) - resizes the given attachment
+-  [**`.resize`**](https://github.com/source64/cade/blob/main/cogs/media.py#L185) - resizes the given attachment
    -  how to use: `.resize [width]/auto *[height]/auto (gif/image/video)`
 
--  [**`.caption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L243) - captions the specified gif or image in the style of iFunny's captions
+-  [**`.caption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L226) - captions the specified gif or image in the style of iFunny's captions
    -  how to use: `.caption [text] (gif/image/video)`
 
--  [**`.uncaption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L279) - removes the caption from the given attachment
+-  [**`.uncaption`**](https://github.com/source64/cade/blob/main/cogs/media.py#L238) - removes the caption from the given attachment
    -  how to use: `.uncaption (gif/image/video)`
 
--  [**`.speed`**](https://github.com/source64/cade/blob/main/cogs/media.py#L300) - speeds up a gif/video by a given amount (1.25x by default)
+-  [**`.speed`**](https://github.com/source64/cade/blob/main/cogs/media.py#L250) - speeds up a gif/video by a given amount (1.25x by default)
    -  how to use: `.speed *[multiplier] (gif/video)`
 
--  [**`.get`**](https://github.com/source64/cade/blob/main/cogs/media.py#L326) - downloads a youtube video (or a part of it)
+-  [**`.get`**](https://github.com/source64/cade/blob/main/cogs/media.py#L273) - downloads a youtube video (or a part of it)
    -  how to use: `.get [youtube-url] *[start-time] *[end-time]`
 
 
 ## General
 -  [**`.info`**](https://github.com/source64/cade/blob/main/cogs/general.py#L77) - get information about the bot
 
--  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L121) - see a list of commands
+-  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L118) - see a list of commands
    -  how to use: `.help *[command]`
 
 -  [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L157) - sends/creates a tag containing a given message
@@ -72,17 +72,17 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 
 -  [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L198) - lists every tag in the server
 
--  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L216) - sets the welcome message for the server (admin)
+-  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L212) - sets the welcome message for the server (admin)
    -  how to use: `.welcome [channel] *[message]`
 
 
 ## Funny
 > note: these commands are specific to funny museum
--  [**`.tweet`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L52) - tweets out a message
+-  [**`.tweet`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L51) - tweets out a message
    -  how to use: `.tweet [message]`
 
--  [**`.reply`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L69) - replies to a given tweet by its url/id (or the latest tweet)
+-  [**`.reply`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L68) - replies to a given tweet by its url/id (or the latest tweet)
    -  how to use: `.reply [tweet-id]/latest [message]`
 
--  [**`.profile`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L126) - replaces the profile/banner of the twita account
+-  [**`.profile`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L125) - replaces the profile/banner of the twita account
    -  how to use: `.profile profile/banner (image)`

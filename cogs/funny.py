@@ -14,7 +14,6 @@ from utils.main import Cade
 
 from tempfile import NamedTemporaryFile as create_temp
 from tweepy import TweepyException, NotFound
-from typing import Union
 from io import BytesIO
 from PIL import Image
 
@@ -40,7 +39,7 @@ class Funny(BaseCog):
         else:
             return True
 
-    async def get_tweet_content(self, ctx: commands.Context, status: str = None):
+    async def get_tweet_content(self, ctx: commands.Context, status: str | None):
         media_type, attachments = await get_tweet_attachments(ctx)
 
         if not status and not attachments:
@@ -50,7 +49,7 @@ class Funny(BaseCog):
         return status, get_media_ids(self.client.twitter_api, media_type, attachments)
 
     @commands.command(usage = "[message]")
-    async def tweet(self, ctx: commands.Context, *, content: str = None):
+    async def tweet(self, ctx: commands.Context, *, content: str | None):
         """tweets out a message"""
         status, media_ids = await self.get_tweet_content(ctx, content)
 
@@ -67,7 +66,7 @@ class Funny(BaseCog):
         )
 
     @commands.command(usage = "[tweet-id]/latest [message]")
-    async def reply(self, ctx: commands.Context, reply_to: Union[str, int], *, content: str = None):
+    async def reply(self, ctx: commands.Context, reply_to: str | int, *, content: str | None):
         """replies to a given tweet by its url/id (or the latest tweet)"""
         status, media_ids = await self.get_tweet_content(ctx, content)
         is_chain = False

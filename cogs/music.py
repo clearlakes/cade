@@ -113,13 +113,13 @@ class Music(BaseCog):
             # creates a selection view using the search results
             view = TrackSelectView(ctx, tracks)
 
-            await ctx.send(embed = view.track_embed, view = view)
+            track_list = await ctx.send(embed = view.track_embed, view = view)
             await view.wait()
 
             track, info = view.track, view.info
 
             if not track:
-                return  # nothing was selected
+                return await track_list.delete()  # nothing was selected
 
             tracks = [track]
 
@@ -165,7 +165,7 @@ class Music(BaseCog):
         await ctx.message.add_reaction(bot.OK)
 
     @commands.command(aliases = ["s"], usage = "*[index]/all")
-    async def skip(self, ctx: commands.Context, index: str = None):
+    async def skip(self, ctx: commands.Context, index: str | None):
         """skips the current track (or queued tracks)"""
         player = self.client.lavalink.get_player(ctx)
 
@@ -247,7 +247,7 @@ class Music(BaseCog):
         await ctx.send(f"`{player.current.title}` has been looped **{loopcount}** time(s)")
 
     @commands.command(aliases = ["pl"], usage = "*[playlist]")
-    async def playlist(self, ctx: commands.Context, playlist: str = None):
+    async def playlist(self, ctx: commands.Context, playlist: str | None):
         """lists every playlist and the controls for each"""
         db = GuildDB(ctx.guild)
         guild = await db.get()

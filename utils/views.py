@@ -18,12 +18,11 @@ from utils.db import GuildDB
 from utils.main import Cade
 
 from lavalink import DefaultPlayer, AudioTrack
-from typing import Union
 import asyncio
 import tweepy
 
 class ChoiceView(discord.ui.View):
-    def __init__(self, orig_user: Union[discord.Member, discord.User], choices: list):
+    def __init__(self, orig_user: discord.Member | discord.User, choices: list):
         super().__init__(timeout = None)
 
         self.choice = None
@@ -102,11 +101,7 @@ class HelpView(discord.ui.View):
 
             command_list += f"{cmd_name} - {command.help}\n"
 
-        embed = BaseEmbed(
-            title = f"{cog} Commands",
-            description = command_list
-        )
-
+        embed = BaseEmbed(title = f"{cog} Commands", description = command_list)
         await interaction.message.edit(embed = embed, view = self)
 
 class ReplyView(discord.ui.View):
@@ -405,7 +400,7 @@ class TrackSelectView(discord.ui.View):
     async def play(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.message.delete()
 
-        # self.track/self.extra is now the selected track
+        # self.track is now the selected track
         self.stop()
 
 class NowPlayingView(discord.ui.View):
@@ -489,7 +484,7 @@ class NowPlayingView(discord.ui.View):
 async def wait_until_button(
     interaction: discord.Interaction,
     choice_view: ChoiceView
-) -> tuple[bool, Union[str, discord.Message, None]]:
+) -> tuple[bool, str | discord.Message | None]:
     button_id = choice_view.children[0].custom_id
 
     done, _ = await asyncio.wait([

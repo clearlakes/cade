@@ -6,7 +6,6 @@ from utils.data import err, bot
 from async_spotify import SpotifyApiClient
 from lavalink import Client, DefaultPlayer
 from datetime import datetime
-from typing import Union
 import configparser
 import aiohttp
 import logging
@@ -59,7 +58,8 @@ class Cade(commands.Bot):
 
     async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
-            return await ctx.send(err.CMD_USAGE(ctx.command))  # send command usage
+            await ctx.send(err.CMD_USAGE(ctx.command))  # send command usage
+            return
         elif isinstance(error, (commands.CheckFailure, commands.DisabledCommand, commands.CommandNotFound)):
             return  # ignore errors that aren't important
 
@@ -75,7 +75,7 @@ class Cade(commands.Bot):
         super().run(self.token, reconnect = True)
 
 class CadeLavalink(Client):
-    def create_player(self, ctx: Union[commands.Context, discord.Interaction]) -> DefaultPlayer:
+    def create_player(self, ctx: commands.Context | discord.Interaction) -> DefaultPlayer:
         user = ctx.author if isinstance(ctx, commands.Context) else ctx.user
 
         player: DefaultPlayer = self.player_manager.create(ctx.guild.id, endpoint = str(user.voice.channel.rtc_region))
@@ -83,5 +83,5 @@ class CadeLavalink(Client):
 
         return player
 
-    def get_player(self, ctx: Union[commands.Context, discord.Interaction, discord.Member]) -> DefaultPlayer:
+    def get_player(self, ctx: commands.Context | discord.Interaction | discord.Member) -> DefaultPlayer:
         return self.player_manager.get(ctx.guild.id)
