@@ -19,8 +19,7 @@ class colors:
     """colors used in embeds"""
     CADE =          0xeac597  # used in .info
     PLAYING_TRACK = 0x4287f5  # used when a track starts playing
-    ADDED_TRACK =   0x42f55a  # used when a track is added
-    CURRENT_TRACK = 0x4e42f5  # used in .nowplaying
+    QUEUED_TRACK =  0x40c752  # used when a track is added
     EMBED_BG =      0x2F3136  # same color as embed background
 
 @dataclass
@@ -80,13 +79,15 @@ class bot:
 @dataclass
 class reg:
     """regex stuff most likely copied from somewhere"""
-    youtube =   re.compile(r"https?:\/\/(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(watch|v|embed|shorts|playlist)?(?:\.php)?(?:\?(?:v=|list=)|\/))([a-zA-Z0-9\_-]+)") # group 1: type, group 2: id
-    url =       re.compile(r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)")  # gets any url
-    spotify =   re.compile(r"https?:\/\/open\.spotify\.com\/(track|playlist|album)\/([a-zA-Z0-9\_-]+)")  # group 1: type, group 2: id
-    twitter =   re.compile(r"https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)")  # group 1: handle, group 2: status id
-    tenor =     re.compile(r"https?:\/\/tenor.com\/view\/.*-(\d+)")  # group 1: tenor id
-    gyazo =     re.compile(r"https?:\/\/gyazo.com\/(.*)") # group 1: gyazo id
-    color =     re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    youtube =       re.compile(r"https?:\/\/(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(watch|v|embed|shorts|playlist)?(?:\.php)?(?:\?(?:v=|list=)|\/))([a-zA-Z0-9\_-]+)") # group 1: type, group 2: id
+    url =           re.compile(r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)")  # gets any url
+    spotify =       re.compile(r"https?:\/\/open\.spotify\.com\/(track|playlist|album)\/([a-zA-Z0-9\_-]+)")  # group 1: type, group 2: id
+    twitter =       re.compile(r"https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)")  # group 1: handle, group 2: status id
+    tenor =         re.compile(r"https?:\/\/tenor.com\/view\/.*-(\d+)")  # group 1: tenor id
+    gyazo =         re.compile(r"https?:\/\/gyazo.com\/(.*)") # group 1: gyazo id
+    color =         re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    track_name =    re.compile(r"(?<=\[).*(?=\])")
+    pl_split =      re.compile(r"(?:\: )|(?: - )")
 
 @dataclass
 class ff:

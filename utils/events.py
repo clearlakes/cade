@@ -8,7 +8,7 @@ from lavalink import (
     AudioTrack,
     listener
 )
-from utils.useful import format_time, get_yt_thumbnail
+from utils.useful import format_time, get_yt_thumbnail, strip_pl_name
 from utils.views import NowPlayingView
 from utils.data import colors, err
 from utils.base import BaseEmbed
@@ -113,17 +113,16 @@ class TrackEvents:
 
         duration = format_time(ms = track.duration)
 
-        # create the embed
         playing = discord.Embed(
-            title = track.title,
-            url = track.uri,
-            description = f"Duration: `{duration}` | Sent by {requester.mention}",
+            description = f"**[{track.title}]({track.uri})**\n`{duration}` • {requester.mention}",
             color = colors.PLAYING_TRACK
         )
 
-        # add footer and thumbnail
         playing.set_author(name = "Now Playing", icon_url = requester.display_avatar)
         playing.set_thumbnail(url = get_yt_thumbnail(track.identifier))
+
+        player.store("prev_pl_name", player.fetch("pl_name"))
+        player.store("pl_name", player.current.extra["pl_name"])
 
         player.store("message", await channel.send(embed = playing))
         player.store("requester", track.requester)
@@ -144,8 +143,8 @@ class TrackEvents:
 
         # disable .nowplaying buttons for the track
         for view in self.client.persistent_views:
-            if isinstance(view, NowPlayingView) and view.id == track_id and view.children[0].label != "skipped":
-                await view.message.edit(view = view.disable("ended"))
+            if isinstance(view, NowPlayingView) and view.id == track_id and not view.is_finished():
+                await view.disable("ended")
 
         requester = player.fetch("requester")
         duration = format_time(ms = track.duration)
@@ -157,6 +156,39 @@ class TrackEvents:
             description = f"was played by <@{requester}> | Duration: `{duration}`"
         )
 
+        track_info = f"[{track.title}]({track.uri}) `{duration}`"
+
+        played = BaseEmbed(
+            description = f"Played {track_info} • <@{requester}>"
+        )
+
+        orig_message: discord.Message = player.fetch("message")
+
+        # group track with others from the same playlist if they're from one
+        if (pl := player.fetch("pl_name")) and pl == player.fetch("prev_pl_name"):
+            channel = self.client.get_channel(player.fetch("channel"))  # find "played (track)" message
+            message = [m async for m in channel.history(limit = 2)][-1]
+
+            if (
+                message.author == self.client.user and          # message is from the bot
+                (em := message.embeds) and                      # message has an embed
+                "Played" in (desc := em[0].description) and     # embed is of a played track(s)
+                desc.count("\n") < 15                           # embed has less than 15 lines
+            ):
+                # add the playlist name if it's not there
+                if "Played tracks from" not in desc:
+                    desc = strip_pl_name(pl, desc).strip(f" • <@{requester}>")
+                    desc = desc.replace("Played", f"<@{requester}> • Played tracks from **{pl}**:\n- ")
+
+                # add the track's information
+                desc += f"\n- {strip_pl_name(pl, track_info)}"
+                new_embed = message.embeds[0].copy()
+                new_embed.description = desc
+
+                # edit the message and delete the "now playing" message
+                await message.edit(embed = new_embed)
+                await orig_message.delete()
+                return
+
         # edit the original "now playing" message with the embed
-        message: discord.Message = player.fetch("message")
-        await message.edit(embed = played)
+        await orig_message.edit(embed = played)

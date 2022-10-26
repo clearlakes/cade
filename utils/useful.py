@@ -15,6 +15,7 @@ from os.path import splitext
 from shlex import split
 from io import BytesIO
 from PIL import Image
+import numpy as np
 import asyncio
 import aiohttp
 import tweepy
@@ -145,6 +146,24 @@ def format_time(sec: int = 0, ms: int = 0):
     format = "%-H:%M:%S" if hours else "%-M:%S"
 
     return strftime(format, gmtime(sec))
+
+def get_average_color(image: bytes):
+    """Gets the average color of an image (from bytes)"""
+    pil_img = Image.open(BytesIO(image))
+    np_img = np.array(pil_img)
+
+    average_color = [round(x) for x in np_img.mean(axis = 0).mean(axis = 0)]
+    return average_color
+
+def strip_pl_name(playlist_name: str, text: str):
+    """Strips the playlist name from track titles"""
+    track_name = t.group(0) if (t := reg.track_name.search(text)) else text
+    playlist_name = playlist_name.lower()
+
+    if any((short_title := x).lower().strip(" ost") not in playlist_name for x in reg.pl_split.split(track_name, 1)):
+        return text.replace(track_name, short_title.strip())
+
+    return text
 
 async def get_tweet_attachments(ctx: commands.Context | discord.Interaction):
     """Gets the attachments to use for tweets"""

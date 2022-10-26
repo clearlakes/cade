@@ -1,22 +1,21 @@
-import discord
 from discord.ext import commands, menus
 
-from utils.tracks import (
-    create_music_embed,
-    find_tracks,
-    get_queue
-)
 from utils.views import (
     TrackSelectView,
     NowPlayingView,
     PlaylistView
 )
+from utils.tracks import (
+    create_music_embed,
+    find_tracks,
+    get_queue
+)
 from utils.clients import LavalinkVoiceClient, Keys, get_spotify_client
-from utils.useful import format_time, get_yt_thumbnail
 from utils.base import BaseEmbed, BaseCog
 from utils.main import Cade, CadeLavalink
-from utils.data import err, colors, bot
 from utils.events import TrackEvents
+from utils.useful import format_time
+from utils.data import err, bot
 from utils.db import GuildDB
 
 class Music(BaseCog):
@@ -82,17 +81,14 @@ class Music(BaseCog):
     async def play(self, ctx: commands.Context, *, query: str = ""):
         """plays a track/playlist from youtube or spotify"""
         query = query.strip("<>")
+        track_selection = False
 
-        # check if the user wants to select a track
-        if query.endswith("*"):
-            query = query[:-1]
-            track_selection = True
-        else:
-            track_selection = False
-
-        # check if the query was empty
-        if not query:
-            raise commands.MissingRequiredArgument(ctx.command.params["query"])
+        match list(query):
+            case [*_, "*"]:  # if "*" is the last character, start track selection
+                query = query[:-1]
+                track_selection = True
+            case []:  # if the query is empty, raise an error
+                raise commands.MissingRequiredArgument(ctx.command.params["query"])
 
         # get the player for this guild from cache
         player = self.client.lavalink.get_player(ctx)
@@ -113,7 +109,7 @@ class Music(BaseCog):
             # creates a selection view using the search results
             view = TrackSelectView(ctx, tracks)
 
-            track_list = await ctx.send(embed = view.track_embed, view = view)
+            track_list = await ctx.send(embed = await view.get_track_embed(), view = view)
             await view.wait()
 
             track, info = view.track, view.info
@@ -165,38 +161,85 @@ class Music(BaseCog):
         await ctx.message.add_reaction(bot.OK)
 
     @commands.command(aliases = ["s"], usage = "*[index]/all")
-    async def skip(self, ctx: commands.Context, index: str | None):
+    async def skip(self, ctx: commands.Context, *, index: int | str | None):
         """skips the current track (or queued tracks)"""
         player = self.client.lavalink.get_player(ctx)
+        skip_to = False
+        removed = None
 
-        # if nothing is given, skip the current track
-        if index is None:
+        async def _skip():
             track_id = f"{ctx.guild.id}:{player.current.identifier}"
 
             for view in self.client.persistent_views:
                 if isinstance(view, NowPlayingView) and view.id == track_id:
-                    await view.message.edit(view = view.disable("skipped"))
+                    await view.disable("skipped")
 
             player.set_loop(0)
             await player.skip()
             await ctx.message.add_reaction(bot.OK)
-            return
 
-        # clear the queue if "all" is given
-        if index == "all":
-            player.queue.clear()
-            return await ctx.send(f"{bot.OK} cleared the queue")
+        if index is None:
+            return await _skip()
 
-        # if the given index is not numeric or larger than the number of tracks in the queue, send an error
-        if not index.isnumeric() or int(index) > len(player.queue):
-            return await ctx.send(err.NOT_IN_QUEUE)
+        if index == "undo":
+            if cache := player.fetch("queue_cache"):
+                player.queue = cache  # revert back to saved version of queue
+                player.store("queue_cache", None)
+                return await ctx.message.add_reaction(bot.OK)
+            else:
+                return await ctx.message.add_reaction("❓")
 
-        index = int(index)
+        # save queue state in case they want to undo
+        player.store("queue_cache", [*player.queue])
 
-        # "skipped track"
-        title = player.queue[index - 1]["title"]
-        player.queue.pop(index - 1)
-        await ctx.send(f"{bot.OK} skipped **{title}**")
+        while True:
+            match index:
+                case int():
+                    if 0 < index <= len(player.queue):
+                        if skip_to:  # skip to track and play it
+                            player.queue = player.queue[index - 1:]
+                            return await _skip()
+
+                        # remove track by index
+                        removed = player.queue.pop(index - 1).title
+                        break
+                    else:
+                        return await ctx.send(err.NOT_IN_QUEUE)
+                case str():
+                    match list(index):
+                        case [*_, "^"]:
+                            index = int(i) if (i := index[:-1]).isnumeric() else i  # remove "^"
+                            skip_to = True  # restart match statement but skip to track instead
+                        case _:
+                            index = index.lower()
+
+                            if index == "all":
+                                player.queue.clear()
+                                return await ctx.send(f"{bot.OK} cleared the queue")
+
+                            # remove by playlist name
+                            if pl_tracks := [t for t in player.queue if (pl := t.extra["pl_name"]) and pl.lower() == index]:
+                                if skip_to:  # skip to first track in playlist
+                                    player.queue = player.queue[player.queue.index(pl_tracks[0]):]
+                                    return await _skip()
+
+                                player.queue = [track for track in player.queue if track not in pl_tracks]
+                                removed = pl_tracks[0].extra["pl_name"]
+                                break
+
+                            # remove by track name
+                            if any(index in (track := t).title.lower() for t in player.queue):
+                                if skip_to:  # skip to track and play it (but also find index)
+                                    player.queue = player.queue[player.queue.index(track):]
+                                    return await _skip()
+
+                                player.queue.remove(track)
+                                removed = track.title
+                                break
+
+                            return await ctx.send(err.NOT_IN_QUEUE)
+
+        await ctx.send(f"{bot.OK} skipped **{removed}**")
 
     @commands.command()
     async def shuffle(self, ctx: commands.Context):
@@ -349,53 +392,15 @@ class Music(BaseCog):
     async def nowplaying(self, ctx: commands.Context):
         """shows information about the current track"""
         player = self.client.lavalink.get_player(ctx)
-        requester = await self.client.fetch_user(player.current.requester)
+        view = NowPlayingView(ctx, player)
 
-        # get current track information
-        current_song_pos = player.position
-        song_duration = player.current.duration
+        # clear existing "now playing" views
+        for v in self.client.persistent_views:
+            if isinstance(v, NowPlayingView) and v.id == view.id:
+                await v.message.edit(view = v.clear_items())
 
-        # generate video progress bar
-        ratio_of_times = (current_song_pos / song_duration) * 50
-        ratio_of_times_in_range = ratio_of_times // 2.5
-
-        line = "".join("-" if i != ratio_of_times_in_range else "⦿" for i in range(20))
-
-        # formatted durations
-        duration = format_time(ms = song_duration)
-        time_at = format_time(ms = current_song_pos)
-        time_left = format_time(ms = song_duration - current_song_pos)
-
-        # create embed
-        embed = discord.Embed(
-            title = player.current.title,
-            url = f"https://youtube.com/watch?v={player.current.identifier}",
-            description = f"Sent by {requester.mention} | Duration: `{duration}`",
-            color = colors.CURRENT_TRACK
-        )
-
-        embed.set_footer(text = f"{time_at} elapsed {line} {time_left} left")
-        embed.set_author(name = "Currently Playing", icon_url = requester.display_avatar)
-        embed.set_thumbnail(url = get_yt_thumbnail(player.current.identifier))
-
-        # edit the embed to show if the current track is paused
-        if player.paused:
-            embed.description += " | **Paused**"
-
-        # edit the footer if the current track is being looped
-        if player.loop:
-            embed.set_footer(text = f"{embed.footer.text} • looped")
-
-        track_id = f"{ctx.guild.id}:{player.current.identifier}"
-
-        for view in self.client.persistent_views:
-            if isinstance(view, NowPlayingView) and view.id == track_id:
-                await view.message.edit(view = view.clear_items())
-
-        msg = await ctx.send(embed = embed)
-
-        # add NowPlayingView buttons to message
-        await msg.edit(embed = embed, view = NowPlayingView(ctx, player))
+        # create embed and add buttons to message
+        view.message = await ctx.send(embed = await view.get_track_embed(), view = view)
 
 async def setup(bot: Cade):
     await bot.add_cog(Music(bot))

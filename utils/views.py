@@ -3,7 +3,9 @@ from discord.ext import commands
 
 from utils.useful import (
     get_tweet_attachments,
+    get_average_color,
     get_yt_thumbnail,
+    read_from_url,
     get_media_ids,
     get_twt_url,
     format_time,
@@ -279,6 +281,9 @@ class PlaylistView(discord.ui.View):
             info.thumbnail = get_yt_thumbnail(tracks[0].identifier)
             info.url = tracks[0].uri
 
+        for t in tracks:
+            t.extra["pl_name"] = self.playlist  # add playlist name to track data
+
         embed = create_music_embed(tracks, info, player, interaction.user)
 
         await interaction.response.send_message(embed = embed)
@@ -353,15 +358,18 @@ class TrackSelectView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction):
         return interaction.user == self.ctx.author
 
-    @property
-    def track_embed(self):
+    async def get_track_embed(self):
+        _, yt_image_bytes, _ = await read_from_url(self.info.thumbnail, read_bytes = True)
+        average_color = get_average_color(yt_image_bytes)
+
+        duration = format_time(ms = self.track.duration)
+
         embed = BaseEmbed(
-            title = self.info.title,
-            url = self.info.url,
-            description = f"Author: **{self.track.author}** | Duration: `{format_time(ms = self.track.duration)}`"
+            description = f"**[{self.info.title}]({self.info.url})**\n`{duration}` • by **{self.track.author}**",
+            color = discord.Color.from_rgb(*average_color)
         )
 
-        embed.set_author(name = f"Result {self.tracks.index(self.track) + 1} out of {len(self.tracks)}")
+        embed.set_author(name = f"Result {self.tracks.index(self.track) + 1} out of {len(self.tracks)}", icon_url = self.ctx.author.display_avatar)
         embed.set_thumbnail(url = self.info.thumbnail)
 
         return embed
@@ -379,7 +387,7 @@ class TrackSelectView(discord.ui.View):
         self.info.url = self.track.uri
 
         await interaction.response.defer()
-        await interaction.message.edit(embed = self.track_embed, view = self.set_buttons())
+        await interaction.message.edit(embed = await self.get_track_embed(), view = self.set_buttons())
 
     @discord.ui.button(label = "nvm", style = discord.ButtonStyle.secondary, custom_id = "ts:cancel")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -406,20 +414,71 @@ class TrackSelectView(discord.ui.View):
 class NowPlayingView(discord.ui.View):
     def __init__(self, ctx: commands.Context, player: DefaultPlayer):
         super().__init__(timeout = None)
+        self.message: discord.Message = None  # this is set outside of the class
 
         self.id = f"{ctx.guild.id}:{player.current.identifier}"
         self.player = player
         self.ctx = ctx
 
-        # change pause emoji to play emoji, if paused
-        if player.paused:
+        self.update_pause_btn()
+        self.update_loop_btn()
+
+    def update_pause_btn(self):
+        # change pause emoji and color if paused
+        if self.player.paused:
             self.children[1].emoji = "▶️"
+            self.children[1].style = discord.ButtonStyle.primary
+        else:
+            self.children[1].emoji = "⏸️"
+            self.children[1].style = discord.ButtonStyle.secondary
 
-        # change loop emoji to whatever 🔂 is, if looped
-        if player.loop:
-            self.children[2].emoji = "🔂"
+    def update_loop_btn(self):
+        # change loop button color if looped
+        if self.player.loop:
+            self.children[2].style = discord.ButtonStyle.primary
+        else:
+            self.children[2].style = discord.ButtonStyle.secondary
 
-    def disable(self, reason: str):
+    async def get_track_embed(self):
+        requester = self.ctx.guild.get_member(self.player.current.requester)
+
+        # get track duration info
+        duration = format_time(ms = self.player.current.duration)
+        progress_bar = self.get_track_progress()
+
+        # get average color of thumbnail
+        thumbnail = get_yt_thumbnail(self.player.current.identifier)
+        _, yt_image_bytes, _ = await read_from_url(thumbnail, read_bytes = True)
+        average_color = get_average_color(yt_image_bytes)
+
+        embed = discord.Embed(
+            description = f"**[{self.player.current.title}]({self.player.current.uri})**\n{progress_bar}\n`{duration}` • by **{self.player.current.author}** • {requester.mention}",
+            color = discord.Color.from_rgb(*average_color)
+        )
+
+        embed.set_author(name = "Currently Playing", icon_url = requester.display_avatar)
+        embed.set_thumbnail(url = thumbnail)
+
+        return embed
+
+    def get_track_progress(self):
+        # get current track information
+        elapsed_time_ms = self.player.position
+        song_duration_ms = self.player.current.duration
+
+        # generate video progress bar
+        ratio_of_times = (elapsed_time_ms / song_duration_ms) * 50
+        ratio_of_times_in_range = ratio_of_times // 2.5
+
+        bar = "".join("─" if i != ratio_of_times_in_range else "●" for i in range(20))
+
+        # get formatted durations
+        time_at = format_time(ms = elapsed_time_ms)
+        time_left = format_time(ms = song_duration_ms - elapsed_time_ms)
+
+        return f"`{time_at}` `{bar}` `{time_left} left`"
+
+    async def disable(self, reason: str):
         skip_btn = self.children[0]
         skip_btn.disabled = True
         skip_btn.label = reason
@@ -429,8 +488,12 @@ class NowPlayingView(discord.ui.View):
             if btn != skip_btn:
                 self.remove_item(btn)
 
+        try:
+            await self.message.edit(view = self)
+        except discord.NotFound:
+            pass
+
         self.stop()
-        return self
 
     async def interaction_check(self, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
@@ -441,45 +504,42 @@ class NowPlayingView(discord.ui.View):
             return False
 
         await interaction.response.defer()
-
-        self.message = interaction.message
         self.embed = self.message.embeds[0]
 
         return True
 
     @discord.ui.button(emoji = "⏩", custom_id = "np:skip")
     async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # disable loop if looped
-        self.player.set_loop(0)
+        self.player.set_loop(0)  # disable loop if looped
 
-        await self.message.edit(view = self.disable("skipped"))
+        await self.disable("skipped")
         await self.player.skip()
 
     @discord.ui.button(emoji = "⏸️", custom_id = "np:pause")
     async def pause(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.player.paused:
-            await self.player.set_pause(True)
-            self.children[1].emoji = "▶️"
-            self.embed.description += " | **Paused**"
-        else:
-            await self.player.set_pause(False)
-            self.children[1].emoji = "⏸️"
-            self.embed.description = self.embed.description.replace(" | **Paused**", "")
+        await self.player.set_pause(not self.player.paused)
+        self.update_pause_btn()
 
         await self.message.edit(embed = self.embed, view = self)
 
     @discord.ui.button(emoji = "🔁", custom_id = "np:loop")
     async def loop(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.player.loop:
-            self.player.set_loop(1)
-            self.embed.set_footer(text = f"{self.embed.footer.text} • looped")
-            self.children[2].emoji = "🔂"
-        else:
-            self.player.set_loop(0)
-            self.embed.set_footer(text = self.embed.footer.text.replace(" • looped", ""))
-            self.children[2].emoji = "🔁"
+        self.player.set_loop(not self.player.loop)
+        self.update_loop_btn()
 
         await self.message.edit(embed = self.embed, view = self)
+
+    @discord.ui.button(label = "refresh", custom_id = "np:refresh")
+    async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
+        progress_bar = self.get_track_progress()
+
+        embed = self.message.embeds[0]
+        lines = embed.description.splitlines()
+
+        lines[1] = progress_bar  # only second line needs to be edited
+        embed.description = "\n".join(lines)
+
+        await self.message.edit(embed = embed)
 
 async def wait_until_button(
     interaction: discord.Interaction,

@@ -10,7 +10,7 @@ from lavalink import (
     LoadType,
     Client,
 )
-from utils.useful import format_time, get_yt_thumbnail
+from utils.useful import format_time, get_yt_thumbnail, strip_pl_name
 from utils.data import colors, reg
 from utils.base import BaseEmbed
 from utils.main import Cade
@@ -82,10 +82,10 @@ async def find_tracks(
 
 async def get_youtube(client: Cade, query: str, return_all: bool = False):
     """Gets tracks from youtube"""
-    if match := reg.youtube.match(query):
-        if match.group(1) != "playlist":
-            # strip extra stuff in link just in case
-            query = f"https://youtube.com/watch?v={match.group(2)}"
+    playlist_name = None
+
+    if (match := reg.youtube.match(query)) and match.group(1) != "playlist":
+        query = f"https://youtube.com/watch?v={match.group(2)}"
     elif not reg.url.match(query):
         query = f"ytsearch:{query}"
 
@@ -97,7 +97,7 @@ async def get_youtube(client: Cade, query: str, return_all: bool = False):
     # load track(s) if it got any results, else leave everything as None
     if result.load_type not in (LoadType.NO_MATCHES, LoadType.LOAD_FAILED):
         if result.load_type is LoadType.PLAYLIST:
-            info.title = result.playlist_info.name
+            info.title = playlist_name = result.playlist_info.name
             info.url = query
         else:
             info.title = tracks[0].title
@@ -110,6 +110,9 @@ async def get_youtube(client: Cade, query: str, return_all: bool = False):
 
     failed = result.load_type is LoadType.LOAD_FAILED
 
+    for track in tracks:
+        track.extra["pl_name"] = playlist_name
+
     return tracks, info, failed
 
 async def get_spotify(client: Cade, url_type: str, url_id: str, requester_id: int):
@@ -117,6 +120,7 @@ async def get_spotify(client: Cade, url_type: str, url_id: str, requester_id: in
     tracks: list[DeferredSpotifyTrack | AudioTrack] = []
     info = QueryInfo()
 
+    playlist_name = None
     failed = False
 
     if url_type in ("album", "playlist"):
@@ -139,7 +143,7 @@ async def get_spotify(client: Cade, url_type: str, url_id: str, requester_id: in
         ]
 
         info.thumbnail = spotify_info["images"][0]["url"]
-        info.title = spotify_info["name"]
+        info.title = playlist_name = spotify_info["name"]
         info.url = spotify_info["external_urls"]["spotify"]
     else:
         # same logic as playlists/albums but searches youtube instead of deferring
@@ -162,27 +166,27 @@ async def get_spotify(client: Cade, url_type: str, url_id: str, requester_id: in
 
         failed = result.load_type is LoadType.LOAD_FAILED
 
+    for track in tracks:
+        track.extra["pl_name"] = playlist_name
+
     return tracks, info, failed
 
 def create_music_embed(tracks: list[AudioTrack], info: QueryInfo, player: DefaultPlayer, requester: discord.Member):
     """Creates the embed for queued tracks or playlists"""
-    embed = discord.Embed(color = colors.ADDED_TRACK)
+    duration = format_time(ms = sum([track.duration for track in tracks]))
     thumbnail, title, url = info
 
-    embed.set_thumbnail(url = thumbnail)
-    embed.title = title
-    embed.url = url
+    embed = discord.Embed(description = f"**[{title}]({url})**", color = colors.QUEUED_TRACK)
 
-    if len(tracks) > 1:
-        # infer that it is a playlist if there is more than one track
-        embed.set_author(name = f"Queued Playlist - {len(tracks)} track(s)", icon_url = requester.display_avatar)
-        duration = sum([track.duration for track in tracks])
+    if len(tracks) > 1:  # more than 1 track means playlist
+        embed.set_author(name = "Queued Playlist", icon_url = requester.display_avatar)
+        embed.description += f" - `{len(tracks)} tracks`\n`{duration}` • {requester.mention} | "
+        embed.description += f"**#{len(player.queue) - len(tracks) + 1} to #{len(player.queue)}** in queue"
     else:
-        # infer that the track is being queued
-        embed.set_author(name = f"Queued Track - #{len(player.queue)}", icon_url = requester.display_avatar)
-        duration = tracks[0].duration
+        embed.set_author(name = "Queued Track", icon_url = requester.display_avatar)
+        embed.description += f"\n`{duration}` • {requester.mention} | **#{len(player.queue)}** in queue"
 
-    embed.description = f"Added by {requester.mention} | Duration: `{format_time(ms = duration)}`"
+    embed.set_thumbnail(url = thumbnail)
 
     return embed
 
@@ -197,31 +201,52 @@ async def get_queue(player: DefaultPlayer):
     """Generates the queue list"""
     total_items = len(player.queue)
     total_pages = int(total_items / 10) + (total_items % 10 > 0)
-
-    current_page = 1
     pages = []
 
     # generate queue pages
-    while current_page <= total_pages:
+    while (current_page := (len(pages) + 1)) <= total_pages:
         start = (current_page - 1) * 10
         end = start + 10
 
         queue_list = ""
+        current_playlist = None
 
         # get the information of each track in the queue starting from the current page
         for index, track in enumerate(player.queue[start:end], start = start):
+            if pl := track.extra["pl_name"]:
+                if pl == current_playlist:  # already a part of the playlist
+                    queue_list += "`|` "
+                else:  # start of a new playlist
+                    queue_list += f"**`{pl}`** • <@{track.requester}>\n`|` "
+                    current_playlist = pl
+
+                title = strip_pl_name(pl, track.title)
+            else:
+                if current_playlist:  # add separator if there was a playlist
+                    queue_list += "`" + ("─" * len(current_playlist)) + "`\n"
+
+                current_playlist = None
+                title = track.title
+
             duration = format_time(ms = track.duration)
-            requester = f"<@{track.requester}>"
-            queue_list += f'**{index + 1}.** [**{track.title}**]({track.uri}) `{duration}` - {requester}\n'
+            queue_list += f"**{index + 1}. [{title}]({track.uri})** `{duration}`"
 
-        embed = BaseEmbed(title = f"Queue ({len(player.queue)} total)", description = queue_list)
+            if not current_playlist:
+                queue_list += f" • <@{track.requester}>"
 
-        # add page counter to footer if there's more than one page
-        page_count = f"page {current_page} out of {total_pages}" if total_pages > 1 else ""
+            queue_list += "\n"
 
-        embed.set_footer(text = page_count)
+        if (
+            current_page < total_pages and
+            player.queue[current_page * 10].extra["pl_name"] == current_playlist
+        ):
+            queue_list += "`...`"  # show that there are more tracks from the same playlist
+        elif current_playlist:
+            queue_list += "`" + ("─" * len(current_playlist)) + "`\n"  # add separator on last page
+
+        embed = BaseEmbed(title = "Queue", description = queue_list.strip())
+        embed.set_footer(text = f"{len(player.queue)} tracks • page {current_page}/{total_pages}")
+
         pages.append(embed)
-
-        current_page += 1
 
     return QueuePages(pages)
