@@ -54,7 +54,7 @@ class Media(BaseCog):
         result = await edit(res).jpeg()
 
         # send the created image
-        await send_media(ctx, processing, result, res.filetype)
+        await send_media(ctx, processing, result)
 
     @commands.command(aliases = ["img"], usage = "*[seconds] (image)")
     async def imgaudio(self, ctx: commands.Context, url: str | None, length: str | None):

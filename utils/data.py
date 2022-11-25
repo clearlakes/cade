@@ -33,6 +33,7 @@ class bot:
         [act.playing, "let me out!!!! get me out of here"],
         [act.playing, "coming back from applebees"],
         [act.playing, "stole 418852014401 bobux"],
+        [act.playing, "legalize nuclear bombs"],
         [act.playing, "aint that nathaniel b"],
         [act.playing, "going to applebees"],
         [act.playing, "i miss my wife"],
@@ -61,7 +62,10 @@ class bot:
         "doing something...",
         "ummmmmm...",
         ".............",
-        "un momento..."
+        "un momento...",
+        "ok hang on",
+        "wait...",
+        "i.....",
     ])
 
     SUPPORTED_SITES = (
@@ -122,6 +126,7 @@ class err:
     """errors used throughout the bot"""
     TIMED_OUT =                  f"{E} timed out"
     COG_RELOAD_ERROR = lambda c: f"{E} could not reload {c}"
+    INVALID_PREFIX =             f"{E} prefix is too long (needs to be less than 4 letters)"
     FUNNY_ONLY =                 f"{E} that only works in funny museum"
     TWEET_ERROR =                f"{E} could not send tweet"
     TWITTER_PROFILE_ERROR =      f"{E} could not change twita profile"
@@ -163,4 +168,4 @@ class err:
     INVALID_SEEK =               f"{E} cannot skip that far into the track"
     MOV_TO_MP4_ERROR =           f"{E} broke something while converting from mov to mp4"
     UNEXPECTED =                 f"{E} weird response, try again"
-    CMD_USAGE = lambda c:        f"{E} no it's like this: `.{c.name}" + f" {c.usage}`" if c.usage else "`"
+    CMD_USAGE = lambda pre, c:   f"{E} no it's like this: `{pre}{c.name}" + f" {c.usage}`" if c.usage else "`"

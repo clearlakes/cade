@@ -6,16 +6,16 @@
 
 <p><img src="https://i.imgur.com/VcvrhfV.png" width="400"></p>
 
-**cade v3** - bot for funny museum by me
+**cade v3** - pretty cool discord bot
 
 ![lines](https://img.shields.io/tokei/lines/github/source64/cade)
 ![last commit](https://img.shields.io/github/last-commit/source64/cade)
 ![grade](https://img.shields.io/codeclimate/maintainability/source64/cade)
 ![bot](https://img.shields.io/endpoint?url=https://test.grug.club/cade?&)
 
-this bot can play music, edit images, download videos, etc.
+play music, edit images, download videos, etc.
 
-[**ok invite bot**](https://discord.com/api/oauth2/authorize?client_id=709214886969999379&permissions=3533888&scope=bot%20applications.commands) ([ ! ](#wait))
+[**i want this**](#wait)
 
 ### features
 
@@ -39,8 +39,8 @@ this bot can play music, edit images, download videos, etc.
 
 \- tod (in my house)
 
-#### wait!! 
-this is just a personal bot for friends, it should be ready to use on other servers BUT it might be a little buggy or have some very specific feature that can't be used. if you find an issue with any actual command just post something about it in the issues tab and i'll fix it. thanks <img src="https://i.imgur.com/0AHZmx8.jpg" width="20" height="15">
+#### wait!!
+for now instead of an invite link just ask me (buh#7797) to add it, this is to make sure it doesn't join a lot of servers and start needing verification (music will stop working). since this is just a personal bot it should be fine but if you have any issues/questions lmk! <img src="https://i.imgur.com/0AHZmx8.jpg" width="20" height="15">
 
 <pre>
 <a href="LICENSE">MIT license</a>

@@ -1,5 +1,6 @@
 import discord
 
+from datetime import datetime
 import motor.motor_asyncio
 import configparser
 
@@ -19,6 +20,7 @@ class Document:
         self.guild_id: int = get("guild_id", None)
         self.playlists: dict = get("playlists", {})
         self.welcome: list = get("welcome", [])
+        self.prefix: str = get("prefix", ".")
         self.tags: dict = get("tags", {})
 
 class GuildDB:
@@ -29,9 +31,12 @@ class GuildDB:
         # adds default options to update_one
         return await _db.update_one(self.guild, fields, upsert = True)
 
+    async def cancel_remove(self):
+        await self._update({"$unset": {"left": 1}})
+
     async def remove(self):
-        """Removes a guild from the database"""
-        await _db.delete_one(self.guild)
+        """Removes a guild from the database after 3 days"""
+        await self._update({"$set": {"left": datetime.utcnow()}})
 
     async def get(self):
         """Returns the guild's database entry as a class"""
@@ -55,6 +60,6 @@ class GuildDB:
         await self._update({"$set": {f'{field}.{key}': value}})
 
     async def del_obj(self, field: str, key: str):
-        """Removes a value from a dictionary (or array) field"""
+        """Removes a value from a dictionary field"""
         await self._update({"$unset": {f'{field}.{key}': 1}})
         await self._update({"$pull": {f'{field}.{key}': None}})

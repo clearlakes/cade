@@ -77,6 +77,7 @@ class General(BaseCog):
     @commands.command()
     async def info(self, ctx: commands.Context):
         """get information about the bot"""
+        pre = (await GuildDB(ctx.guild).get()).prefix
         gh = "https://github.com/source64/cade"
 
         # get the uptime by subtracting the current time by the init time
@@ -98,7 +99,7 @@ class General(BaseCog):
 
         embed.description = f"""cool insane bot made by buh#7797
         **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[i found an issue!!]({gh}/issues/new)**
-        use `.help` for help. created <t:1596846209:R>!
+        use `{pre}help` for help. created <t:1596846209:R>!
         """
 
         embed.add_field(name = "uptime", value = f"`{uptime}`")
@@ -118,11 +119,12 @@ class General(BaseCog):
     @commands.command(usage = "*[command]")
     async def help(self, ctx: commands.Context, cmd: str | None):
         """see a list of commands"""
+        pre = (await GuildDB(ctx.guild).get()).prefix
         embed = BaseEmbed()
 
         if cmd is None:
             # show list of commands
-            view = HelpView(self.client, ctx)
+            view = HelpView(self.client, ctx, pre)
             return await ctx.send(embed = view.main_embed, view = view)
 
         # start getting command information
@@ -131,7 +133,7 @@ class General(BaseCog):
         if not command or command.hidden:
             return await ctx.send(err.HELP_NOT_FOUND)
 
-        embed = BaseEmbed(description = f"**.{command.name}** - {command.help}")
+        embed = BaseEmbed(description = f"**{pre}{command.name}** - {command.help}")
 
         if command.name == "help":
             embed.description = "are you serious"
@@ -147,10 +149,10 @@ class General(BaseCog):
 
                 embed.add_field(name = "takes:", value = att_types)
 
-            embed.insert_field_at(index = 0, name = "how to use:", value = f"`.{command.name} {usage}`".strip())
+            embed.insert_field_at(index = 0, name = "how to use:", value = f"`{pre}{command.name} {usage}`".strip())
 
         if command.aliases:
-            embed.add_field(name = "other names:", value = " ".join(f"`.{a}`" for a in command.aliases))
+            embed.add_field(name = "other names:", value = " ".join(f"`{pre}{a}`" for a in command.aliases))
 
         await ctx.send(embed = embed)
 
@@ -228,6 +230,22 @@ class General(BaseCog):
         await db.set("welcome", [msg, channel.id])
 
         await ctx.send(f"{bot.OK} set the welcome message and channel")
+
+    @commands.command(aliases = ["prefix"], usage = "[prefix]")
+    @commands.has_permissions(administrator = True)
+    async def setprefix(self, ctx: commands.Context, new_prefix: str | None):
+        """sets the bot prefix for the server (admin)"""
+        db = GuildDB(ctx.guild)
+
+        if new_prefix is None:  # display current prefix
+            pre = (await db.get()).prefix
+            return await ctx.send(f"the current prefix is `{pre}` (default is `.`)")
+
+        if len(new_prefix) > 3:  # prevent long prefixes
+            return await ctx.send(err.INVALID_PREFIX)
+
+        await db.set("prefix", new_prefix)  # set new prefix
+        await ctx.send(f"{bot.OK} set prefix to `{new_prefix}`")
 
 async def setup(bot: Cade):
     await bot.add_cog(General(bot))

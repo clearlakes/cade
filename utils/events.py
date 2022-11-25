@@ -25,15 +25,17 @@ class BotEvents:
     def __init__(self, client: Cade):
         self.client = client
 
-        self.react_roles = {
+        self.fm_react_roles = {
             "1️⃣": 820126482684313620,  # he/him
             "2️⃣": 820126584442322984,  # she/her
             "3️⃣": 820126629945933874,  # they/them
         }
 
+    async def on_guild_join(self, guild: discord.Guild):
+        await GuildDB(guild).cancel_remove()  # cancel removal if the bot ever left before
+
     async def on_guild_remove(self, guild: discord.Guild):
-        # remove guild from database on leave
-        await GuildDB(guild).remove()
+        await GuildDB(guild).remove()  # removes the guild from the database 3 days after leaving
 
     async def on_member_join(self, member: discord.Member):
         welcome_field = (await GuildDB(member.guild).get()).welcome
@@ -53,23 +55,20 @@ class BotEvents:
         await channel.send(welcome_msg)
 
     async def on_raw_reaction_add(self, event: discord.RawReactionActionEvent):
-        # check if the message being reacted to is the one from funny museum
-        if event.message_id == 820147742382751785:
+        if event.message_id == 820147742382751785:  # check if funny museum
             guild = self.client.get_guild(event.guild_id)
-            role = guild.get_role(self.react_roles[event.emoji.name])
+            role = guild.get_role(self.fm_react_roles[event.emoji.name])
 
-            # add the corresponding role from the reaction
+            # add the corresponding role
             await event.member.add_roles(role)
 
     async def on_raw_reaction_remove(self, event: discord.RawReactionActionEvent):
-        # check if the message being reacted to is the one from funny museum
-        if event.message_id == 820147742382751785:
+        if event.message_id == 820147742382751785:  # check if funny museum
             guild = self.client.get_guild(event.guild_id)
-            role = guild.get_role(self.react_roles[event.emoji.name])
+            role = guild.get_role(self.fm_react_roles[event.emoji.name])
 
             # remove the corresponding role
-            member = guild.get_member(event.user_id)
-            await member.remove_roles(role)
+            await guild.get_member(event.user_id).remove_roles(role)
 
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if member == member.guild.me:  # if bot was disconnected from vc

@@ -1,8 +1,9 @@
 # <img src='https://i.imgur.com/yxm0XNL.gif' width='20'> cade commands <img src='https://i.imgur.com/yxm0XNL.gif' width='20'>
-arguments starting with `*` are optional<br>
-(commands are linked to where their code is)
+-  arguments starting with `*` are optional<br>
+-  command prefix might be different depending on the server<br>
+-  each command is linked to where their code is
 
-go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#media) • [**Music**](#music)
+[**Music**](#music) • [**Media**](#media) • [**General**](#general) • [**Funny**](#funny)
 
 
 ## Music
@@ -61,19 +62,22 @@ go to:&nbsp; [**Funny**](#funny) • [**General**](#general) • [**Media**](#me
 ## General
 -  [**`.info`**](https://github.com/source64/cade/blob/main/cogs/general.py#L77) - get information about the bot
 
--  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L118) - see a list of commands
+-  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L119) - see a list of commands
    -  how to use: `.help *[command]`
 
--  [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L157) - sends/creates a tag containing a given message
+-  [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L159) - sends/creates a tag containing a given message
    -  how to use: `.tag [tag-name] *[message]`
 
--  [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L181) - deletes the specified tag if it exists
+-  [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L183) - deletes the specified tag if it exists
    -  how to use: `.tagdelete [tag-name]`
 
--  [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L198) - lists every tag in the server
+-  [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L200) - lists every tag in the server
 
--  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L212) - sets the welcome message for the server (admin)
+-  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L214) - sets the welcome message for the server (admin)
    -  how to use: `.welcome [channel] *[message]`
+
+-  [**`.setprefix`**](https://github.com/source64/cade/blob/main/cogs/general.py#L235) - sets the bot prefix for the server (admin)
+   -  how to use: `.setprefix [prefix]`
 
 
 ## Funny

@@ -42,16 +42,17 @@ class ChoiceView(discord.ui.View):
             self.add_item(button)
 
 class HelpView(discord.ui.View):
-    def __init__(self, client: Cade, ctx: commands.Context):
+    def __init__(self, client: Cade, ctx: commands.Context, prefix: str):
         super().__init__(timeout = None)
         self.client = client
         self.ctx = ctx
+        self.pre = prefix
 
         # set default help page
         self.main_embed = BaseEmbed(
-            description = """
+            description = f"""
             choose a category below to see the commands for it.
-            use `.help [command]` to see more information!
+            use `{self.pre}help [command]` to see more information!
 
             **[long list of all commands](https://github.com/source64/cade/blob/main/commands.md)**
             """
@@ -99,7 +100,7 @@ class HelpView(discord.ui.View):
         for command in commands:
             # pad command name to match the longest one
             padding = len(longest) - len(command.name)
-            cmd_name = f"`.{command.name}" + (" " * padding) + "`"
+            cmd_name = f"`{self.pre}{command.name}" + (" " * padding) + "`"
 
             command_list += f"{cmd_name} - {command.help}\n"
 

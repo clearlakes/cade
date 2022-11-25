@@ -22,32 +22,32 @@ async def serve_very_big_file(b: BytesIO, mime: str):
 
     return file_url
 
-def generate_cmd_list(cogs: Mapping[str, commands.Cog]):
+def generate_cmd_list(bot_cogs: Mapping[str, commands.Cog]):
     """Generates the command list (commands.md)"""
+    cogs = list(reversed(bot_cogs.values()))
     cool_fire = "<img src='https://i.imgur.com/yxm0XNL.gif' width='20'>"
 
     markdown = "\n".join([
         f"# {cool_fire} cade commands {cool_fire}",
-        "arguments starting with `*` are optional<br>",
-        "(commands are linked to where their code is)"
+        "-  arguments starting with `*` are optional<br>",
+        "-  command prefix might be different depending on the server<br>",
+        "-  each command is linked to where their code is"
     ]) + "\n\n"
 
     # add links to command sections
-    markdown += "go to:&nbsp; " + " • ".join(f"[**{c}**](#{c.lower()})" for c in cogs) + "\n\n"
+    cog_names = [c.qualified_name for c in cogs]
+    markdown += " • ".join(f"[**{name}**](#{name.lower()})" for name in cog_names) + "\n\n"
 
-    # somewhat hacky way to generate a command list (commands.md)
-    for cog in reversed(cogs.values()):  # reversed so that funny cog is at the bottom
-        cog_name = cog.qualified_name
-        cog_filename = f"cogs/{cog_name.lower()}.py"
-
+    for cog, cog_name in zip(cogs, cog_names):
         markdown += f"\n## {cog_name}\n"
 
         if cog_name == "Funny":
             markdown += "> note: these commands are specific to funny museum\n"
 
-        commands = [c for c in cog.get_commands() if not c.hidden]
+        cog_commands = [c for c in cog.get_commands() if not c.hidden]
+        cog_filename = f"cogs/{cog_name.lower()}.py"
 
-        for cmd in commands:
+        for cmd in cog_commands:
             # get line number of command function
             with open(cog_filename, "r") as f:
                 content = f.readlines()
