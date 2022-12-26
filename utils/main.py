@@ -29,7 +29,7 @@ class Cade(commands.Bot):
         config = configparser.ConfigParser()
         config.read("config.ini")
 
-        self.token = str(config.get("server", "token"))
+        self.token = str(config.get("bot", "token"))
         self.cog_files = ["funny", "general", "media", "music"]
 
         self.lavalink: CadeLavalink = None

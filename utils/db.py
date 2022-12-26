@@ -8,9 +8,12 @@ import configparser
 _config = configparser.ConfigParser()
 _config.read("config.ini")
 
-_mongo_url = str(_config.get("server", "mongodb"))
-_mongo_client = motor.motor_asyncio.AsyncIOMotorClient(_mongo_url)
-_db = _mongo_client.cade.main
+_mongo_uri = str(_config.get("mongo", "uri"))
+_mongo_db_name = str(_config.get("mongo", "database"))
+_mongo_coll_name = str(_config.get("mongo", "collection"))
+
+_mongo_client = motor.motor_asyncio.AsyncIOMotorClient(_mongo_uri)
+_db = _mongo_client[_mongo_db_name][_mongo_coll_name]
 
 class Document:
     def __init__(self, document: dict = {}):
