@@ -7,33 +7,33 @@
 
 
 ## Music
--  [**`.play`**](https://github.com/source64/cade/blob/main/cogs/music.py#L83) - plays a track/playlist from youtube or spotify
+-  [**`.play`**](https://github.com/source64/cade/blob/main/cogs/music.py#L80) - plays a track/playlist from youtube or spotify
    -  how to use: `.play [url/query]`
 
--  [**`.join`**](https://github.com/source64/cade/blob/main/cogs/music.py#L135) - makes the bot join a voice channel
+-  [**`.join`**](https://github.com/source64/cade/blob/main/cogs/music.py#L132) - makes the bot join a voice channel
 
--  [**`.disconnect`**](https://github.com/source64/cade/blob/main/cogs/music.py#L151) - makes the bot leave a voice channel
+-  [**`.disconnect`**](https://github.com/source64/cade/blob/main/cogs/music.py#L148) - makes the bot leave a voice channel
 
--  [**`.skip`**](https://github.com/source64/cade/blob/main/cogs/music.py#L166) - skips the current track (or queued tracks)
+-  [**`.skip`**](https://github.com/source64/cade/blob/main/cogs/music.py#L163) - skips the current track (or queued tracks)
    -  how to use: `.skip *[index]/all`
 
--  [**`.shuffle`**](https://github.com/source64/cade/blob/main/cogs/music.py#L247) - shuffles the order of the queue
+-  [**`.shuffle`**](https://github.com/source64/cade/blob/main/cogs/music.py#L244) - shuffles the order of the queue
 
--  [**`.loop`**](https://github.com/source64/cade/blob/main/cogs/music.py#L265) - begins/stops looping the current track
+-  [**`.loop`**](https://github.com/source64/cade/blob/main/cogs/music.py#L262) - begins/stops looping the current track
 
--  [**`.loopcount`**](https://github.com/source64/cade/blob/main/cogs/music.py#L283) - shows how many times the current track has been looped
+-  [**`.loopcount`**](https://github.com/source64/cade/blob/main/cogs/music.py#L280) - shows how many times the current track has been looped
 
--  [**`.playlist`**](https://github.com/source64/cade/blob/main/cogs/music.py#L295) - lists every playlist and the controls for each
+-  [**`.playlist`**](https://github.com/source64/cade/blob/main/cogs/music.py#L292) - lists every playlist and the controls for each
    -  how to use: `.playlist *[playlist]`
 
--  [**`.pause`**](https://github.com/source64/cade/blob/main/cogs/music.py#L316) - pauses/unpauses the current track
+-  [**`.pause`**](https://github.com/source64/cade/blob/main/cogs/music.py#L313) - pauses/unpauses the current track
 
--  [**`.seek`**](https://github.com/source64/cade/blob/main/cogs/music.py#L330) - skips to a specific point in the current track
+-  [**`.seek`**](https://github.com/source64/cade/blob/main/cogs/music.py#L327) - skips to a specific point in the current track
    -  how to use: `.seek [time]`
 
--  [**`.queue`**](https://github.com/source64/cade/blob/main/cogs/music.py#L380) - lists all of the tracks in the queue
+-  [**`.queue`**](https://github.com/source64/cade/blob/main/cogs/music.py#L377) - lists all of the tracks in the queue
 
--  [**`.nowplaying`**](https://github.com/source64/cade/blob/main/cogs/music.py#L394) - shows information about the current track
+-  [**`.nowplaying`**](https://github.com/source64/cade/blob/main/cogs/music.py#L391) - shows information about the current track
 
 
 ## Media

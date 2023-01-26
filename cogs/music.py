@@ -57,10 +57,7 @@ class Music(BaseCog):
             if not player or not player.is_connected:
                 if ctx.command.name == "play" and ctx.author.voice:
                     player = self.client.lavalink.create_player(ctx)
-
-                    if not player.is_connected:  # make sure bot is not already connected
-                        await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
-
+                    await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
                     return True
                 else:
                     await ctx.send(err.BOT_NOT_IN_VC)

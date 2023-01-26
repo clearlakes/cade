@@ -1,10 +1,9 @@
 import discord
 
-from utils.main import Cade
+from utils.main import Cade, CadeLavalink
 
 from async_spotify.authentification.authorization_flows import ClientCredentialsFlow
 from async_spotify import SpotifyApiClient
-from lavalink import Client
 import tweepy
 
 from dataclasses import dataclass
@@ -97,12 +96,13 @@ class LavalinkVoiceClient(discord.VoiceClient):
     def __init__(self, client: Cade, channel: discord.abc.Connectable):
         self.client = client
         self.channel = channel
+        self.log = client.log
 
         # ensure that a client already exists
         if self.client.lavalink:
             self.lavalink = self.client.lavalink
         else:
-            self.client.lavalink = Client(client.user.id)
+            self.client.lavalink = CadeLavalink(client.user.id)
             self.client.lavalink.add_node(*Keys.lavalink.ordered_keys, name = "default-node")
             self.lavalink = self.client.lavalink
 
@@ -130,6 +130,8 @@ class LavalinkVoiceClient(discord.VoiceClient):
         self.lavalink.player_manager.create(guild_id = self.channel.guild.id)
         await self.channel.guild.change_voice_state(channel = self.channel, self_mute = self_mute, self_deaf = self_deaf)
 
+        self.log.info(f"added player in {self.channel.guild.id}")
+
     async def disconnect(self, *, force: bool) -> None:
         """Handles the disconnect. Cleans up running player and leaves the voice client"""
         player = self.lavalink.player_manager.get(self.channel.guild.id)
@@ -147,3 +149,5 @@ class LavalinkVoiceClient(discord.VoiceClient):
         # disconnect
         player.channel_id = None
         self.cleanup()
+
+        self.log.info(f"removed player in {self.channel.guild.id}")
