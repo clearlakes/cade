@@ -1,12 +1,13 @@
 import discord
 from discord.ext import commands, tasks
 
-from utils.data import err, bot
-from utils.db import GuildDB
+from utils.db import GuildDB, Internal
+from utils.data import bot
+from cogs import COGS
 
 from async_spotify import SpotifyApiClient
 from lavalink import Client, DefaultPlayer
-from datetime import datetime
+from datetime import datetime, timedelta
 import configparser
 import aiohttp
 import logging
@@ -36,11 +37,23 @@ class Cade(commands.Bot):
         self.twitter_api: tweepy.API = None
         self.spotify_api: SpotifyApiClient = None
 
+        self.before_invoke(self._start_timer)
+        self.after_invoke(self._log_and_increment)
+
+    async def _start_timer(self, ctx: commands.Context):
+        ctx.command.extras["t"] = datetime.now()
+
+    async def _log_and_increment(self, ctx: commands.Context):
+        delta: timedelta = (datetime.now() - ctx.command.extras["t"])
+        self.log.info(f"ran .{ctx.command.name} (took {round(delta.total_seconds(), 2)}s)")
+
+        await Internal().inc_invoke_count(ctx.command.name)
+
     async def setup_hook(self):
         self.session = aiohttp.ClientSession(loop = self.loop)
 
-        for cog in self.cog_files:
-            await self.load_extension(f"cogs.{cog}")
+        for cog in COGS:
+            await self.load_extension(cog)
 
         self.random_activity.start()
 
@@ -56,16 +69,6 @@ class Cade(commands.Bot):
     @random_activity.before_loop
     async def _before(self):
         await self.wait_until_ready()
-
-    async def on_command_error(self, ctx: commands.Context, error):
-        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
-            prefix = (await GuildDB(ctx.guild).get()).prefix
-            await ctx.send(err.CMD_USAGE(prefix, ctx.command))  # send command usage
-            return
-        elif isinstance(error, (commands.CheckFailure, commands.DisabledCommand, commands.CommandNotFound)):
-            return  # ignore errors that aren't important
-
-        raise error
 
     async def close(self):
         if self.spotify_api:

@@ -17,9 +17,10 @@ _db = _mongo_client[_mongo_db_name][_mongo_coll_name]
 
 class Document:
     def __init__(self, document: dict = {}):
-        # turn entry values into variables
-        get = lambda key, default: document.get(key, default)
+        self._doc = document
+        get = lambda key, default: self._doc.get(key, default)
 
+        # turn entry values into variables
         self.guild_id: int = get("guild_id", None)
         self.playlists: dict = get("playlists", {})
         self.welcome: list = get("welcome", [])
@@ -66,3 +67,21 @@ class GuildDB:
         """Removes a value from a dictionary field"""
         await self._update({"$unset": {f'{field}.{key}': 1}})
         await self._update({"$pull": {f'{field}.{key}': None}})
+
+class Internal:
+    def __init__(self) -> None:
+        self._internal = GuildDB(discord.Object(id = 0))
+
+    @property
+    async def _db(self) -> dict:
+        return (await self._internal.get())._doc
+
+    @property
+    async def total_invoke_count(self) -> int:
+        return sum((await self._db).get("count", {}).values())
+
+    async def inc_invoke_count(self, cmd: str) -> None:
+        return (await self._internal._update({"$inc": {f"count.{cmd}": 1}}))
+
+    async def get_invoke_count(self, cmd: str) -> int:
+        return (await self._db).get("count", {}).get(cmd, 0)

@@ -1,4 +1,5 @@
 import discord
+from discord.ext import commands
 
 from lavalink import (
     TrackLoadFailedEvent,
@@ -78,6 +79,14 @@ class BotEvents:
             if not after.channel and player:
                 player.queue.clear()
                 await player.stop()
+
+    async def on_command_error(self, ctx: commands.Context, error):
+        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
+            return await ctx.send(err.CMD_USAGE((await GuildDB(ctx.guild).get()).prefix, ctx.command))  # send command usage
+        elif isinstance(error, (commands.CheckFailure, commands.DisabledCommand, commands.CommandNotFound)):
+            return  # ignore errors that aren't important
+
+        raise error
 
 class TrackEvents:
     """Contains functions that are used when a track does something"""

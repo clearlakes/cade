@@ -72,10 +72,10 @@ class HelpView(discord.ui.View):
             button.callback = self.callback
             self.add_item(button)
 
-    async def callback(self, interaction: discord.Interaction):
-        if interaction.user != self.ctx.author:
-            return
+    async def interaction_check(self, interaction: discord.Interaction):
+        return interaction.user == self.ctx.author
 
+    async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
         # get cog name from button id

@@ -6,9 +6,10 @@ from utils.base import BaseCog, BaseEmbed
 from utils.events import add_bot_events
 from utils.data import err, colors, bot
 from utils.ext import generate_cmd_list
+from utils.db import GuildDB, Internal
 from utils.views import HelpView
-from utils.db import GuildDB
 from utils.main import Cade
+from . import COGS
 
 from datetime import datetime
 
@@ -31,15 +32,11 @@ class General(BaseCog):
     @commands.is_owner()
     async def reload(self, ctx: commands.Context, cog_to_reload: str | None):
         processing = await ctx.send(bot.PROCESSING())
+        cogs = [cog_to_reload.lower()] if cog_to_reload else COGS
 
         try:
-            if cog_to_reload is None:
-                # reload all cogs if nothing is specified
-                for cog in ["funny", "general", "media", "music"]:
-                    await self.client.reload_extension(f"cogs.{cog}")
-            else:
-                # reload the specified extension
-                await self.client.reload_extension(f"cogs.{cog_to_reload.lower()}")
+            for cog in cogs:
+                await self.client.reload_extension(cog)
         except commands.ExtensionError as e:
             return await ctx.send(err.COG_RELOAD_ERROR(e.name))
 
@@ -63,8 +60,8 @@ class General(BaseCog):
             embed.description = f"{bot.OK} **{utd.lower().strip('.')}** ({link_to(prev_hash, prev_num)})"
         else:
             # reload cogs after update
-            for cog in ["funny", "general", "media", "music"]:
-                await self.client.reload_extension(f"cogs.{cog}")
+            for cog in COGS:
+                await self.client.reload_extension(cog)
 
             # get the new update's information
             new_num = (await run_cmd("git rev-list --count HEAD", decode = True))[0]
@@ -74,9 +71,16 @@ class General(BaseCog):
 
         await processing.edit(content = None, embed = embed)
 
-    @commands.command()
-    async def info(self, ctx: commands.Context):
-        """get information about the bot"""
+    @commands.command(usage = "*[command]")
+    async def info(self, ctx: commands.Context, cmd: str | None):
+        """get information about the bot or a command"""
+        if cmd:
+            if command := self.client.get_command(cmd):
+                count = await Internal().get_invoke_count(command.name)
+                return await ctx.send(f"**{command.name}** has been run `{count}` time(s)")
+            else:
+                return await ctx.send(err.CMD_NOT_FOUND)
+
         pre = (await GuildDB(ctx.guild).get()).prefix
         gh = "https://github.com/source64/cade"
 
@@ -86,25 +90,25 @@ class General(BaseCog):
         # get the ping, which is client.latency times 1000 (for ms)
         ping = round(self.client.latency * 1000, 3)
 
-        # get the number of usable commands
-        cmds = len([x for x in self.client.commands if not x.hidden])
-
         # get the latest github commit
         number = (await run_cmd("git rev-list --count HEAD", decode = True))[0]
         commit_hash, timestamp, message = (await run_cmd("git log -1 --pretty=format:%h%n%at%n%s", decode = True))[0].split("\n")
-
         latest_update = f"<t:{timestamp}:R> [`#{number}`]({gh}/commit/{commit_hash}) - {message}"
+
+        # get the total number of commands that have been run (and date when counting began)
+        invoke_count = await Internal().total_invoke_count
+        began_counting = int((await Internal()._db)["_id"].generation_time.timestamp())
 
         embed = discord.Embed(title = "cade", color = colors.CADE)
 
         embed.description = f"""cool insane bot made by buh#7797
-        **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[i found an issue!!]({gh}/issues/new)**
+        **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[found bug]({gh}/issues/new)**
         use `{pre}help` for help. created <t:1596846209:R>!
         """
 
         embed.add_field(name = "uptime", value = f"`{uptime}`")
         embed.add_field(name = "ping", value = f"`{ping} ms`")
-        embed.add_field(name = "commands", value = f"`{cmds}`")
+        embed.add_field(name = "commands run", value = f"`{invoke_count}` (since <t:{began_counting}:d>)")
         embed.add_field(name = "latest update", value = latest_update, inline = False)
 
         embed.set_thumbnail(url = bot.CAT())
