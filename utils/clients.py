@@ -150,4 +150,5 @@ class LavalinkVoiceClient(discord.VoiceClient):
         player.channel_id = None
         self.cleanup()
 
+        self.lavalink.player_manager.remove(self.channel.guild.id)
         self.log.info(f"removed player in {self.channel.guild.id}")
