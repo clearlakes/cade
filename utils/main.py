@@ -47,7 +47,8 @@ class Cade(commands.Bot):
         delta: timedelta = (datetime.now() - ctx.command.extras["t"])
         self.log.info(f"ran .{ctx.command.name} (took {round(delta.total_seconds(), 2)}s)")
 
-        await Internal().inc_invoke_count(ctx.command.name)
+        if not ctx.command.hidden:
+            await Internal().inc_invoke_count(ctx.command.name)
 
     async def setup_hook(self):
         self.session = aiohttp.ClientSession(loop = self.loop)

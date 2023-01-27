@@ -60,24 +60,24 @@
 
 
 ## General
--  [**`.info`**](https://github.com/source64/cade/blob/main/cogs/general.py#L74) - get information about the bot or a command
+-  [**`.info`**](https://github.com/source64/cade/blob/main/cogs/general.py#L130) - get information about the bot or a command
    -  how to use: `.info *[command]`
 
--  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L123) - see a list of commands
+-  [**`.help`**](https://github.com/source64/cade/blob/main/cogs/general.py#L179) - see a list of commands
    -  how to use: `.help *[command]`
 
--  [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L163) - sends/creates a tag containing a given message
+-  [**`.tag`**](https://github.com/source64/cade/blob/main/cogs/general.py#L219) - sends/creates a tag containing a given message
    -  how to use: `.tag [tag-name] *[message]`
 
--  [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L187) - deletes the specified tag if it exists
+-  [**`.tagdelete`**](https://github.com/source64/cade/blob/main/cogs/general.py#L243) - deletes the specified tag if it exists
    -  how to use: `.tagdelete [tag-name]`
 
--  [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L204) - lists every tag in the server
+-  [**`.taglist`**](https://github.com/source64/cade/blob/main/cogs/general.py#L260) - lists every tag in the server
 
--  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L218) - sets the welcome message for the server (admin)
+-  [**`.welcome`**](https://github.com/source64/cade/blob/main/cogs/general.py#L274) - sets the welcome message for the server (admin)
    -  how to use: `.welcome [channel] *[message]`
 
--  [**`.setprefix`**](https://github.com/source64/cade/blob/main/cogs/general.py#L239) - sets the bot prefix for the server (admin)
+-  [**`.setprefix`**](https://github.com/source64/cade/blob/main/cogs/general.py#L295) - sets the bot prefix for the server (admin)
    -  how to use: `.setprefix [prefix]`
 
 

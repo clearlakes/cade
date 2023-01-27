@@ -11,11 +11,16 @@ from utils.views import HelpView
 from utils.main import Cade
 from . import COGS
 
+from contextlib import redirect_stdout
 from datetime import datetime
+from io import StringIO
+import traceback
+import textwrap
 
 class General(BaseCog):
     def __init__(self, client: Cade):
         super().__init__(client)
+        self._last_eval = None
 
         add_bot_events(self.client)
 
@@ -70,6 +75,57 @@ class General(BaseCog):
             embed.description = f"{bot.OK} **updated from {link_to(prev_hash, prev_num)} to {link_to(new_hash, new_num)}**"
 
         await processing.edit(content = None, embed = embed)
+
+    @commands.command(aliases = ["e"], hidden = True)
+    @commands.is_owner()
+    async def eval(self, ctx: commands.Context, *, code: str | None):
+        # mostly taken from https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/admin.py#L216-L261
+        if code is None:
+            if (ref := ctx.message.reference) and (content := ref.resolved.content):
+                code = content
+            elif (message := [msg async for msg in ctx.channel.history(limit = 2)][1]).author == ctx.author:
+                code = message.content
+            else:
+                return await ctx.send("huh")
+
+        stdout = StringIO()
+        code = code.removeprefix("```py").removesuffix("```")
+        function = f"async def func():\n{textwrap.indent(code.strip('`'), '  ')}"
+
+        env = {
+            "client": self.client,
+            "ctx": ctx,
+            "channel": ctx.channel,
+            "author": ctx.author,
+            "guild": ctx.guild,
+            "message": ctx.message,
+            "_": self._last_eval,
+        }
+
+        env.update(globals())
+
+        try:
+            exec(function, env)
+            func = env['func']
+        except Exception as e:
+            return await ctx.send(f'```py\n{e.__class__.__name__}: {e}\n```')
+
+        try:
+            with redirect_stdout(stdout):
+                ret = await func()
+        except Exception as e:
+            value = stdout.getvalue()
+            await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
+        else:
+            value = stdout.getvalue()
+            await ctx.message.add_reaction(bot.OK)
+
+            if ret is None:
+                if value:
+                    await ctx.send(f'```py\n{value}\n```')
+            else:
+                self._last_result = ret
+                await ctx.send(f'```py\n{value}{ret}\n```')
 
     @commands.command(usage = "*[command]")
     async def info(self, ctx: commands.Context, cmd: str | None):
