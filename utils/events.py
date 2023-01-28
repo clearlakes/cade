@@ -5,6 +5,7 @@ from lavalink import (
     TrackLoadFailedEvent,
     TrackStartEvent,
     TrackEndEvent,
+    QueueEndEvent,
     DefaultPlayer,
     AudioTrack,
     listener
@@ -21,6 +22,14 @@ def add_bot_events(client: Cade):
 
     for listener_func in [x for x in dir(bot_events) if x.startswith("on")]:
         client.add_listener(getattr(bot_events, listener_func))
+
+async def _dc(player: DefaultPlayer, guild: discord.Guild):
+    player.queue.clear()
+    await player.stop()
+
+    # disconnects the bot's voice client
+    # without this it won't be able to connect again
+    await guild.voice_client.disconnect(force = True)
 
 class BotEvents:
     def __init__(self, client: Cade):
@@ -74,16 +83,11 @@ class BotEvents:
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         player = self.client.lavalink.get_player(member)
 
-        if player and not after.channel and (
-                member == member.guild.me or  # bot disconnected
-                before.channel.members == [member, member.guild.me]  # bot left alone in vc
+        if player and before.channel and after.channel is None and (
+            (before.channel.members == [member.guild.me] and not player.queue) or  # bot left alone in vc
+            member == member.guild.me  # bot disconnected
         ):
-                player.queue.clear()
-                await player.stop()
-
-                # disconnects the bot's voice client
-                # without this it won't be able to connect again
-                await member.guild.voice_client.disconnect(force = True)
+            await _dc(player, member.guild)
 
     async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
@@ -205,3 +209,13 @@ class TrackEvents:
 
         # edit the original "now playing" message with the embed
         await orig_message.edit(embed = played)
+
+    @listener(QueueEndEvent)
+    async def on_queue_end(self, event: QueueEndEvent):
+        """Event handler for when a queue ends"""
+        player: DefaultPlayer = event.player
+        guild = self.client.get_guild(player.guild_id)
+        channel = guild.get_channel(player.channel_id)
+
+        if channel.members == [guild.me]:
+            await _dc(player, guild)  # leave if the bot is alone in vc
