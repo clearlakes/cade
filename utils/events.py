@@ -72,11 +72,12 @@ class BotEvents:
             await guild.get_member(event.user_id).remove_roles(role)
 
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        if member == member.guild.me:  # check if the bot caused the event
-            player = self.client.lavalink.get_player(member)
+        player = self.client.lavalink.get_player(member)
 
-            # if the bot was disconnected and a player still exists, stop it
-            if not after.channel and player and member.guild.voice_client:
+        if player and not after.channel and (
+                member == member.guild.me or  # bot disconnected
+                before.channel.members == [member, member.guild.me]  # bot left alone in vc
+        ):
                 player.queue.clear()
                 await player.stop()
 
