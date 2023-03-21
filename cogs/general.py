@@ -157,7 +157,7 @@ class General(BaseCog):
 
         embed = discord.Embed(title = "cade", color = colors.CADE)
 
-        embed.description = f"""cool insane bot made by buh#7797
+        embed.description = f"""cool insane bot made by lakes#0139
         **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[found bug]({gh}/issues/new)**
         use `{pre}help` for help. created <t:1596846209:R>!
         """
