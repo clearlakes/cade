@@ -3,7 +3,7 @@
 -  command prefix might be different depending on the server<br>
 -  each command is linked to where their code is
 
-[**Music**](#music) • [**Media**](#media) • [**General**](#general) • [**Funny**](#funny)
+[**Music**](#music) • [**Media**](#media) • [**General**](#general)
 
 
 ## Music
@@ -79,15 +79,3 @@
 
 -  [**`.setprefix`**](https://github.com/source64/cade/blob/main/cogs/general.py#L295) - sets the bot prefix for the server (admin)
    -  how to use: `.setprefix [prefix]`
-
-
-## Funny
-> note: these commands are specific to funny museum
--  [**`.tweet`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L51) - tweets out a message
-   -  how to use: `.tweet [message]`
-
--  [**`.reply`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L68) - replies to a given tweet by its url/id (or the latest tweet)
-   -  how to use: `.reply [tweet-id]/latest [message]`
-
--  [**`.profile`**](https://github.com/source64/cade/blob/main/cogs/funny.py#L125) - replaces the profile/banner of the twita account
-   -  how to use: `.profile profile/banner (image)`

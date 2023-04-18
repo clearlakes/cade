@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 import configparser
 import aiohttp
 import logging
-import tweepy
 
 class Cade(commands.Bot):
     def __init__(self):
@@ -34,7 +33,6 @@ class Cade(commands.Bot):
         self.cog_files = ["funny", "general", "media", "music"]
 
         self.lavalink: CadeLavalink = None
-        self.twitter_api: tweepy.API = None
         self.spotify_api: SpotifyApiClient = None
 
         self.before_invoke(self._start_timer)

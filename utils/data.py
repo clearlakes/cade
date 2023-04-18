@@ -86,7 +86,6 @@ class reg:
     youtube =       re.compile(r"https?:\/\/(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(watch|v|embed|shorts|playlist)?(?:\.php)?(?:\?(?:v=|list=)|\/))([a-zA-Z0-9\_-]+)") # group 1: type, group 2: id
     url =           re.compile(r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)")  # gets any url
     spotify =       re.compile(r"https?:\/\/open\.spotify\.com\/(track|playlist|album)\/([a-zA-Z0-9\_-]+)")  # group 1: type, group 2: id
-    twitter =       re.compile(r"https?:\/\/twitter\.com\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)")  # group 1: handle, group 2: status id
     tenor =         re.compile(r"https?:\/\/tenor.com\/view\/.*-(\d+)")  # group 1: tenor id
     gyazo =         re.compile(r"https?:\/\/gyazo.com\/(.*)") # group 1: gyazo id
     color =         re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
@@ -104,9 +103,6 @@ class ff:
     )
     GET_STREAM = lambda path, url, ext, start, end: (
         f"{FFMPEG} " + (f"-ss {start} -to {end} " if start else "") + f"-i {url} {path}/output.{ext}"
-    )
-    MOV_TO_MP4 = lambda path: (
-        f"{FFMPEG} -i {path}/input.mov -qscale 0 {path}/output.mp4"
     )
     CREATE_MP4 = lambda path, fps: (
         f"{FFMPEG} -framerate {fps} -i '{path}/%d.png' -vn -i {path}/input.mp4 -c:v libx264 -pix_fmt yuv420p {PAD_EVEN} {path}/output.mp4"
@@ -128,10 +124,6 @@ class err:
     COG_RELOAD_ERROR = lambda c: f"{E} could not reload {c}"
     INVALID_PREFIX =             f"{E} prefix is too long (needs to be less than 4 letters)"
     FUNNY_ONLY =                 f"{E} that only works in funny museum"
-    TWEET_ERROR =                f"{E} could not send tweet"
-    TWITTER_PROFILE_ERROR =      f"{E} could not change twita profile"
-    TWEET_URL_NOT_FOUND =        f"{E} could not find a tweet url/id"
-    TWEET_NOT_FOUND =            f"{E} could not find tweet from the given url/id"
     NO_ATTACHMENT_FOUND =        f"{E} no attachment was found"
     NO_ATT_OR_URL_FOUND =        f"{E} no attachment or url was found"
     NO_AUDIO_FOUND =             f"{E} could not find audio file or url"
@@ -166,6 +158,5 @@ class err:
     NO_SPOTIFY_ON_YT = lambda t: f"{E} couldn't find `{t}` on youtube sorry (skipping)"
     INVALID_INDEX =              f"{E} invalid index"
     INVALID_SEEK =               f"{E} cannot skip that far into the track"
-    MOV_TO_MP4_ERROR =           f"{E} broke something while converting from mov to mp4"
     UNEXPECTED =                 f"{E} weird response, try again"
     CMD_USAGE = lambda pre, c:   f"{E} it's `{pre}{c.name}" + f" {c.usage}`" if c.usage else "`"

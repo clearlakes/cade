@@ -4,7 +4,6 @@ from utils.main import Cade, CadeLavalink
 
 from async_spotify.authentification.authorization_flows import ClientCredentialsFlow
 from async_spotify import SpotifyApiClient
-import tweepy
 
 from dataclasses import dataclass
 import configparser
@@ -40,12 +39,6 @@ class LavalinkKeys(BaseKey):
             self.host, self.port, self.secret, self.region
         )
 
-class TwitterKeys(BaseKey):
-    def __init__(self):
-        super().__init__("twitter")
-        self.api_keys = (self.get("api_key"), self.get("api_secret"))
-        self.access_keys = (self.get("access_token"), self.get("access_secret"))
-
 class SpotifyKeys(BaseKey):
     def __init__(self):
         super().__init__("spotify")
@@ -66,7 +59,6 @@ class OtherKeys(BaseKey):
 @dataclass
 class Keys:
     lavalink = LavalinkKeys()
-    twitter = TwitterKeys()
     spotify = SpotifyKeys()
     image = ImageServerKeys()
     tenor = OtherKeys().tenor
@@ -79,13 +71,6 @@ def get_spotify_client():
     loop = asyncio.get_running_loop()
     loop.create_task(api.get_auth_token_with_client_credentials())
     loop.create_task(api.create_new_client())
-
-    return api
-
-def get_twitter_client():
-    auth = tweepy.OAuthHandler(*Keys.twitter.api_keys)
-    auth.set_access_token(*Keys.twitter.access_keys)
-    api = tweepy.API(auth)
 
     return api
 

@@ -2,11 +2,10 @@ import discord
 from discord.ext import commands
 
 from utils.ext import serve_very_big_file
-from utils.data import bot, reg, err, ff
+from utils.data import bot, reg, err
 from utils.base import BaseEmbed
 from utils.clients import Keys
 
-from tempfile import TemporaryDirectory, NamedTemporaryFile as create_temp
 from subprocess import Popen, PIPE
 from dataclasses import dataclass
 from time import strftime, gmtime
@@ -18,7 +17,6 @@ from PIL import Image
 import numpy as np
 import asyncio
 import aiohttp
-import tweepy
 
 @dataclass
 class AttObj:
@@ -165,47 +163,6 @@ def strip_pl_name(playlist_name: str, text: str):
 
     return text
 
-async def get_tweet_attachments(ctx: commands.Context | discord.Interaction):
-    """Gets the attachments to use for tweets"""
-    # switch to the original message if it's a reply
-    msg = ctx.message.reference.resolved if ctx.message.reference and not ctx.message.attachments else ctx.message
-
-    media_type = None
-    attachments = []
-
-    for _, att in zip(range(4), msg.attachments):
-        att_bytes = BytesIO(await att.read())
-
-        if "image" in att.content_type:
-            # if the content is animated, only one can be posted
-            if att.content_type.split("/")[1] in ("gif", "apng"):
-                media_type = "gif"
-                attachments = [att_bytes]
-                break
-
-            media_type = "image"
-            attachments.append(att_bytes)
-            continue
-        else:
-            if att.filename.lower().endswith("mov"):
-                att_bytes = await mov_to_mp4(att_bytes)
-
-            if not att_bytes:
-                media_type = None
-                attachments.clear()
-
-                if isinstance(ctx, commands.Context):
-                    await ctx.send(err.MOV_TO_MP4_ERROR)
-                else:
-                    await ctx.edit_original_response(content = err.MOV_TO_MP4_ERROR)
-            else:
-                media_type = "video"
-                attachments = [att_bytes]
-
-            break
-
-    return media_type, attachments
-
 def get_attachment_obj(ctx: commands.Context):
     """Gets the attachment object from a message"""
     # switch to the message being replied to if it's there
@@ -216,56 +173,9 @@ def get_attachment_obj(ctx: commands.Context):
 
     return msg.attachments[0]
 
-def get_media_ids(api: tweepy.API, media_type: str, attachments: list[BytesIO]):
-    """Gets the media ids for content in tweets"""
-    if not attachments:
-        return  # in case get_attachment returns None
-
-    media_ids = []
-
-    # chooses between either uploading multiple images or just one video/gif
-    if media_type == "image":
-        for image in attachments:
-            # create temporary file to store image data in
-            with create_temp(suffix='.png') as temp:
-                # convert image into png in case of filetype conflicts
-                im = Image.open(image)
-                im.convert("RGBA")
-                im.save(temp.name, format='PNG')
-
-                res = api.media_upload(temp.name)
-                media_ids.append(res.media_id)
-    else:
-        # store media data in a temporary file
-        with create_temp() as temp:
-            temp.write(attachments[0].getvalue())
-            res = api.chunked_upload(temp.name, media_category = f"tweet_{media_type}")
-            media_ids.append(res.media_id)
-
-    return media_ids
-
-async def mov_to_mp4(file: BytesIO):
-    """Converts mov files to mp4"""
-    with TemporaryDirectory() as temp:
-        with open(f"{temp}/input.mov", "wb") as input:
-            input.write(file.getvalue())
-
-        _, returncode = await run_cmd(ff.MOV_TO_MP4(temp))
-
-        if returncode != 0:
-            return
-
-        with open(f"{temp}/output.mp4", "rb") as output:
-            result = BytesIO(output.read())
-
-        return result
-
 def get_yt_thumbnail(identifier: str):
     """Gets a link to the thumbnail of the youtube video"""
     return f"https://img.youtube.com/vi/{identifier}/0.jpg"
-
-def get_twt_url(handle: str, tweet_id: str = None):
-    return f"https://twitter.com/{handle}" + (f"/status/{tweet_id}" if tweet_id else "")
 
 def run_async(func):
     async def wrapper(*args, **kwargs):

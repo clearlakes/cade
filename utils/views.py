@@ -2,12 +2,9 @@ import discord
 from discord.ext import commands
 
 from utils.useful import (
-    get_tweet_attachments,
     get_average_color,
     get_yt_thumbnail,
     read_from_url,
-    get_media_ids,
-    get_twt_url,
     format_time,
     btn_check,
     check
@@ -21,7 +18,6 @@ from utils.main import Cade
 
 from lavalink import DefaultPlayer, AudioTrack
 import asyncio
-import tweepy
 
 class ChoiceView(discord.ui.View):
     def __init__(self, orig_user: discord.Member | discord.User, choices: list):
@@ -106,51 +102,6 @@ class HelpView(discord.ui.View):
 
         embed = BaseEmbed(title = f"{cog} Commands", description = command_list)
         await interaction.message.edit(embed = embed, view = self)
-
-class ReplyView(discord.ui.View):
-    def __init__(self, api: tweepy.API, reply_id: int):
-        super().__init__(timeout = None)
-        self.reply_id = reply_id
-        self.api = api
-
-    @discord.ui.button(label = "Reply", style = discord.ButtonStyle.primary, custom_id = "rv:reply")
-    async def reply(self, interaction: discord.Interaction, button: discord.ui.Button):
-        view = ChoiceView(interaction.user, ["cancel"])
-        await interaction.response.send_message("send a message to use as the reply", view = view, ephemeral = True)
-
-        # get user input
-        finished, message = await wait_until_button(interaction, view)
-
-        if finished:
-            # if cancel button was pressed, exit
-            return await interaction.edit_original_response(content = "(canceled)", view = None)
-
-        if not message:
-            # error if no message or button press (just in case)
-            return await interaction.edit_original_response(content = err.UNEXPECTED, view = None)
-
-        await message.delete()
-        status = message.content
-
-        # same procedure as a reply command
-        media = await get_tweet_attachments(interaction)
-        media_ids = get_media_ids(self.api, *media)
-
-        # send the reply
-        new_status = self.api.update_status(
-            status = status,
-            media_ids = media_ids,
-            in_reply_to_status_id = self.reply_id,
-            auto_populate_reply_metadata = True
-        )
-
-        await interaction.edit_original_response(content = f"{bot.OK} replied", view = None)
-
-        # reply to the original message containing the tweet
-        await interaction.message.reply(
-            f"{interaction.user.mention} replied with {get_twt_url(self.api.me().screen_name, new_status.id)}",
-            view = ReplyView(self.api, new_status.id)
-        )
 
 class PlaylistView(discord.ui.View):
     def __init__(self, client: Cade, ctx: commands.Context, playlist: str):
