@@ -15,7 +15,7 @@ tweepy = "^4.10.0"
 pilmoji = "^2.0.2"
 "discord.py" = {extras = ["speed"], version = "^2.0.0"}
 discord-ext-menus = {git = "https://github.com/Rapptz/discord-ext-menus"}
-yt-dlp = "^2022.8.19"
+yt-dlp = "*"
 motor = "^3.0.0"
 dnspython = "^2.2.1"
 
