@@ -39,7 +39,7 @@ class _Base:
         text = text.replace("…", "...")
 
         # wrap caption text
-        caption_lines = textwrap.wrap(text, 21)
+        caption_lines = textwrap.wrap(text, 21, replace_whitespace = False, drop_whitespace = False)
         caption = "\n".join(caption_lines)
 
         font = ImageFont.truetype(font_path, font_size)
