@@ -35,9 +35,8 @@ class _Base:
         font_size = width // 10
         font_path = "fonts/futura.ttf"
 
-        # replace ellipsis characters and remove extra whitespace
+        # replace ellipsis characters
         text = text.replace("…", "...")
-        text = " ".join(text.split())
 
         # wrap caption text
         caption_lines = textwrap.wrap(text, 21)
