@@ -1,51 +1,22 @@
 from discord.ext import commands, menus
 
-from utils.views import (
-    TrackSelectView,
-    NowPlayingView,
-    PlaylistView
-)
-from utils.tracks import (
-    create_music_embed,
-    find_tracks,
-    get_queue
-)
-from utils.clients import LavalinkVoiceClient, Keys, get_spotify_client
-from utils.base import BaseEmbed, BaseCog
-from utils.main import Cade, CadeLavalink
-from utils.events import TrackEvents
+from utils.base import BaseCog
+from utils.clients import Cade, LavalinkVoiceClient
+from utils.tracks import create_music_embed, find_tracks, get_queue
 from utils.useful import format_time
-from utils.data import err, bot
-from utils.db import GuildDB
+from utils.vars import bot, err
+from utils.views import NowPlayingView, TrackSelectView
+
 
 class Music(BaseCog):
     def __init__(self, client: Cade):
         super().__init__(client)
-
-        if Keys.lavalink:
-            self.client.lavalink = CadeLavalink(client.user.id)
-            self.client.lavalink.add_node(*Keys.lavalink.ordered_keys, name = "default-node")
-            self.client.lavalink.add_event_hooks(TrackEvents(client))
-
-        if Keys.spotify:
-            self.client.spotify_api = get_spotify_client()
-
-        if not self.client.lavalink:
-            self.client.log.warning("can't load music commands, missing lavalink info")
-
-            for cmd in self.get_commands():
-                cmd.enabled = False
-
-        if not self.client.spotify_api:
-            self.client.log.warning("can't play spotify tracks, missing spotify api keys")
+        self.client = client
 
     def cog_unload(self):
         self.client.lavalink._event_hooks.clear()
 
     async def cog_check(self, ctx: commands.Context):
-        if ctx.command.name == "playlist":
-            return True
-
         player = self.client.lavalink.get_player(ctx)
 
         if ctx.command.name == "disconnect" and not player:
@@ -57,7 +28,7 @@ class Music(BaseCog):
             if not player or not player.is_connected:
                 if ctx.command.name == "play" and ctx.author.voice:
                     player = self.client.lavalink.create_player(ctx)
-                    await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
+                    await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
                     return True
                 else:
                     await ctx.send(err.BOT_NOT_IN_VC)
@@ -65,7 +36,11 @@ class Music(BaseCog):
 
         # check if the user is in vc
         if ctx.command.name not in ["loopcount", "queue", "nowplaying"]:
-            if not ctx.author.voice or (ctx.command.name != "join" and player and ctx.author.voice.channel.id != player.channel_id):
+            if not ctx.author.voice or (
+                ctx.command.name != "join"
+                and player
+                and ctx.author.voice.channel.id != player.channel_id
+            ):
                 await ctx.send(err.USER_NOT_IN_VC)
                 return False
 
@@ -77,7 +52,7 @@ class Music(BaseCog):
 
         return True
 
-    @commands.command(aliases = ["p"], usage = "[url/query]")
+    @commands.command(aliases=["p"], usage="[url/query]")
     async def play(self, ctx: commands.Context, *, query: str = ""):
         """plays a track/playlist from youtube or spotify"""
         query = query.strip("<>")
@@ -95,10 +70,10 @@ class Music(BaseCog):
 
         # get a list of tracks from the search results
         tracks, info, failed = await find_tracks(
-            client = self.client,
-            query = query,
-            requester_id = ctx.author.id,
-            return_all = track_selection
+            client=self.client,
+            query=query,
+            requester_id=ctx.author.id,
+            return_all=track_selection,
         )
 
         if not tracks:
@@ -109,7 +84,7 @@ class Music(BaseCog):
             # creates a selection view using the search results
             view = TrackSelectView(ctx, tracks)
 
-            track_list = await ctx.send(embed = await view.get_track_embed(), view = view)
+            track_list = await ctx.send(embed=await view.get_track_embed(), view=view)
             await view.wait()
 
             track, info = view.track, view.info
@@ -120,16 +95,16 @@ class Music(BaseCog):
             tracks = [track]
 
         for track in tracks:
-            player.add(track, requester = ctx.author.id)
+            player.add(track, requester=ctx.author.id)
 
         if player.is_playing or len(tracks) > 1:
             # create an extra embed for playlists or queued tracks
             embed = create_music_embed(tracks, info, player, ctx.author)
-            await ctx.send(embed = embed)
+            await ctx.send(embed=embed)
 
-        await player.play(no_replace = True)
+        await player.play(no_replace=True)
 
-    @commands.command(aliases = ["j"])
+    @commands.command(aliases=["j"])
     async def join(self, ctx: commands.Context):
         """makes the bot join a voice channel"""
         # create a player for the guild
@@ -142,10 +117,10 @@ class Music(BaseCog):
                 return await ctx.message.add_reaction(bot.OK)
             return await ctx.send(err.BOT_IN_VC)
 
-        await ctx.author.voice.channel.connect(cls = LavalinkVoiceClient)
+        await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
         await ctx.message.add_reaction(bot.OK)
 
-    @commands.command(aliases = ["dc", "leave"])
+    @commands.command(aliases=["dc", "leave"])
     async def disconnect(self, ctx: commands.Context):
         """makes the bot leave a voice channel"""
         player = self.client.lavalink.get_player(ctx)
@@ -157,10 +132,10 @@ class Music(BaseCog):
         await player.stop()
 
         # leave the vc
-        await ctx.voice_client.disconnect(force = True)
+        await ctx.voice_client.disconnect(force=True)
         await ctx.message.add_reaction(bot.OK)
 
-    @commands.command(aliases = ["s"], usage = "*[index]/all")
+    @commands.command(aliases=["s"], usage="*[index]/all")
     async def skip(self, ctx: commands.Context, *, index: int | str | None):
         """skips the current track (or queued tracks)"""
         player = self.client.lavalink.get_player(ctx)
@@ -197,7 +172,7 @@ class Music(BaseCog):
                 case int():
                     if 0 < index <= len(player.queue):
                         if skip_to:  # skip to track and play it
-                            player.queue = player.queue[index - 1:]
+                            player.queue = player.queue[index - 1 :]
                             return await _skip()
 
                         # remove track by index
@@ -208,7 +183,9 @@ class Music(BaseCog):
                 case str():
                     match list(index):
                         case [*_, "^"]:
-                            index = int(i) if (i := index[:-1]).isnumeric() else i  # remove "^"
+                            index = (
+                                int(i) if (i := index[:-1]).isnumeric() else i
+                            )  # remove "^"
                             skip_to = True  # restart match statement but skip to track instead
                         case _:
                             index = index.lower()
@@ -218,19 +195,36 @@ class Music(BaseCog):
                                 return await ctx.send(f"{bot.OK} cleared the queue")
 
                             # remove by playlist name
-                            if pl_tracks := [t for t in player.queue if (pl := t.extra["pl_name"]) and pl.lower() == index]:
+                            if pl_tracks := [
+                                t
+                                for t in player.queue
+                                if (pl := t.extra["pl_name"]) and pl.lower() == index
+                            ]:
                                 if skip_to:  # skip to first track in playlist
-                                    player.queue = player.queue[player.queue.index(pl_tracks[0]):]
+                                    player.queue = player.queue[
+                                        player.queue.index(pl_tracks[0]) :
+                                    ]
                                     return await _skip()
 
-                                player.queue = [track for track in player.queue if track not in pl_tracks]
+                                player.queue = [
+                                    track
+                                    for track in player.queue
+                                    if track not in pl_tracks
+                                ]
                                 removed = pl_tracks[0].extra["pl_name"]
                                 break
 
                             # remove by track name
-                            if any(index in (track := t).title.lower() for t in player.queue):
-                                if skip_to:  # skip to track and play it (but also find index)
-                                    player.queue = player.queue[player.queue.index(track):]
+                            if any(
+                                index in (track := t).title.lower()
+                                for t in player.queue
+                            ):
+                                if (
+                                    skip_to
+                                ):  # skip to track and play it (but also find index)
+                                    player.queue = player.queue[
+                                        player.queue.index(track) :
+                                    ]
                                     return await _skip()
 
                                 player.queue.remove(track)
@@ -259,7 +253,7 @@ class Music(BaseCog):
         else:
             await ctx.send(f"{bot.OK} playing the queue in order from now on")
 
-    @commands.command(aliases = ["l"])
+    @commands.command(aliases=["l"])
     async def loop(self, ctx: commands.Context):
         """begins/stops looping the current track"""
         player = self.client.lavalink.get_player(ctx)
@@ -277,7 +271,7 @@ class Music(BaseCog):
 
             await ctx.send(f"{bot.OK} stopped loop at **{loopcount}** loop(s)")
 
-    @commands.command(aliases = ["lc"])
+    @commands.command(aliases=["lc"])
     async def loopcount(self, ctx: commands.Context):
         """shows how many times the current track has been looped"""
         player = self.client.lavalink.get_player(ctx)
@@ -287,30 +281,11 @@ class Music(BaseCog):
             return await ctx.send(err.MUSIC_NOT_LOOPED)
 
         loopcount = player.fetch("loopcount")
-        await ctx.send(f"`{player.current.title}` has been looped **{loopcount}** time(s)")
+        await ctx.send(
+            f"`{player.current.title}` has been looped **{loopcount}** time(s)"
+        )
 
-    @commands.command(aliases = ["pl"], usage = "*[playlist]")
-    async def playlist(self, ctx: commands.Context, playlist: str | None):
-        """lists every playlist and the controls for each"""
-        db = GuildDB(ctx.guild)
-        guild = await db.get()
-
-        if not playlist:
-            # create list of playlists
-            embed = BaseEmbed(
-                title = "Playlists:",
-                from_list = (guild.playlists.keys(), "(none yet)")
-            )
-
-            embed.set_footer(text = "create, play, and edit playlists using .pl [playlist name]")
-
-            return await ctx.send(embed = embed)
-
-        # show playlist info if one is specified
-        view = PlaylistView(self.client, ctx, playlist)
-        await ctx.send(embed = await view.get_track_embed(), view = view.updated_view)
-
-    @commands.command(aliases = ["pp"])
+    @commands.command(aliases=["pp"])
     async def pause(self, ctx: commands.Context):
         """pauses/unpauses the current track"""
         player = self.client.lavalink.get_player(ctx)
@@ -324,7 +299,7 @@ class Music(BaseCog):
         else:
             await ctx.send(f"{bot.OK} unpaused")
 
-    @commands.command(usage = "[time]")
+    @commands.command(usage="[time]")
     async def seek(self, ctx: commands.Context, time_input: str):
         """skips to a specific point in the current track"""
         player = self.client.lavalink.get_player(ctx)
@@ -338,7 +313,7 @@ class Music(BaseCog):
         try:
             if ":" in time_input and len(values := time_input.split(":")) <= 3:
                 # if the time given is formatted as H:M:S, get it as seconds
-                new_time = sum(int(x) * 60 ** i for i, x in enumerate(reversed(values)))
+                new_time = sum(int(x) * 60**i for i, x in enumerate(reversed(values)))
 
             # multiply by 1000 to get milliseconds
             new_time = int(new_time) * 1000
@@ -369,12 +344,12 @@ class Music(BaseCog):
             action = "set position"
 
         # format the given time
-        formatted_time = format_time(ms = new_time)
+        formatted_time = format_time(ms=new_time)
 
         await player.seek(new_time)
         return await ctx.send(f"{bot.OK} {action} to `{formatted_time}`")
 
-    @commands.command(aliases = ["q"])
+    @commands.command(aliases=["q"])
     async def queue(self, ctx: commands.Context):
         """lists all of the tracks in the queue"""
         player = self.client.lavalink.get_player(ctx)
@@ -384,11 +359,11 @@ class Music(BaseCog):
 
         # create the paginator using the embeds from get_queue
         queue_pages = await get_queue(player)
-        paginator =  menus.MenuPages(source = queue_pages, clear_reactions_after = True)
+        paginator = menus.MenuPages(source=queue_pages, clear_reactions_after=True)
 
         await paginator.start(ctx)
 
-    @commands.command(aliases = ["np"])
+    @commands.command(aliases=["np"])
     async def nowplaying(self, ctx: commands.Context):
         """shows information about the current track"""
         player = self.client.lavalink.get_player(ctx)
@@ -397,10 +372,11 @@ class Music(BaseCog):
         # clear existing "now playing" views
         for v in self.client.persistent_views:
             if isinstance(v, NowPlayingView) and v.id == view.id:
-                await v.message.edit(view = v.clear_items())
+                await v.message.edit(view=v.clear_items())
 
         # create embed and add buttons to message
-        view.message = await ctx.send(embed = await view.get_track_embed(), view = view)
+        view.message = await ctx.send(embed=await view.get_track_embed(), view=view)
+
 
 async def setup(bot: Cade):
     await bot.add_cog(Music(bot))

@@ -1,23 +1,25 @@
-from typing import Callable
-from utils.useful import AttObj, get_media_kind, run_async, run_cmd
-from utils.data import ff
-
-from tempfile import TemporaryDirectory
-from wand.image import Image as WImage
-from wand.color import Color as WColor
-from wand.font import Font as WFont
-from subprocess import Popen, PIPE
-from PIL import Image, ImageFont
-from pilmoji import Pilmoji
-from shlex import split
-from io import BytesIO
 import textwrap
+from io import BytesIO
+from shlex import split
+from subprocess import PIPE, Popen
+from tempfile import TemporaryDirectory
+from typing import Callable
+
+import cv2
 import emoji
 import numpy
-import cv2
+from PIL import Image, ImageFont
+from pilmoji import Pilmoji
+from wand.color import Color as WColor
+from wand.font import Font as WFont
+from wand.image import Image as WImage
+
+from .useful import AttObj, get_media_kind, run_async, run_cmd
+from .vars import ff
+
 
 def edit(res: AttObj):
-    """Gets the edit class for the given file"""
+    """gets the edit class for the given file"""
     kind = get_media_kind(res.filetype)
 
     match kind:
@@ -28,9 +30,10 @@ def edit(res: AttObj):
         case "video":
             return EditVideo(res)
 
+
 class _Base:
     def create_caption_from_text(self, text: str, width: int):
-        """Creates the caption image (white background with black text)"""
+        """creates the caption image (white background with black text)"""
         spacing = width // 40
         font_size = width // 10
         font_path = "fonts/futura.ttf"
@@ -39,13 +42,15 @@ class _Base:
         text = text.replace("…", "...")
 
         # wrap caption text
-        caption_lines = textwrap.wrap(text, 21, replace_whitespace = False, drop_whitespace = False)
+        caption_lines = textwrap.wrap(
+            text, 21, replace_whitespace=False, drop_whitespace=False
+        )
         caption = "\n".join(caption_lines)
 
         font = ImageFont.truetype(font_path, font_size)
 
         # get the size of the rendered text
-        text_height = (font.getsize_multiline(caption, spacing = spacing)[1] + font_size)
+        text_height = font.getsize_multiline(caption, spacing=spacing)[1] + font_size
 
         # get all emojis in text
         emojis = emoji.distinct_emoji_list(caption)
@@ -56,18 +61,32 @@ class _Base:
             x, _ = caption_img.width // 2, caption_img.height // 2
 
             with Pilmoji(caption_img) as pilmoji:
-                line_sizes = [pilmoji.getsize(line, font, spacing = spacing, emoji_scale_factor = 1.25) for line in caption_lines]
+                line_sizes = [
+                    pilmoji.getsize(
+                        line, font, spacing=spacing, emoji_scale_factor=1.25
+                    )
+                    for line in caption_lines
+                ]
 
                 for i, (line, size) in enumerate(zip(caption_lines, line_sizes)):
                     # align text line to the center horizontally (x) and from the top downwards (y)
                     x_offset = x + (size[0] // -2)
-                    y_offset = (round(size[1] / 2.5) + ((size[1] + spacing) * i))
+                    y_offset = round(size[1] / 2.5) + ((size[1] + spacing) * i)
 
-                    pilmoji.text((x_offset, y_offset), line, (0, 0, 0), font, spacing = spacing, emoji_scale_factor = 1.25)
+                    pilmoji.text(
+                        (x_offset, y_offset),
+                        line,
+                        (0, 0, 0),
+                        font,
+                        spacing=spacing,
+                        emoji_scale_factor=1.25,
+                    )
         else:
-            with WImage(width = width, height = text_height, background = WColor("#fff")) as img:
+            with WImage(
+                width=width, height=text_height, background=WColor("#fff")
+            ) as img:
                 img.font = WFont(font_path, font_size)
-                img.caption(caption, gravity = "center")
+                img.caption(caption, gravity="center")
 
                 caption_img = Image.open(BytesIO(img.make_blob("png")))
 
@@ -97,12 +116,13 @@ class _Base:
         # get bounding box coordinates from largest external contour
         contours = cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = contours[0] if len(contours) == 2 else contours[1]
-        big_contour = max(contours, key = cv2.contourArea)
+        big_contour = max(contours, key=cv2.contourArea)
         _, y, _, _ = cv2.boundingRect(big_contour)
 
         bounds = 0, y, img.shape[1], img.shape[0]
 
         return bounds
+
 
 class EditImage(_Base):
     def __init__(self, image: AttObj):
@@ -111,17 +131,17 @@ class EditImage(_Base):
         self.dimensions = self.file.size
 
     def _save(self, img_format: str = "png", quality: int = 95):
-        """General function for saving images as byte objects"""
+        """general function for saving images as byte objects"""
         # save the image as bytes
         img_byte_arr = BytesIO()
-        self.file.save(img_byte_arr, img_format, quality = quality)
+        self.file.save(img_byte_arr, img_format, quality=quality)
         result = BytesIO(img_byte_arr.getvalue())
 
         return (result, f"{self.filename}.{img_format}", f"image/{img_format}")
 
     @run_async
     def jpeg(self) -> Callable[[], tuple[BytesIO, str, str]]:
-        """Returns a low quality version of the image"""
+        """returns a low quality version of the image"""
         file_rgba = self.file.convert("RGBA")
 
         # shrink the image to 80% of it's original size
@@ -141,7 +161,7 @@ class EditImage(_Base):
 
     @run_async
     def resize(self, new_size: tuple[int, int]):
-        """Resizes the image to a given size"""
+        """resizes the image to a given size"""
         self.file = self.file.resize(new_size)
 
         result = self._save()
@@ -149,14 +169,14 @@ class EditImage(_Base):
 
     @run_async
     def caption(self, text: str):
-        """Captions the image"""
+        """captions the image"""
         width, height = self.dimensions
         caption = self.create_caption_from_text(text, width)
 
         # create a new image that contains both the caption and the original image
         new_img = Image.new("RGBA", (width, height + caption.height))
 
-        new_img.paste(caption, (0,0))
+        new_img.paste(caption, (0, 0))
         new_img.paste(self.file, (0, caption.height))
 
         self.file = new_img
@@ -166,13 +186,14 @@ class EditImage(_Base):
 
     @run_async
     def uncaption(self):
-        """Removes captions from the image"""
+        """removes captions from the image"""
         bounds = self.get_content_bounds(self.file)
 
         self.file = self.file.crop(bounds)
 
         result = self._save()
         return result
+
 
 class EditGif(_Base):
     def __init__(self, gif: AttObj):
@@ -187,7 +208,7 @@ class EditGif(_Base):
         self.i = 0
 
     def _analyse(self):
-        """Determines if the gif's mode is full (changes whole frame) or partial (changes parts of the frame)"""
+        """determines if the gif's mode is full (changes whole frame) or partial (changes parts of the frame)"""
         # taken from https://gist.github.com/rockkoca/30357703f42f9d17c6fa121cf4dd1d8e
         try:
             while True:
@@ -203,24 +224,24 @@ class EditGif(_Base):
         return "full"
 
     def _next_frame(self):
-        """Seeks to the next frame in the gif"""
+        """seeks to the next frame in the gif"""
         self.file.seek(self.i)
         self.new_frame = Image.new("RGBA", self.dimensions)
 
         if self.mode == "partial":
             self.new_frame.paste(self.last_frame)
 
-        self.new_frame.paste(self.file, (0,0), self.file.convert("RGBA"))
+        self.new_frame.paste(self.file, (0, 0), self.file.convert("RGBA"))
 
     def _append_frame(self, image: Image.Image, delay: int = 0):
-        """Appends the given frame to a list (along with its duration"""
+        """appends the given frame to a list (along with its duration"""
         self.frames.append(image)
         self.last_frame = self.new_frame
 
         self.durations.append(delay if delay else self.file.info["duration"])
 
     def _save(self) -> tuple[BytesIO, str, str]:
-        """Converts the saved images into a gif byte object"""
+        """converts the saved images into a gif byte object"""
         with TemporaryDirectory() as temp:
             cmd = "convert -loop 0 -alpha set -dispose 2 "
 
@@ -234,14 +255,14 @@ class EditGif(_Base):
             # read output as bytes
             cmd += " gif:-"
 
-            p = Popen(split(cmd), stdout = PIPE)
+            p = Popen(split(cmd), stdout=PIPE)
             result = BytesIO(p.communicate()[0])
 
         return (result, f"{self.filename}.gif", "image/gif")
 
     @run_async
     def resize(self, new_size: tuple[int, int]):
-        """Resizes the gif to a given size"""
+        """resizes the gif to a given size"""
         for self.i in range(self.file.n_frames):
             self._next_frame()
 
@@ -255,7 +276,7 @@ class EditGif(_Base):
 
     @run_async
     def caption(self, text: str):
-        """Captions the gif"""
+        """captions the gif"""
         # create caption
         caption = self.create_caption_from_text(text, self.dimensions[0])
 
@@ -263,7 +284,9 @@ class EditGif(_Base):
             self._next_frame()
 
             # create image that will contain both caption and original frame
-            captioned_frame = Image.new("RGBA", (self.new_frame.width, self.new_frame.height + caption.height))
+            captioned_frame = Image.new(
+                "RGBA", (self.new_frame.width, self.new_frame.height + caption.height)
+            )
 
             # add caption and then original frame under it
             captioned_frame.paste(caption, (0, 0))
@@ -276,7 +299,7 @@ class EditGif(_Base):
 
     @run_async
     def uncaption(self):
-        """Removes captions from the gif"""
+        """removes captions from the gif"""
         self._next_frame()
         bounds = self.get_content_bounds(self.new_frame)
 
@@ -296,7 +319,7 @@ class EditGif(_Base):
 
             # reduce frame duration (divide by amount)
             new_delay = int(self.file.info["duration"] // amount)
-            self._append_frame(self.new_frame, delay = new_delay)
+            self._append_frame(self.new_frame, delay=new_delay)
 
         # start reducing frames instead if smallest duration (20) is reached
         if all(x <= 20 for x in self.durations):
@@ -306,6 +329,7 @@ class EditGif(_Base):
         result = self._save()
         return result
 
+
 class EditVideo(_Base):
     def __init__(self, video: AttObj):
         self.filename = video.filename
@@ -313,8 +337,10 @@ class EditVideo(_Base):
         self.dimensions = (None, None)
 
     async def _get_size(self) -> tuple[int, int]:
-        """Gets the dimensions of the video"""
-        result, returncode = await run_cmd(ff.GET_DIMENSIONS, self.video.getvalue(), decode = True)
+        """gets the dimensions of the video"""
+        result, returncode = await run_cmd(
+            ff.GET_DIMENSIONS, self.video.getvalue(), decode=True
+        )
 
         if returncode != 0:
             return
@@ -326,7 +352,7 @@ class EditVideo(_Base):
         return result
 
     def _get_frames(self, path):
-        """Returns the fps and frames of a video for editing"""
+        """returns the fps and frames of a video for editing"""
         input_video = f"{path}/input.mp4"
 
         with open(input_video, "wb") as v_file:
@@ -346,7 +372,7 @@ class EditVideo(_Base):
         return fps, frames
 
     async def _create_from_frames(self, path, fps):
-        """Creates a video using all images in a directory"""
+        """creates a video using all images in a directory"""
         # make new frames into a video and add audio from original file
         _, returncode = await run_cmd(ff.CREATE_MP4(path, fps))
 
@@ -376,14 +402,14 @@ class EditVideo(_Base):
         return (self.video, f"{self.filename}.mp4", "video/mp4")
 
     async def resize(self, new_size: tuple[int, int]):
-        """Resizes the video to the specified size"""
+        """resizes the video to the specified size"""
         self.video = await self._run_ffmpeg(ff.RESIZE, *new_size)
 
         result = self._save()
         return result
 
     async def speed(self, amount: float):
-        """Speeds up the video by the given amount"""
+        """speeds up the video by the given amount"""
         if amount < 0.5:
             amount = 0.5  # smallest multiplier for videos
 
@@ -393,7 +419,7 @@ class EditVideo(_Base):
         return result
 
     async def caption(self, text: str):
-        """Captions the video"""
+        """captions the video"""
         width, _ = await self._get_size()
 
         # get caption image and convert it into a cv2 image
@@ -414,14 +440,14 @@ class EditVideo(_Base):
         return result
 
     async def uncaption(self):
-        """Removes captions from the video"""
+        """removes captions from the video"""
         with TemporaryDirectory() as temp:
             fps, frames = self._get_frames(temp)
             x, y, w, h = self.get_content_bounds(frames[0])
 
             for i, frame in enumerate(frames):
                 # crop each frame down to its content
-                cropped_frame = frame[y:y+h, x:x+w]
+                cropped_frame = frame[y : y + h, x : x + w]
                 cv2.imwrite(f"{temp}/{i}.png", cropped_frame)
 
             self.video = await self._create_from_frames(temp, fps)

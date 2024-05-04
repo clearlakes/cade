@@ -1,27 +1,21 @@
 import discord
 from discord.ext import commands
-
 from lavalink import (
+    AudioTrack,
+    DefaultPlayer,
+    QueueEndEvent,
+    TrackEndEvent,
     TrackLoadFailedEvent,
     TrackStartEvent,
-    TrackEndEvent,
-    QueueEndEvent,
-    DefaultPlayer,
-    AudioTrack,
-    listener
+    listener,
 )
-from utils.useful import format_time, get_yt_thumbnail, strip_pl_name
-from utils.views import NowPlayingView
-from utils.data import colors, err
-from utils.base import BaseEmbed
-from utils.db import GuildDB
-from utils.main import Cade
 
-def add_bot_events(client: Cade):
-    bot_events = BotEvents(client)
+from .base import BaseEmbed
+from .db import GuildDB
+from .useful import format_time, get_yt_thumbnail, strip_pl_name
+from .vars import colors, err
+from .views import NowPlayingView
 
-    for listener_func in [x for x in dir(bot_events) if x.startswith("on")]:
-        client.add_listener(getattr(bot_events, listener_func))
 
 async def _dc(player: DefaultPlayer, guild: discord.Guild):
     player.queue.clear()
@@ -29,10 +23,12 @@ async def _dc(player: DefaultPlayer, guild: discord.Guild):
 
     # disconnects the bot's voice client
     # without this it won't be able to connect again
-    await guild.voice_client.disconnect(force = True)
+
+    await guild.voice_client.disconnect(force=True)
+
 
 class BotEvents:
-    def __init__(self, client: Cade):
+    def __init__(self, client: commands.Bot):
         self.client = client
 
         self.fm_react_roles = {
@@ -41,11 +37,20 @@ class BotEvents:
             "3️⃣": 820126629945933874,  # they/them
         }
 
+    def add(self):
+        # adds all events to the bot
+        for listener_func in [x for x in dir(self) if x.startswith("on")]:
+            self.client.add_listener(getattr(self, listener_func))
+
     async def on_guild_join(self, guild: discord.Guild):
-        await GuildDB(guild).cancel_remove()  # cancel removal if the bot ever left before
+        await GuildDB(
+            guild
+        ).cancel_remove()  # cancel removal if the bot ever left before
 
     async def on_guild_remove(self, guild: discord.Guild):
-        await GuildDB(guild).remove()  # removes the guild from the database 3 days after leaving
+        await GuildDB(
+            guild
+        ).remove()  # removes the guild from the database 3 days after leaving
 
     async def on_member_join(self, member: discord.Member):
         welcome_field = (await GuildDB(member.guild).get()).welcome
@@ -80,31 +85,49 @@ class BotEvents:
             # remove the corresponding role
             await guild.get_member(event.user_id).remove_roles(role)
 
-    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    async def on_voice_state_update(
+        self,
+        member: discord.Member,
+        before: discord.VoiceState,
+        after: discord.VoiceState,
+    ):
         player = self.client.lavalink.get_player(member)
 
-        if player and before.channel and after.channel is None and (
-            (before.channel.members == [member.guild.me] and not player.queue) or  # bot left alone in vc
-            member == member.guild.me  # bot disconnected
+        if (
+            player
+            and before.channel
+            and after.channel is None
+            and (
+                (before.channel.members == [member.guild.me] and not player.queue)
+                or member == member.guild.me
+            )
         ):
+            # disconnect player if bot is alone and queue is empty / bot is disconnected
             await _dc(player, member.guild)
 
     async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
-            return await ctx.send(err.CMD_USAGE((await GuildDB(ctx.guild).get()).prefix, ctx.command))  # send command usage
-        elif isinstance(error, (commands.CheckFailure, commands.DisabledCommand, commands.CommandNotFound)):
+            return await ctx.send(
+                err.CMD_USAGE((await GuildDB(ctx.guild).get()).prefix, ctx.command)
+            )  # send command usage
+        elif isinstance(
+            error,
+            (commands.CheckFailure, commands.DisabledCommand, commands.CommandNotFound),
+        ):
             return  # ignore errors that aren't important
 
         raise error
 
+
 class TrackEvents:
-    """Contains functions that are used when a track does something"""
-    def __init__(self, client: Cade):
+    """contains functions that are used when a track does something"""
+
+    def __init__(self, client: commands.Bot):
         self.client = client
 
     @listener(TrackLoadFailedEvent)
     async def on_track_load_failed(self, event: TrackLoadFailedEvent):
-        """Event handler for when a spotify track can't be loaded"""
+        """event handler for when a spotify track can't be loaded"""
         player: DefaultPlayer = event.player
         track: AudioTrack = event.track
 
@@ -116,7 +139,7 @@ class TrackEvents:
 
     @listener(TrackStartEvent)
     async def on_track_start(self, event: TrackStartEvent):
-        """Event handler for when a track starts"""
+        """event handler for when a track starts"""
         player: DefaultPlayer = event.player
         track: AudioTrack = event.track
 
@@ -128,26 +151,26 @@ class TrackEvents:
         channel = guild.get_channel(player.fetch("channel"))
         requester = guild.get_member(track.requester)
 
-        duration = format_time(ms = track.duration)
+        duration = format_time(ms=track.duration)
 
         playing = discord.Embed(
-            description = f"**[{track.title}]({track.uri})**\n`{duration}` • {requester.mention}",
-            color = colors.PLAYING_TRACK
+            description=f"**[{track.title}]({track.uri})**\n`{duration}` • {requester.mention}",
+            color=colors.PLAYING_TRACK,
         )
 
-        playing.set_author(name = "Now Playing", icon_url = requester.display_avatar)
-        playing.set_thumbnail(url = get_yt_thumbnail(track.identifier))
+        playing.set_author(name="Now Playing", icon_url=requester.display_avatar)
+        playing.set_thumbnail(url=get_yt_thumbnail(track.identifier))
 
         player.store("prev_pl_name", player.fetch("pl_name"))
         player.store("pl_name", player.current.extra["pl_name"])
 
-        player.store("message", await channel.send(embed = playing))
+        player.store("message", await channel.send(embed=playing))
         player.store("requester", track.requester)
         player.store("loopcount", 0)
 
     @listener(TrackEndEvent)
     async def on_track_end(self, event: TrackEndEvent):
-        """Event handler for when a track ends"""
+        """event handler for when a track ends"""
         player: DefaultPlayer = event.player
         track: AudioTrack = event.track
 
@@ -160,42 +183,49 @@ class TrackEvents:
 
         # disable .nowplaying buttons for the track
         for view in self.client.persistent_views:
-            if isinstance(view, NowPlayingView) and view.id == track_id and not view.is_finished():
+            if (
+                isinstance(view, NowPlayingView)
+                and view.id == track_id
+                and not view.is_finished()
+            ):
                 await view.disable("ended")
 
         requester = player.fetch("requester")
-        duration = format_time(ms = track.duration)
+        duration = format_time(ms=track.duration)
 
         # create "played track" embed
         played = BaseEmbed(
-            title = track.title,
-            url = track.uri,
-            description = f"was played by <@{requester}> | Duration: `{duration}`"
+            title=track.title,
+            url=track.uri,
+            description=f"was played by <@{requester}> | Duration: `{duration}`",
         )
 
         track_info = f"[{track.title}]({track.uri}) `{duration}`"
 
-        played = BaseEmbed(
-            description = f"Played {track_info} • <@{requester}>"
-        )
+        played = BaseEmbed(description=f"Played {track_info} • <@{requester}>")
 
         orig_message: discord.Message = player.fetch("message")
 
         # group track with others from the same playlist if they're from one
         if (pl := player.fetch("pl_name")) and pl == player.fetch("prev_pl_name"):
-            channel = self.client.get_channel(player.fetch("channel"))  # find "played (track)" message
-            message = [m async for m in channel.history(limit = 2)][-1]
+            channel = self.client.get_channel(
+                player.fetch("channel")
+            )  # find "played (track)" message
+            message = [m async for m in channel.history(limit=2)][-1]
 
             if (
-                message.author == self.client.user and          # message is from the bot
-                (em := message.embeds) and                      # message has an embed
-                "Played" in (desc := em[0].description) and     # embed is of a played track(s)
-                desc.count("\n") < 15                           # embed has less than 15 lines
+                message.author == self.client.user
+                and (em := message.embeds)  # message is from the bot
+                and "Played" in (desc := em[0].description)  # message has an embed
+                and desc.count("\n")  # embed is of a played track(s)
+                < 15  # embed has less than 15 lines
             ):
                 # add the playlist name if it's not there
                 if "Played tracks from" not in desc:
                     desc = strip_pl_name(pl, desc).strip(f" • <@{requester}>")
-                    desc = desc.replace("Played", f"<@{requester}> • Played tracks from **{pl}**:\n- ")
+                    desc = desc.replace(
+                        "Played", f"<@{requester}> • Played tracks from **{pl}**:\n- "
+                    )
 
                 # add the track's information
                 desc += f"\n- {strip_pl_name(pl, track_info)}"
@@ -203,16 +233,16 @@ class TrackEvents:
                 new_embed.description = desc
 
                 # edit the message and delete the "now playing" message
-                await message.edit(embed = new_embed)
+                await message.edit(embed=new_embed)
                 await orig_message.delete()
                 return
 
         # edit the original "now playing" message with the embed
-        await orig_message.edit(embed = played)
+        await orig_message.edit(embed=played)
 
     @listener(QueueEndEvent)
     async def on_queue_end(self, event: QueueEndEvent):
-        """Event handler for when a queue ends"""
+        """event handler for when a queue ends"""
         player: DefaultPlayer = event.player
         guild = self.client.get_guild(player.guild_id)
         channel = guild.get_channel(player.channel_id)

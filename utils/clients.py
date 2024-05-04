@@ -1,137 +1,164 @@
-import discord
-
-from utils.main import Cade, CadeLavalink
-
-from async_spotify.authentification.authorization_flows import ClientCredentialsFlow
-from async_spotify import SpotifyApiClient
-
-from dataclasses import dataclass
 import configparser
-import asyncio
+import logging
+from datetime import datetime, timedelta
 
-class BaseKey:
-    def __init__(self, section: str):
-        # load config file
-        self._config = configparser.ConfigParser(interpolation = None)
-        self._config.read("config.ini")
+import aiohttp
+import discord
+from async_spotify import SpotifyApiClient
+from async_spotify.authentification.authorization_flows import ClientCredentialsFlow
+from discord.ext import commands, tasks
+from lavalink import Client, DefaultPlayer
 
-        self._section = section
+from cogs import COGS
 
-    def get(self, key):
-        return self._config.get(self._section, key, fallback = None)
+from .db import Internal
+from .events import BotEvents, TrackEvents
+from .keys import Keys
+from .useful import get_prefix
+from .vars import bot
 
-    @property
-    def all(self):
-        return dict(self._config.items(self._section)) if self else {}
 
-    def __bool__(self):
-        return self._config.has_section(self._section)
-
-class LavalinkKeys(BaseKey):
+class Cade(commands.Bot):
     def __init__(self):
-        super().__init__("lavalink")
-        self.host = self.get("host")
-        self.port = self.get("port")
-        self.secret = self.get("secret")
-        self.region = self.get("region")
-
-        self.ordered_keys = (
-            self.host, self.port, self.secret, self.region
+        super().__init__(
+            help_command=None, command_prefix=get_prefix, intents=discord.Intents.all()
         )
 
-class SpotifyKeys(BaseKey):
-    def __init__(self):
-        super().__init__("spotify")
-        self.key_pair = (self.get("key"), self.get("secret"))
+        self.init_time = datetime.now()
 
-class ImageServerKeys(BaseKey):
-    def __init__(self):
-        super().__init__("image-server")
-        self.domain = self.get("domain")
-        self.secret = self.get("secret")
+        self.log = logging.getLogger("discord")
+        self.log.name = ""
 
-class OtherKeys(BaseKey):
-    def __init__(self):
-        super().__init__("other")
-        self.tenor = self.get("tenor")
-        self.gyazo = self.get("gyazo")
+        # read config to get token
+        config = configparser.ConfigParser()
+        config.read("config.ini")
 
-@dataclass
-class Keys:
-    lavalink = LavalinkKeys()
-    spotify = SpotifyKeys()
-    image = ImageServerKeys()
-    tenor = OtherKeys().tenor
-    gyazo = OtherKeys().gyazo
+        self.token = str(config.get("bot", "token"))
+        self.cog_files = ["funny", "general", "media", "music"]
 
-def get_spotify_client():
-    auth = ClientCredentialsFlow(*Keys.spotify.key_pair)
-    api = SpotifyApiClient(auth)
+        self.before_invoke(self._start_timer)
 
-    loop = asyncio.get_running_loop()
-    loop.create_task(api.get_auth_token_with_client_credentials())
-    loop.create_task(api.create_new_client())
+    async def _start_timer(self, ctx: commands.Context):
+        ctx.command.extras["t"] = datetime.now()
 
-    return api
+    async def _log_and_increment(self, ctx: commands.Context):
+        delta: timedelta = datetime.now() - ctx.command.extras["t"]
+        self.log.info(
+            f"ran .{ctx.command.name} (took {round(delta.total_seconds(), 2)}s)"
+        )
 
-# class taken from Devoxin's lavalink.py example
-# https://github.com/Devoxin/Lavalink.py/blob/master/examples/music.py
+        if not ctx.command.hidden:
+            await Internal().inc_invoke_count(ctx.command.name)
+
+    async def setup_hook(self):
+        self.session = aiohttp.ClientSession(loop=self.loop)
+
+        for cog in COGS:
+            await self.load_extension(cog)
+
+        self.random_activity.start()
+        BotEvents(self).add()
+
+        self.spotify_api = None
+        self.lavalink = CadeLavalink(self.user.id)
+        self.lavalink.add_node(*Keys.lavalink.ordered_keys, name="default-node")
+        self.lavalink.add_event_hooks(TrackEvents(self))
+        self.log.info("connected to lavalink")
+
+    async def on_ready(self):
+        self.log.warning("cade ready to rumble")
+
+    @tasks.loop(minutes=10)
+    async def random_activity(self):
+        # change activity every 10 minutes
+        act_type, name = bot.STATUS()
+        await self.change_presence(activity=discord.Activity(type=act_type, name=name))
+
+    @tasks.loop(hours=1)
+    async def refresh_spotify(self):
+        auth = ClientCredentialsFlow(*Keys.spotify.key_pair)
+        api = SpotifyApiClient(auth)
+
+        await api.get_auth_token_with_client_credentials()
+        await api.create_new_client()
+
+        self.spotify_api = api
+        self.log.info("refreshed spotify api")
+
+    @random_activity.before_loop
+    async def _before(self):
+        await self.wait_until_ready()
+
+    async def close(self):
+        if self.spotify_api:
+            await self.spotify_api.close_client()
+
+        await self.session.close()
+
+    def run(self):
+        super().run(self.token, reconnect=True)
+
+
+class CadeLavalink(Client):
+    def create_player(
+        self, ctx: commands.Context | discord.Interaction
+    ) -> DefaultPlayer:
+        user = ctx.author if isinstance(ctx, commands.Context) else ctx.user
+
+        player: DefaultPlayer = self.player_manager.create(
+            ctx.guild.id, endpoint=str(user.voice.channel.rtc_region)
+        )
+        player.store("channel", ctx.channel.id)
+
+        return player
+
+    def get_player(
+        self, ctx: commands.Context | discord.Interaction | discord.Member
+    ) -> DefaultPlayer:
+        return self.player_manager.get(ctx.guild.id)
+
 
 class LavalinkVoiceClient(discord.VoiceClient):
+    """discord <-> lavalink connection (from lavalink.py)"""
+
     def __init__(self, client: Cade, channel: discord.abc.Connectable):
         self.client = client
         self.channel = channel
         self.log = client.log
-
-        # ensure that a client already exists
-        if self.client.lavalink:
-            self.lavalink = self.client.lavalink
-        else:
-            self.client.lavalink = CadeLavalink(client.user.id)
-            self.client.lavalink.add_node(*Keys.lavalink.ordered_keys, name = "default-node")
-            self.lavalink = self.client.lavalink
+        self.lavalink = self.client.lavalink
 
     async def on_voice_server_update(self, data):
-        # the data needs to be transformed before being handed down to
-        # voice_update_handler
-        lavalink_data = {
-            "t": "VOICE_SERVER_UPDATE",
-            "d": data
-        }
+        lavalink_data = {"t": "VOICE_SERVER_UPDATE", "d": data}
         await self.lavalink.voice_update_handler(lavalink_data)
 
     async def on_voice_state_update(self, data):
-        # the data needs to be transformed before being handed down to
-        # voice_update_handler
-        lavalink_data = {
-            "t": "VOICE_STATE_UPDATE",
-            "d": data
-        }
+        lavalink_data = {"t": "VOICE_STATE_UPDATE", "d": data}
         await self.lavalink.voice_update_handler(lavalink_data)
 
-    async def connect(self, *, timeout: float, reconnect: bool, self_deaf: bool = False, self_mute: bool = False) -> None:
-        """Connect the bot to the voice channel and create a player_manager if it doesn't exist yet"""
-        # ensure there is a player_manager when creating a new voice_client
-        self.lavalink.player_manager.create(guild_id = self.channel.guild.id)
-        await self.channel.guild.change_voice_state(channel = self.channel, self_mute = self_mute, self_deaf = self_deaf)
+    async def connect(
+        self,
+        *,
+        timeout: float,
+        reconnect: bool,
+        self_deaf: bool = False,
+        self_mute: bool = False,
+    ) -> None:
+        self.lavalink.player_manager.create(guild_id=self.channel.guild.id)
+
+        await self.channel.guild.change_voice_state(
+            channel=self.channel, self_mute=self_mute, self_deaf=self_deaf
+        )
 
         self.log.info(f"added player in {self.channel.guild.id}")
 
     async def disconnect(self, *, force: bool) -> None:
-        """Handles the disconnect. Cleans up running player and leaves the voice client"""
         player = self.lavalink.player_manager.get(self.channel.guild.id)
 
-        # no need to disconnect if we are not connected
         if not force and not player.is_connected:
             return
 
-        # None means disconnect
-        await self.channel.guild.change_voice_state(channel = None)
+        await self.channel.guild.change_voice_state(channel=None)
 
-        # update the channel_id of the player to None
-        # this must be done because the on_voice_state_update that
-        # would set channel_id to None doesn't get dispatched after the
-        # disconnect
         player.channel_id = None
         self.cleanup()
 

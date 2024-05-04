@@ -6,14 +6,16 @@
 
 <p><img src="https://i.imgur.com/VcvrhfV.png" width="400"></p>
 
-**cade v3** - pretty cool discord bot
+**cade** - pretty cool discord bot
 
-![lines](https://img.shields.io/tokei/lines/github/source64/cade)
-![last commit](https://img.shields.io/github/last-commit/source64/cade)
+
+![last commit](https://img.shields.io/github/last-commit/clearlakes/cade)
 ![grade](https://img.shields.io/codeclimate/maintainability/source64/cade)
 ![bot](https://img.shields.io/endpoint?url=https://test.grug.club/cade?&)
 
 play music, edit images, download videos, etc.
+
+for friends in the funny museum!
 
 ### features
 
@@ -26,16 +28,9 @@ play music, edit images, download videos, etc.
 • more i forgot
 </p>
 
-### credits
+<img src="https://i.imgur.com/y5mZhbK.png" width="50" title="tod">
 
-<p>
-- funny museum guys <br>
-- jacktender (for discord)
-</p>
-
-<img src="https://camo.githubusercontent.com/1b377afce62180f1432a557bb9d7d01504b34fee0749201c4d0b0283fca2eafb/68747470733a2f2f692e696d6775722e636f6d2f6543486b4a31302e6a7067" width="200" title="he's in my house">
-
-\- tod (in my house)
+<br>
 
 <pre>
 <a href="LICENSE">MIT license</a>

@@ -1,88 +1,93 @@
+import random
+from asyncio import TimeoutError
+from tempfile import TemporaryDirectory
+
 import discord
 from discord.ext import commands
+from yt_dlp import DownloadError, YoutubeDL
 
-from utils.useful import (
-    format_time,
-    send_media,
-    get_media,
-    run_async,
-    run_cmd,
-    check
-)
-from utils.base import BaseEmbed, BaseCog
-from utils.data import reg, err, ff, bot
-from utils.views import ChoiceView
-from utils.clients import Keys
+from utils.base import BaseCog, BaseEmbed
+from utils.clients import Cade
 from utils.edit import edit
-from utils.main import Cade
+from utils.useful import check, format_time, get_media, run_async, run_cmd, send_media
+from utils.vars import bot, err, ff, reg
+from utils.views import ChoiceView
 
-from yt_dlp import YoutubeDL, DownloadError
-from tempfile import TemporaryDirectory
-from asyncio import TimeoutError
-import random
 
 class Media(BaseCog):
     def __init__(self, client: Cade):
         super().__init__(client)
-
-        if not Keys.tenor:
-            self.client.log.warning("can't use tenor links, missing tenor api key")
-
-        if not Keys.image:
-            self.client.log.warning("can't upload larger files, missing image server info")
+        self.client = client
 
     @run_async
     def yt_extract(self, url: str, audio_only: bool = True):
         yt_format = "bestaudio" if audio_only else "best"
 
         try:
-            with YoutubeDL({"format": yt_format, "quiet": True, "noplaylist": True}) as ydl:
-                return ydl.extract_info(url, download = False)
+            with YoutubeDL(
+                {"format": yt_format, "quiet": True, "noplaylist": True}
+            ) as ydl:
+                return ydl.extract_info(url, download=False)
         except DownloadError as e:
             # clean error and include it in the message
-            return "(from youtube) " + f"\"{reg.color.sub('', e.msg).split(':')[2].strip()}\""
+            return (
+                "(message got from yt api) "
+                + f"\"{reg.COLOR.sub('', e.msg).split(':')[2].strip()}\""
+            )
 
-    @commands.command(usage = "(image)")
+    @commands.command(usage="(image)")
     async def jpeg(self, ctx: commands.Context):
         """lowers the quality of the given image"""
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         # get an image from the user's message
         res, error = await get_media(ctx, ["image"])
-        if error: return await processing.edit(content = error)
+        if error:
+            return await processing.edit(content=error)
 
         result = await edit(res).jpeg()
 
         # send the created image
         await send_media(ctx, processing, result)
 
-    @commands.command(aliases = ["img"], usage = "*[seconds] (image)")
-    async def imgaudio(self, ctx: commands.Context, url: str | None, length: str | None):
+    @commands.command(aliases=["img"], usage="*[seconds] (image)")
+    async def imgaudio(
+        self, ctx: commands.Context, url: str | None, length: str | None
+    ):
         """converts an image into a video with audio"""
         # if a length is given, check if it's a number
         length = int(length) if length and length.isnumeric() else None
 
         # embed that will show the progress
-        embed = BaseEmbed(title = f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        embed = BaseEmbed(title=f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
-        processing = await ctx.send(embed = embed)
+        processing = await ctx.send(embed=embed)
 
         # get the image attachment
         res, error = await get_media(ctx, ["image"])
-        if error: return await processing.edit(content = error, embed = None)
+        if error:
+            return await processing.edit(content=error, embed=None)
 
         # edit the embed to ask for audio
-        embed.title = f"{bot.WAITING} send a youtube url or an mp3 file to use as the audio"
-        embed.set_footer(text = "or reply to any message that contains one")
-        await processing.edit(embed = embed)
+        embed.title = (
+            f"{bot.WAITING} send a youtube url or an mp3 file to use as the audio"
+        )
+        embed.set_footer(text="or reply to any message that contains one")
+        await processing.edit(embed=embed)
 
         # wait for a youtube url or mp3 file using the check_audio function
         try:
-            response: discord.Message = await self.client.wait_for("message", check = check(ctx), timeout = 600)
+            response: discord.Message = await self.client.wait_for(
+                "message", check=check(ctx), timeout=600
+            )
         except TimeoutError:
-            return await processing.edit(content = err.TIMED_OUT, embed = None)
+            return await processing.edit(content=err.TIMED_OUT, embed=None)
 
-        msg = response.reference.resolved if response.reference and not response.attachments else response
+        msg = (
+            response.reference.resolved
+            if response.reference and not response.attachments
+            else response
+        )
         await response.delete()
 
         mp3_types = ["audio/mpeg", "audio/mp3"]
@@ -90,22 +95,25 @@ class Media(BaseCog):
         audio = None
 
         # see if the message contains an mp3 file or youtube url
-        if any((att := attachment).content_type in mp3_types for attachment in msg.attachments):
+        if any(
+            (att := attachment).content_type in mp3_types
+            for attachment in msg.attachments
+        ):
             audio_type = "file"
             audio = att
-        elif match := reg.youtube.search(msg.content):
+        elif match := reg.YOUTUBE.search(msg.content):
             url = match.group(0)
             audio_type = "url"
             audio = url
         else:
             # cancel if nothing was found
-            return await processing.edit(content = err.NO_AUDIO_FOUND, embed = None)
+            return await processing.edit(content=err.NO_AUDIO_FOUND, embed=None)
 
         # edit the embed to show that it's in step 1
         embed.title = f"{bot.PROCESSING()} getting {audio_type} information..."
         embed.set_footer()
 
-        await processing.edit(embed = embed)
+        await processing.edit(embed=embed)
 
         # if a video link was given
         if audio_type == "url":
@@ -130,7 +138,9 @@ class Media(BaseCog):
             audio_bytes = await audio.read()
 
             # get mp3 duration
-            duration, returncode = await run_cmd(ff.GET_DURATION, audio_bytes, decode = True)
+            duration, returncode = await run_cmd(
+                ff.GET_DURATION, audio_bytes, decode=True
+            )
 
             if returncode != 0:
                 return await ctx.send(err.FFMPEG_ERROR)
@@ -138,7 +148,7 @@ class Media(BaseCog):
             duration = int(float(duration))
             audio_source = audio.filename
 
-        duration_text = format_time(sec = duration)
+        duration_text = format_time(sec=duration)
 
         # if a length was not given, use the audio source's length
         if length is None:
@@ -149,12 +159,16 @@ class Media(BaseCog):
             else:
                 length = duration
 
-        audio_str = f"[{audio_source}]({audio})" if audio_type == "url" else audio_source
+        audio_str = (
+            f"[{audio_source}]({audio})" if audio_type == "url" else audio_source
+        )
 
         # edit the embed to show that it's in step 2
         embed.title = f"{bot.PROCESSING()} making video..."
-        embed.description = f"- Audio: **{audio_str}** `{duration_text}`\n- Length: `{length} seconds`"
-        await processing.edit(embed = embed)
+        embed.description = (
+            f"- Audio: **{audio_str}** `{duration_text}`\n- Length: `{length} seconds`"
+        )
+        await processing.edit(embed=embed)
 
         # create two temporary files to use later on, with one being a video and the other being an image
         with TemporaryDirectory() as temp:
@@ -163,26 +177,31 @@ class Media(BaseCog):
 
             source = "-" if audio_type == "file" else stream_url
 
-            _, returncode = await run_cmd(ff.IMGAUDIO(temp, source, length), audio_bytes)
+            _, returncode = await run_cmd(
+                ff.IMGAUDIO(temp, source, length), audio_bytes
+            )
 
             if returncode != 0:
                 await processing.delete()
                 return await ctx.send(err.FFMPEG_ERROR)
 
             embed.title = f"{bot.PROCESSING()} sending video..."
-            await processing.edit(embed = embed)
+            await processing.edit(embed=embed)
 
             # send the completed video
             try:
-                await ctx.send(ctx.author.mention, file = discord.File(f"{temp}/output.mp4", f"{res.filename}.mp4"))
+                await ctx.send(
+                    ctx.author.mention,
+                    file=discord.File(f"{temp}/output.mp4", f"{res.filename}.mp4"),
+                )
 
                 embed.title = f"{bot.OK} finish"
                 embed.color = discord.Color.brand_green()
-                await processing.edit(embed = embed)
+                await processing.edit(embed=embed)
             except discord.HTTPException:
-                await processing.edit(content = err.CANT_SEND_FILE, embed = None)
+                await processing.edit(content=err.CANT_SEND_FILE, embed=None)
 
-    @commands.command(usage = "[width]/auto *[height]/auto (gif/image/video)")
+    @commands.command(usage="[width]/auto *[height]/auto (gif/image/video)")
     async def resize(self, ctx: commands.Context, width: str, height: str = "-2"):
         """resizes the given attachment"""
         # send error if width/height is over max size in pixels
@@ -199,7 +218,8 @@ class Media(BaseCog):
 
         # get either an image, gif, or video attachment
         res, error = await get_media(ctx, ["image", "video", "gif"])
-        if error: return await processing.edit(content = error)
+        if error:
+            return await processing.edit(content=error)
 
         # calculate "auto" sizes
         if orig_size := edit(res).dimensions:
@@ -223,31 +243,33 @@ class Media(BaseCog):
         # send the resized attachment
         await send_media(ctx, processing, result)
 
-    @commands.command(usage = "[text] (gif/image/video)")
+    @commands.command(usage="[text] (gif/image/video)")
     async def caption(self, ctx: commands.Context, *, text: str):
         """captions the specified gif or image in the style of iFunny's captions"""
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         res, error = await get_media(ctx, ["image", "video", "gif"])
-        if error: return await processing.edit(content = error)
+        if error:
+            return await processing.edit(content=error)
 
         result = await edit(res).caption(text)
 
         await send_media(ctx, processing, result)
 
-    @commands.command(usage = "(gif/image/video)")
+    @commands.command(usage="(gif/image/video)")
     async def uncaption(self, ctx: commands.Context):
         """removes the caption from the given attachment"""
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         res, error = await get_media(ctx, ["image", "video", "gif"])
-        if error: return await processing.edit(content = error)
+        if error:
+            return await processing.edit(content=error)
 
         result = await edit(res).uncaption()
 
         await send_media(ctx, processing, result)
 
-    @commands.command(usage = "*[multiplier] (gif/video)")
+    @commands.command(usage="*[multiplier] (gif/video)")
     async def speed(self, ctx: commands.Context, amount: str = "1.25"):
         """speeds up a gif/video by a given amount (1.25x by default)"""
         try:
@@ -264,18 +286,21 @@ class Media(BaseCog):
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         res, error = await get_media(ctx, ["video", "gif"])
-        if error: return await processing.edit(content = error)
+        if error:
+            return await processing.edit(content=error)
 
         result = await edit(res).speed(amount)
 
         await send_media(ctx, processing, result)
 
-    @commands.command(usage = "[youtube-url] *[start-time] *[end-time]")
-    async def get(self, ctx: commands.Context, url: str | None, start: str | None, end: str | None):
+    @commands.command(usage="[youtube-url] *[start-time] *[end-time]")
+    async def get(
+        self, ctx: commands.Context, url: str | None, start: str | None, end: str | None
+    ):
         """downloads a youtube video (or a part of it)"""
         # if the url is missing but the message is a reply, get it from the referenced message
-        if (not url or not reg.youtube.match(url)) and (ref := ctx.message.reference):
-            if (match := reg.youtube.search(ref.resolved.content)):
+        if (not url or not reg.YOUTUBE.match(url)) and (ref := ctx.message.reference):
+            if match := reg.YOUTUBE.search(ref.resolved.content):
                 # shift variables one place back
                 end = start
                 start = url
@@ -306,7 +331,7 @@ class Media(BaseCog):
 
         # send a message with ChoiceView buttons
         view = ChoiceView(ctx.author, ["video", "audio", "nvm"])
-        msg = await ctx.send("what should be downloaded?", view = view)
+        msg = await ctx.send("what should be downloaded?", view=view)
         await view.wait()
 
         # if canceled
@@ -314,21 +339,25 @@ class Media(BaseCog):
             await msg.delete()
             return
 
-        await msg.edit(content = f"{bot.PROCESSING()} downloading {view.choice}...", view = None)
+        await msg.edit(
+            content=f"{bot.PROCESSING()} downloading {view.choice}...", view=None
+        )
 
         # get the stream url according to the user's choice
         video = await self.yt_extract(url, view.choice == "audio")
 
         if type(video) is str:
             error_msg = video
-            return await msg.edit(content = err.YT_ERROR(error_msg))
+            return await msg.edit(content=err.YT_ERROR(error_msg))
 
         stream_url = video["url"]
         video_title = video["title"]
         ext = "mp3" if view.choice == "audio" else "mp4"
 
         with TemporaryDirectory() as temp:
-            _, returncode = await run_cmd(ff.GET_STREAM(temp, stream_url, ext, start, end))
+            _, returncode = await run_cmd(
+                ff.GET_STREAM(temp, stream_url, ext, start, end)
+            )
 
             # if the command failed
             if returncode != 0:
@@ -337,11 +366,15 @@ class Media(BaseCog):
 
             # send the downloaded file
             try:
-                await ctx.send(ctx.author.mention, file = discord.File(f"{temp}/output.{ext}", f"{video_title}.{ext}"))
+                await ctx.send(
+                    ctx.author.mention,
+                    file=discord.File(f"{temp}/output.{ext}", f"{video_title}.{ext}"),
+                )
             except discord.HTTPException:
                 await ctx.send(err.CANT_SEND_FILE)
 
             await msg.delete()
+
 
 async def setup(bot: Cade):
     await bot.add_cog(Media(bot))
