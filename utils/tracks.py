@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import discord
 from async_spotify.spotify_errors import SpotifyAPIError
-from discord.ext import commands, menus
+from discord.ext import menus
 from lavalink import (
     AudioTrack,
     Client,
@@ -13,7 +13,7 @@ from lavalink import (
     LoadType,
 )
 
-from .base import BaseEmbed
+from .base import BaseEmbed, CadeElegy
 from .useful import format_time, get_yt_thumbnail, strip_pl_name
 from .vars import colors, reg
 
@@ -70,7 +70,7 @@ def _build_spotify_track(track: dict, requester_id: int) -> DeferredSpotifyTrack
 
 
 async def find_tracks(
-    client: commands.Bot, query: str, requester_id: int, return_all: bool = False
+    client: CadeElegy, query: str, requester_id: int, return_all: bool = False
 ) -> tuple[list[AudioTrack | DeferredSpotifyTrack], QueryInfo, bool]:
     """gets tracks and playlist info from either youtube or spotify"""
     if (match := reg.SPOTIFY.match(query)) and client.spotify_api:
@@ -81,7 +81,7 @@ async def find_tracks(
     return tracks, info, failed
 
 
-async def get_youtube(client: commands.Bot, query: str, return_all: bool = False):
+async def get_youtube(client: CadeElegy, query: str, return_all: bool = False):
     """gets tracks from youtube"""
     playlist_name = None
 
@@ -117,9 +117,7 @@ async def get_youtube(client: commands.Bot, query: str, return_all: bool = False
     return tracks, info, failed
 
 
-async def get_spotify(
-    client: commands.Bot, url_type: str, url_id: str, requester_id: int
-):
+async def get_spotify(client: CadeElegy, url_type: str, url_id: str, requester_id: int):
     """gets tracks from spotify"""
     tracks: list[DeferredSpotifyTrack | AudioTrack] = []
     info = QueryInfo()

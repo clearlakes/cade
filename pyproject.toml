@@ -1,17 +1,14 @@
 [tool.poetry]
-name = "cade"
-version = "0.1.0"
-description = ""
-authors = ["clearlakes <65923236+clearlakes@users.noreply.github.com>"]
+package-mode = false
 
 [tool.poetry.dependencies]
+aiohttp = "3.9.5"
 python = "^3.10"
 lavalink = "*"
-Pillow = "^9.2.0"
+Pillow = "^9.5.0"
 opencv-python = "4.6.0.66"
-Wand = "^0.6.9"
 async-spotify = "^0.4.4"
-pilmoji = "^2.0.2"
+pilmoji = { git = "https://github.com/clearlakes/pilmoji" }
 "discord.py" = { extras = ["speed"], version = "^2.0.0" }
 discord-ext-menus = { git = "https://github.com/Rapptz/discord-ext-menus" }
 yt-dlp = "*"

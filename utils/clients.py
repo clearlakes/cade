@@ -24,6 +24,8 @@ class Cade(commands.Bot):
             help_command=None, command_prefix=get_prefix, intents=discord.Intents.all()
         )
 
+        self.client = self
+
         self.init_time = datetime.now()
 
         self.log = logging.getLogger("discord")
@@ -100,6 +102,10 @@ class Cade(commands.Bot):
 
 
 class CadeLavalink(Client):
+    def __init__(self, user_id: int | str = None):
+        self.voice_client = LavalinkVoiceClient
+        super().__init__(user_id)
+
     def create_player(
         self, ctx: commands.Context | discord.Interaction
     ) -> DefaultPlayer:

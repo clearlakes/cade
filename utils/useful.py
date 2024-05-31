@@ -13,7 +13,7 @@ import numpy as np
 from discord.ext import commands
 from PIL import Image
 
-from .base import BaseEmbed
+from .base import BaseEmbed, CadeElegy
 from .db import GuildDB
 from .ext import serve_very_big_file
 from .keys import Keys
@@ -271,7 +271,7 @@ async def send_media(
     await orig_msg.delete()
 
 
-async def get_prefix(client: commands.Bot, message: discord.Message):
+async def get_prefix(client: CadeElegy, message: discord.Message):
     # use custom prefix if there is one
     prefix = (await GuildDB(message.guild).get()).prefix
     return commands.when_mentioned_or(prefix)(client, message)

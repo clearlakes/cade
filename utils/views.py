@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 from lavalink import AudioTrack, DefaultPlayer
 
-from .base import BaseEmbed
+from .base import BaseEmbed, CadeElegy
 from .tracks import QueryInfo
 from .useful import (
     btn_check,
@@ -37,7 +37,7 @@ class ChoiceView(discord.ui.View):
 
 
 class HelpView(discord.ui.View):
-    def __init__(self, client: commands.Bot, ctx: commands.Context, prefix: str):
+    def __init__(self, client: CadeElegy, ctx: commands.Context, prefix: str):
         super().__init__(timeout=None)
         self.client = client
         self.ctx = ctx

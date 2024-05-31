@@ -6,8 +6,7 @@ import discord
 from discord.ext import commands
 from yt_dlp import DownloadError, YoutubeDL
 
-from utils.base import BaseCog, BaseEmbed
-from utils.clients import Cade
+from utils.base import CadeElegy, BaseCog, BaseEmbed
 from utils.edit import edit
 from utils.useful import check, format_time, get_media, run_async, run_cmd, send_media
 from utils.vars import bot, err, ff, reg
@@ -15,10 +14,6 @@ from utils.views import ChoiceView
 
 
 class Media(BaseCog):
-    def __init__(self, client: Cade):
-        super().__init__(client)
-        self.client = client
-
     @run_async
     def yt_extract(self, url: str, audio_only: bool = True):
         yt_format = "bestaudio" if audio_only else "best"
@@ -376,5 +371,5 @@ class Media(BaseCog):
             await msg.delete()
 
 
-async def setup(bot: Cade):
+async def setup(bot: CadeElegy):
     await bot.add_cog(Media(bot))

@@ -1,7 +1,6 @@
 from discord.ext import commands, menus
 
-from utils.base import BaseCog
-from utils.clients import Cade, LavalinkVoiceClient
+from utils.base import CadeElegy, BaseCog
 from utils.tracks import create_music_embed, find_tracks, get_queue
 from utils.useful import format_time
 from utils.vars import bot, err
@@ -9,10 +8,6 @@ from utils.views import NowPlayingView, TrackSelectView
 
 
 class Music(BaseCog):
-    def __init__(self, client: Cade):
-        super().__init__(client)
-        self.client = client
-
     def cog_unload(self):
         self.client.lavalink._event_hooks.clear()
 
@@ -28,7 +23,9 @@ class Music(BaseCog):
             if not player or not player.is_connected:
                 if ctx.command.name == "play" and ctx.author.voice:
                     player = self.client.lavalink.create_player(ctx)
-                    await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
+                    await ctx.author.voice.channel.connect(
+                        cls=self.client.lavalink.voice_client
+                    )
                     return True
                 else:
                     await ctx.send(err.BOT_NOT_IN_VC)
@@ -117,7 +114,7 @@ class Music(BaseCog):
                 return await ctx.message.add_reaction(bot.OK)
             return await ctx.send(err.BOT_IN_VC)
 
-        await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
+        await ctx.author.voice.channel.connect(cls=self.client.lavalink.voice_client)
         await ctx.message.add_reaction(bot.OK)
 
     @commands.command(aliases=["dc", "leave"])
@@ -378,5 +375,5 @@ class Music(BaseCog):
         view.message = await ctx.send(embed=await view.get_track_embed(), view=view)
 
 
-async def setup(bot: Cade):
+async def setup(bot: CadeElegy):
     await bot.add_cog(Music(bot))

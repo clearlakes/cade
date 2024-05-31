@@ -7,8 +7,7 @@ from io import StringIO
 import discord
 from discord.ext import commands
 
-from utils.base import BaseCog, BaseEmbed
-from utils.clients import Cade
+from utils.base import CadeElegy, BaseCog, BaseEmbed
 from utils.db import GuildDB, Internal
 from utils.useful import get_attachment_obj, run_cmd
 from utils.vars import bot, colors, err
@@ -18,11 +17,6 @@ from . import COGS
 
 
 class Misc(BaseCog):
-    def __init__(self, client: Cade):
-        super().__init__(client)
-        self.client = client
-        self._last_eval = None
-
     @commands.command(aliases=["re"], hidden=True)
     @commands.is_owner()
     async def reload(self, ctx: commands.Context, cog_to_reload: str | None):
@@ -88,6 +82,9 @@ class Misc(BaseCog):
         code = code.removeprefix("```py").removesuffix("```")
         function = f"async def func():\n{textwrap.indent(code.strip('`'), '  ')}"
 
+        if "last_eval" not in dir(self):
+            self.last_eval = None
+
         env = {
             "client": self.client,
             "ctx": ctx,
@@ -95,7 +92,7 @@ class Misc(BaseCog):
             "author": ctx.author,
             "guild": ctx.guild,
             "message": ctx.message,
-            "_": self._last_eval,
+            "_": self.last_eval,
         }
 
         env.update(globals())
@@ -157,7 +154,7 @@ class Misc(BaseCog):
         invoke_count = await Internal().total_invoke_count
         began_counting = int((await Internal()._db)["_id"].generation_time.timestamp())
 
-        embed = discord.Embed(title="cade", color=colors.CADE)
+        embed = discord.Embed(title=f"{bot.CADE} cade {bot.CADE}", color=colors.CADE)
 
         embed.description = f"""cool insane bot made by clearlakes
         **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[found bug]({gh}/issues/new)**
@@ -200,7 +197,7 @@ class Misc(BaseCog):
         command = self.client.get_command(cmd)
 
         if not command or command.hidden:
-            return await ctx.send(err.HELP_NOT_FOUND)
+            return await ctx.send(err.CMD_NOT_FOUND)
 
         embed = BaseEmbed(description=f"**{pre}{command.name}** - {command.help}")
 
@@ -279,11 +276,16 @@ class Misc(BaseCog):
         db = GuildDB(ctx.guild)
         tags = (await db.get()).tags
 
-        # if "tags" is empty or not in the guild database
         if not tags:
             return await ctx.send(err.NO_TAGS_AT_ALL)
 
-        embed = BaseEmbed(title="Tags:", from_list=(tags, None))
+        tag_list = ""
+        for tag in tags[:-1]:
+            tag_list += f"**{tag}**, "  # create tag list
+
+        tag_list += f"**{tag[-1]}**"  # add last item without comma
+
+        embed = BaseEmbed(title="Tags:", description=tag_list)
         await ctx.send(embed=embed)
 
     @commands.command(usage="[channel] *[message]")
@@ -326,5 +328,5 @@ class Misc(BaseCog):
         await ctx.send(f"{bot.OK} set prefix to `{new_prefix}`")
 
 
-async def setup(bot: Cade):
+async def setup(bot: CadeElegy):
     await bot.add_cog(Misc(bot))

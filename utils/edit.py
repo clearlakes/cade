@@ -6,16 +6,12 @@ from tempfile import TemporaryDirectory
 from typing import Callable
 
 import cv2
-import emoji
 import numpy
 from PIL import Image, ImageFont
 from pilmoji import Pilmoji
-from wand.color import Color as WColor
-from wand.font import Font as WFont
-from wand.image import Image as WImage
 
 from .useful import AttObj, get_media_kind, run_async, run_cmd
-from .vars import ff
+from .vars import ff, reg
 
 
 def edit(res: AttObj):
@@ -35,11 +31,20 @@ class _Base:
     def create_caption_from_text(self, text: str, width: int):
         """creates the caption image (white background with black text)"""
         spacing = width // 40
-        font_size = width // 10
+        font_size = width // 12
         font_path = "fonts/futura.ttf"
+        esf = 1.2  # emoji scale factor
+        epo = (2, -5)  # emoji position offset
+        emoji_padding = 0
 
         # replace ellipsis characters
         text = text.replace("…", "...")
+
+        # make discord emoji placeholders (prevents wrap from breaking them)
+        discord_emojis = {}
+        for i, de in enumerate(reg.DISCORD_EMOJI.findall(text)):
+            text = text.replace(de, f"[{i}]")
+            discord_emojis[i] = de
 
         # wrap caption text
         caption_lines = textwrap.wrap(
@@ -47,48 +52,45 @@ class _Base:
         )
         caption = "\n".join(caption_lines)
 
+        # undo discord emoji placeholders
+        for i, dep in enumerate(reg.DE_PLACEHOLDER.findall(caption)):
+            caption = caption.replace(dep, discord_emojis[i])
+
+        if discord_emojis:
+            de_string = list(discord_emojis.values())
+            if caption.replace(" ", "") in "".join(de_string):
+                esf = 1.5
+                emoji_padding = 5
+                epo = (2, -9)
+
         font = ImageFont.truetype(font_path, font_size)
 
         # get the size of the rendered text
-        text_height = font.getsize_multiline(caption, spacing=spacing)[1] + font_size
+        with Pilmoji(Image.new("RGB", (1, 1))) as pilmoji:
+            text_height = (
+                pilmoji.getsize(
+                    text=caption, font=font, spacing=spacing, emoji_scale_factor=esf
+                )[1]
+                + 35
+            )
 
-        # get all emojis in text
-        emojis = emoji.distinct_emoji_list(caption)
+        caption_img = Image.new(
+            "RGB", (width, text_height + emoji_padding), (255, 255, 255)
+        )
+        x, y = caption_img.width // 2, caption_img.height // 2
 
-        if emojis:
-            # create a blank image using the given width and the text height
-            caption_img = Image.new("RGB", (width, text_height), (255, 255, 255))
-            x, _ = caption_img.width // 2, caption_img.height // 2
-
-            with Pilmoji(caption_img) as pilmoji:
-                line_sizes = [
-                    pilmoji.getsize(
-                        line, font, spacing=spacing, emoji_scale_factor=1.25
-                    )
-                    for line in caption_lines
-                ]
-
-                for i, (line, size) in enumerate(zip(caption_lines, line_sizes)):
-                    # align text line to the center horizontally (x) and from the top downwards (y)
-                    x_offset = x + (size[0] // -2)
-                    y_offset = round(size[1] / 2.5) + ((size[1] + spacing) * i)
-
-                    pilmoji.text(
-                        (x_offset, y_offset),
-                        line,
-                        (0, 0, 0),
-                        font,
-                        spacing=spacing,
-                        emoji_scale_factor=1.25,
-                    )
-        else:
-            with WImage(
-                width=width, height=text_height, background=WColor("#fff")
-            ) as img:
-                img.font = WFont(font_path, font_size)
-                img.caption(caption, gravity="center")
-
-                caption_img = Image.open(BytesIO(img.make_blob("png")))
+        with Pilmoji(caption_img) as pilmoji:
+            pilmoji.text(
+                (x, y),
+                caption,
+                fill=(0, 0, 0),
+                font=font,
+                align="center",
+                anchor="mm",
+                spacing=spacing,
+                emoji_scale_factor=esf,
+                emoji_position_offset=epo,
+            )
 
         return caption_img
 
@@ -243,7 +245,7 @@ class EditGif(_Base):
     def _save(self) -> tuple[BytesIO, str, str]:
         """converts the saved images into a gif byte object"""
         with TemporaryDirectory() as temp:
-            cmd = "convert -loop 0 -alpha set -dispose 2 "
+            cmd = "magick convert -loop 0 -alpha set -dispose 2 "
 
             # save each frame and add them to the command
             for i, (frame, delay) in enumerate(zip(self.frames, self.durations)):

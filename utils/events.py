@@ -10,10 +10,10 @@ from lavalink import (
     listener,
 )
 
-from .base import BaseEmbed
+from .base import BaseEmbed, CadeElegy
 from .db import GuildDB
 from .useful import format_time, get_yt_thumbnail, strip_pl_name
-from .vars import colors, err
+from .vars import colors, err, bot
 from .views import NowPlayingView
 
 
@@ -28,14 +28,8 @@ async def _dc(player: DefaultPlayer, guild: discord.Guild):
 
 
 class BotEvents:
-    def __init__(self, client: commands.Bot):
+    def __init__(self, client: CadeElegy):
         self.client = client
-
-        self.fm_react_roles = {
-            "1️⃣": 820126482684313620,  # he/him
-            "2️⃣": 820126584442322984,  # she/her
-            "3️⃣": 820126629945933874,  # they/them
-        }
 
     def add(self):
         # adds all events to the bot
@@ -69,21 +63,14 @@ class BotEvents:
 
         await channel.send(welcome_msg)
 
-    async def on_raw_reaction_add(self, event: discord.RawReactionActionEvent):
-        if event.message_id == 820147742382751785:  # check if funny museum
-            guild = self.client.get_guild(event.guild_id)
-            role = guild.get_role(self.fm_react_roles[event.emoji.name])
-
-            # add the corresponding role
-            await event.member.add_roles(role)
-
-    async def on_raw_reaction_remove(self, event: discord.RawReactionActionEvent):
-        if event.message_id == 820147742382751785:  # check if funny museum
-            guild = self.client.get_guild(event.guild_id)
-            role = guild.get_role(self.fm_react_roles[event.emoji.name])
-
-            # remove the corresponding role
-            await guild.get_member(event.user_id).remove_roles(role)
+    async def on_message(self, message: discord.Message):
+        match message.content.lower():
+            case str(x) if any(_ in x for _ in ["hi cade", "hey cade", "sorry cade"]):
+                await message.add_reaction(bot.CADE)
+            case str(x) if any(_ in x for _ in ["thank you cade", "love you cade"]):
+                await message.add_reaction(bot.CADEHAPPY)
+            case str(x) if any(_ in x for _ in ["hate you cade", "i hate cade"]):
+                await message.add_reaction(bot.CADEMAD)
 
     async def on_voice_state_update(
         self,
@@ -122,7 +109,7 @@ class BotEvents:
 class TrackEvents:
     """contains functions that are used when a track does something"""
 
-    def __init__(self, client: commands.Bot):
+    def __init__(self, client: CadeElegy):
         self.client = client
 
     @listener(TrackLoadFailedEvent)

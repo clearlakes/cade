@@ -26,7 +26,7 @@ class Document:
         self.playlists: dict = get("playlists", {})
         self.welcome: list = get("welcome", [])
         self.prefix: str = get("prefix", ".")
-        self.tags: dict = get("tags", {})
+        self.tags: dict[str, str] = get("tags", {})
 
 
 class GuildDB:

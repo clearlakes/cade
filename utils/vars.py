@@ -87,6 +87,9 @@ class bot:
 
     WAITING = "<a:cadewait:945424680351850506>"
     OK = "<:cadeok:934934539124502598>"
+    CADE = "<:cade:1245901352715026463>"
+    CADEMAD = "<:cademad:1245901173232242698>"
+    CADEHAPPY = "<:cadehappy:1245899329038712943>"
 
 
 @dataclass
@@ -107,6 +110,8 @@ class reg:
     COLOR = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
     TRACKNAME = re.compile(r"(?<=\[).*(?=\])")
     PLAYLIST = re.compile(r"(?:\: )|(?: - )")
+    DISCORD_EMOJI = re.compile(r"<\:\w*\:\w*>")
+    DE_PLACEHOLDER = re.compile(r"\[[0-9]\]")
 
 
 @dataclass
