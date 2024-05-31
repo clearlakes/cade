@@ -34,7 +34,7 @@ class _Base:
         font_size = width // 12
         font_path = "fonts/futura.ttf"
         esf = 1.2  # emoji scale factor
-        epo = (2, -5)  # emoji position offset
+        epo = (int(width // 180), int(width // -70))  # emoji position offset
         emoji_padding = 0
 
         # replace ellipsis characters
@@ -60,8 +60,8 @@ class _Base:
             de_string = list(discord_emojis.values())
             if caption.replace(" ", "") in "".join(de_string):
                 esf = 1.5
-                emoji_padding = 5
-                epo = (2, -9)
+                emoji_padding = -epo[1]
+                epo = (epo[0], int(width // -40))
 
         font = ImageFont.truetype(font_path, font_size)
 
