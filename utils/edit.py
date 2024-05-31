@@ -71,7 +71,7 @@ class _Base:
                 pilmoji.getsize(
                     text=caption, font=font, spacing=spacing, emoji_scale_factor=esf
                 )[1]
-                + 35
+                + font_size
             )
 
         caption_img = Image.new(
