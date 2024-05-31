@@ -245,7 +245,7 @@ class EditGif(_Base):
     def _save(self) -> tuple[BytesIO, str, str]:
         """converts the saved images into a gif byte object"""
         with TemporaryDirectory() as temp:
-            cmd = "magick convert -loop 0 -alpha set -dispose 2 "
+            cmd = "convert -loop 0 -alpha set -dispose 2 `"
 
             # save each frame and add them to the command
             for i, (frame, delay) in enumerate(zip(self.frames, self.durations)):
