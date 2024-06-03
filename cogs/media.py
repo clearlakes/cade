@@ -370,6 +370,19 @@ class Media(BaseCog):
 
             await msg.delete()
 
+    @commands.command(usage="(gif)")
+    async def reverse(self, ctx: commands.Context):
+        """reverses a gif"""
+        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+
+        res, error = await get_media(ctx, ["gif"])
+        if error:
+            return await processing.edit(content=error)
+
+        result = await edit(res).reverse()
+
+        await send_media(ctx, processing, result)
+
 
 async def setup(bot: CadeElegy):
     await bot.add_cog(Media(bot))

@@ -1,7 +1,7 @@
 from discord.ext import commands, menus
 
 from utils.base import CadeElegy, BaseCog
-from utils.tracks import create_music_embed, find_tracks, get_queue
+from utils.tracks import create_music_embed, get_youtube, get_queue, get_np_lyrics
 from utils.useful import format_time
 from utils.vars import bot, err
 from utils.views import NowPlayingView, TrackSelectView
@@ -32,7 +32,7 @@ class Music(BaseCog):
                     return False
 
         # check if the user is in vc
-        if ctx.command.name not in ["loopcount", "queue", "nowplaying"]:
+        if ctx.command.name not in ["loopcount", "queue", "nowplaying", "lyrics"]:
             if not ctx.author.voice or (
                 ctx.command.name != "join"
                 and player
@@ -66,12 +66,7 @@ class Music(BaseCog):
         player = self.client.lavalink.get_player(ctx)
 
         # get a list of tracks from the search results
-        tracks, info, failed = await find_tracks(
-            client=self.client,
-            query=query,
-            requester_id=ctx.author.id,
-            return_all=track_selection,
-        )
+        tracks, info, failed = await get_youtube(self.client, query, track_selection)
 
         if not tracks:
             error = err.CANT_LOAD_MUSIC if failed else err.NO_MUSIC_RESULTS
@@ -373,6 +368,20 @@ class Music(BaseCog):
 
         # create embed and add buttons to message
         view.message = await ctx.send(embed=await view.get_track_embed(), view=view)
+
+    @commands.command()
+    async def lyrics(self, ctx: commands.Context):
+        """gets the lyrics for the current track"""
+        player = self.client.lavalink.get_player(ctx)
+
+        lyric_pages = await get_np_lyrics(player)
+
+        if lyric_pages is None:
+            return await ctx.send(err.NO_LYRICS)
+
+        paginator = menus.MenuPages(source=lyric_pages, clear_reactions_after=True)
+
+        await paginator.start(ctx)
 
 
 async def setup(bot: CadeElegy):

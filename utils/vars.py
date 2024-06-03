@@ -102,9 +102,6 @@ class reg:
     URL = re.compile(
         r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)"
     )  # gets any url
-    SPOTIFY = re.compile(
-        r"https?:\/\/open\.spotify\.com\/(track|playlist|album)\/([a-zA-Z0-9\_-]+)"
-    )  # group 1: type, group 2: id
     TENOR = re.compile(r"https?:\/\/tenor.com\/view\/.*-(\d+)")  # group 1: tenor id
     GYAZO = re.compile(r"https?:\/\/gyazo.com\/(.*)")  # group 1: gyazo id
     COLOR = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
@@ -163,6 +160,7 @@ class err:
         f"{E} can't find image server (not your fault i need to fix this)"
     )
     YT_ERROR = lambda e: f"{E} could not get video: {e}"
+    NO_LYRICS = f"{E} couldn't find lyrics"
     AUDIO_MAX_LENGTH = f"{E} audio length is too long (max: 30 minutes)"
     FILE_MAX_SIZE = f"{E} size too large (max: 2000px)"
     FFMPEG_ERROR = (
@@ -188,7 +186,6 @@ class err:
     BOT_IN_VC = f"{E} i'm already in the vc"
     NOT_IN_QUEUE = f"{E} that isn't in the queue"
     MUSIC_NOT_LOOPED = f"{E} the current song is not being looped (use `.l` to do so)"
-    NO_SPOTIFY_ON_YT = lambda t: f"{E} couldn't find `{t}` on youtube sorry (skipping)"
     INVALID_INDEX = f"{E} invalid index"
     INVALID_SEEK = f"{E} cannot skip that far into the track"
     UNEXPECTED = f"{E} weird response, try again"

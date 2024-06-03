@@ -9,7 +9,6 @@ from discord.ext import commands
 from logging import Logger
 from configparser import ConfigParser
 from lavalink import Client as LavaClient, DefaultPlayer
-from async_spotify import SpotifyApiClient
 
 from .vars import colors
 
@@ -24,7 +23,6 @@ class CadeElegy(commands.Bot):
         self.token: str = None
         self.cog_files: list[str] = [None]
         self.lavalink: CadeLavalinkElegy = None
-        self.spotify_api: SpotifyApiClient = None
 
 
 class CadeLavalinkElegy(LavaClient):

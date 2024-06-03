@@ -11,7 +11,7 @@ from .useful import (
     check,
     format_time,
     get_average_color,
-    get_yt_thumbnail,
+    get_artwork_url,
     read_from_url,
 )
 from .vars import err
@@ -110,7 +110,7 @@ class TrackSelectView(discord.ui.View):
 
         self.track = tracks[0]
         self.info = QueryInfo(
-            get_yt_thumbnail(self.track.identifier), self.track.title, self.track.uri
+            get_artwork_url(self.track), self.track.title, self.track.uri
         )
 
         self.set_buttons()
@@ -145,7 +145,7 @@ class TrackSelectView(discord.ui.View):
         return self
 
     async def refresh_msg(self, interaction: discord.Interaction):
-        self.info.thumbnail = get_yt_thumbnail(self.track.identifier)
+        self.info.thumbnail = get_artwork_url(self.track)
         self.info.title = self.track.title
         self.info.url = self.track.uri
 
@@ -214,24 +214,25 @@ class NowPlayingView(discord.ui.View):
             self.children[2].style = discord.ButtonStyle.secondary
 
     async def get_track_embed(self):
-        requester = self.ctx.guild.get_member(self.player.current.requester)
+        track = self.player.current
+        requester = self.ctx.guild.get_member(track.requester)
 
         # get track duration info
-        duration = format_time(ms=self.player.current.duration)
+        duration = format_time(ms=track.duration)
         progress_bar = self.get_track_progress()
 
         # get average color of thumbnail
-        thumbnail = get_yt_thumbnail(self.player.current.identifier)
-        _, yt_image_bytes, _ = await read_from_url(thumbnail, read_bytes=True)
+        art_url = get_artwork_url(track)
+        _, yt_image_bytes, _ = await read_from_url(art_url, read_bytes=True)
         average_color = get_average_color(yt_image_bytes)
 
         embed = discord.Embed(
-            description=f"**[{self.player.current.title}]({self.player.current.uri})**\n{progress_bar}\n`{duration}` • by **{self.player.current.author}** • {requester.mention}",
+            description=f"**[{track.title}]({track.uri})**\n{progress_bar}\n`{duration}` • by **{track.author}** • {requester.mention}",
             color=discord.Color.from_rgb(*average_color),
         )
 
         embed.set_author(name="Currently Playing", icon_url=requester.display_avatar)
-        embed.set_thumbnail(url=thumbnail)
+        embed.set_thumbnail(url=art_url)
 
         return embed
 

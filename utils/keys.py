@@ -32,12 +32,6 @@ class LavalinkKeys(BaseKey):
         self.ordered_keys = (self.host, self.port, self.secret, self.region)
 
 
-class SpotifyKeys(BaseKey):
-    def __init__(self):
-        super().__init__("spotify")
-        self.key_pair = (self.get("key"), self.get("secret"))
-
-
 class ImageServerKeys(BaseKey):
     def __init__(self):
         super().__init__("image-server")
@@ -55,7 +49,6 @@ class OtherKeys(BaseKey):
 @dataclass
 class Keys:
     lavalink = LavalinkKeys()
-    spotify = SpotifyKeys()
     image = ImageServerKeys()
     tenor = OtherKeys().tenor
     gyazo = OtherKeys().gyazo

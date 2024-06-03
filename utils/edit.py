@@ -315,7 +315,7 @@ class EditGif(_Base):
 
     @run_async
     def speed(self, amount: float):
-        "Speeds up the gif by a specified amount"
+        "speeds up the gif by a specified amount"
         for self.i in range(self.file.n_frames):
             self._next_frame()
 
@@ -327,6 +327,20 @@ class EditGif(_Base):
         if all(x <= 20 for x in self.durations):
             self.frames = self.frames[::2]
             self.durations = [20 for _ in range(len(self.frames))]
+
+        result = self._save()
+        return result
+
+    @run_async
+    def reverse(self):
+        """reverses the gif"""
+        frames = []
+        for self.i in range(self.file.n_frames):
+            self._next_frame()
+            frames.append(self.new_frame)
+
+        for frame in reversed(frames):
+            self._append_frame(frame)
 
         result = self._save()
         return result

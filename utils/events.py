@@ -5,16 +5,16 @@ from lavalink import (
     DefaultPlayer,
     QueueEndEvent,
     TrackEndEvent,
-    TrackLoadFailedEvent,
     TrackStartEvent,
     listener,
 )
 
 from .base import BaseEmbed, CadeElegy
 from .db import GuildDB
-from .useful import format_time, get_yt_thumbnail, strip_pl_name
+from .useful import format_time, get_artwork_url, strip_pl_name
 from .vars import colors, err, bot
 from .views import NowPlayingView
+from .tracks import _get_lyrics
 
 
 async def _dc(player: DefaultPlayer, guild: discord.Guild):
@@ -112,18 +112,6 @@ class TrackEvents:
     def __init__(self, client: CadeElegy):
         self.client = client
 
-    @listener(TrackLoadFailedEvent)
-    async def on_track_load_failed(self, event: TrackLoadFailedEvent):
-        """event handler for when a spotify track can't be loaded"""
-        player: DefaultPlayer = event.player
-        track: AudioTrack = event.track
-
-        guild = self.client.get_guild(player.guild_id)
-        channel = guild.get_channel(player.fetch("channel"))
-
-        await channel.send(err.NO_SPOTIFY_ON_YT(track.title))
-        await player.skip()
-
     @listener(TrackStartEvent)
     async def on_track_start(self, event: TrackStartEvent):
         """event handler for when a track starts"""
@@ -145,8 +133,11 @@ class TrackEvents:
             color=colors.PLAYING_TRACK,
         )
 
+        if (await _get_lyrics(event.track))[0] == 200:
+            playing.description += " • (lyrics available)"
+
         playing.set_author(name="Now Playing", icon_url=requester.display_avatar)
-        playing.set_thumbnail(url=get_yt_thumbnail(track.identifier))
+        playing.set_thumbnail(url=get_artwork_url(track))
 
         player.store("prev_pl_name", player.fetch("pl_name"))
         player.store("pl_name", player.current.extra["pl_name"])

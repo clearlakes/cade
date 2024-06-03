@@ -10,7 +10,7 @@ from time import gmtime, strftime
 import aiohttp
 import discord
 import numpy as np
-from discord.ext import commands
+from discord.ext import commands, menus
 from PIL import Image
 
 from .base import BaseEmbed, CadeElegy
@@ -19,12 +19,22 @@ from .ext import serve_very_big_file
 from .keys import Keys
 from .vars import bot, err, reg
 
+from lavalink import AudioTrack
+
 
 @dataclass
 class AttObj:
     filebyte: BytesIO
     filename: str
     filetype: str
+
+
+class Pages(menus.ListPageSource):
+    def __init__(self, data):
+        super().__init__(data, per_page=1)
+
+    async def format_page(self, _, entries):
+        return entries
 
 
 def get_media_kind(mime: str):
@@ -210,9 +220,9 @@ def get_attachment_obj(ctx: commands.Context):
     return msg.attachments[0]
 
 
-def get_yt_thumbnail(identifier: str):
-    """gets a link to the thumbnail of the youtube video"""
-    return f"https://img.youtube.com/vi/{identifier}/0.jpg"
+def get_artwork_url(track: AudioTrack):
+    """gets a link to the thumbnail of the track"""
+    return track.raw["albumArtUrl"] if not track.artwork_url else track.artwork_url
 
 
 def run_async(func):

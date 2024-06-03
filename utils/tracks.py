@@ -1,21 +1,20 @@
 from dataclasses import dataclass
+from aiohttp import ClientSession
 
 import discord
-from async_spotify.spotify_errors import SpotifyAPIError
-from discord.ext import menus
 from lavalink import (
     AudioTrack,
-    Client,
     DefaultPlayer,
-    DeferredAudioTrack,
-    LoadError,
     LoadResult,
     LoadType,
 )
 
 from .base import BaseEmbed, CadeElegy
-from .useful import format_time, get_yt_thumbnail, strip_pl_name
+from .useful import format_time, strip_pl_name, Pages, get_average_color, read_from_url, get_artwork_url
 from .vars import colors, reg
+from .keys import LavalinkKeys
+
+import math
 
 
 @dataclass
@@ -26,59 +25,6 @@ class QueryInfo:
 
     def __iter__(self):
         return iter((self.thumbnail, self.title, self.url))
-
-
-class DeferredSpotifyTrack(DeferredAudioTrack):
-    """saves information about a spotify track and searches for it when loaded"""
-
-    async def load(self, lavalink: Client):
-        result: LoadResult = await lavalink.get_tracks(
-            f"ytsearch:{self.author} - {self.title}"
-        )
-
-        if result.load_type != LoadType.SEARCH or not result.tracks:
-            raise LoadError
-
-        track = result.tracks[0]
-
-        # set displayed track as the one from youtube
-        self.identifier = track.identifier
-        self.title = track.title
-
-        self.track = track.track
-        return self.track
-
-
-def _build_spotify_track(track: dict, requester_id: int) -> DeferredSpotifyTrack:
-    """creates a DefferedSpotifyTrack with information from the spotify api"""
-    return DeferredSpotifyTrack(
-        data={
-            "identifier": track["id"],
-            "isSeekable": True,
-            "author": track["artists"][0]["name"],
-            "length": track["duration_ms"],
-            "isStream": False,
-            "title": track["name"],
-            "uri": (
-                track["external_urls"]["spotify"]
-                if "spotify" in track["external_urls"]
-                else f"https://open.spotify.com/track/{track['id']}"
-            ),
-        },
-        requester=requester_id,
-    )
-
-
-async def find_tracks(
-    client: CadeElegy, query: str, requester_id: int, return_all: bool = False
-) -> tuple[list[AudioTrack | DeferredSpotifyTrack], QueryInfo, bool]:
-    """gets tracks and playlist info from either youtube or spotify"""
-    if (match := reg.SPOTIFY.match(query)) and client.spotify_api:
-        tracks, info, failed = await get_spotify(client, *match.groups(), requester_id)
-    else:
-        tracks, info, failed = await get_youtube(client, query, return_all)
-
-    return tracks, info, failed
 
 
 async def get_youtube(client: CadeElegy, query: str, return_all: bool = False):
@@ -107,7 +53,7 @@ async def get_youtube(client: CadeElegy, query: str, return_all: bool = False):
             if not return_all:
                 tracks = [tracks[0]]
 
-        info.thumbnail = get_yt_thumbnail(tracks[0].identifier)
+        info.thumbnail = tracks[0].artwork_url
 
     failed = result.load_type is LoadType.ERROR
 
@@ -116,66 +62,46 @@ async def get_youtube(client: CadeElegy, query: str, return_all: bool = False):
 
     return tracks, info, failed
 
+async def _get_lyrics(track: AudioTrack):
+    ll_keys = LavalinkKeys()
 
-async def get_spotify(client: CadeElegy, url_type: str, url_id: str, requester_id: int):
-    """gets tracks from spotify"""
-    tracks: list[DeferredSpotifyTrack | AudioTrack] = []
-    info = QueryInfo()
+    async with ClientSession(
+        headers={"Authorization": ll_keys.secret}
+    ) as session:
+        async with session.get(
+            f"http://localhost:{ll_keys.port}/v4/lyrics?track={track.raw['encoded']}"
+        ) as resp:
+            status = resp.status
+            resp = await resp.json()
+    
+    return status, resp
 
-    playlist_name = None
-    failed = False
+async def get_np_lyrics(player: DefaultPlayer):
+    track = player.current
+    status, resp = await _get_lyrics(track)
 
-    if url_type in ("album", "playlist"):
-        # albums and playlists have different methods
-        try:
-            spotify_info = (
-                await client.spotify_api.albums.get_one(url_id)
-                if url_type == "album"
-                else await client.spotify_api.playlists.get_one(url_id)
+    if status != 200:
+        return
+
+    lyrics = [unit["line"] for unit in resp["lines"]]
+    embeds: list[BaseEmbed] = []
+
+    total_pages = int(math.ceil(len(lyrics) / 25))
+
+    for i, line in enumerate(lyrics):
+        if i % 24 == 0:
+            _, yt_image_bytes, _ = await read_from_url(get_artwork_url(track), read_bytes=True)
+            average_color = get_average_color(yt_image_bytes)
+            
+            new_embed = BaseEmbed(title=track.title, description="", color=discord.Color.from_rgb(*average_color))
+            new_embed.set_footer(
+                text=f"({math.ceil((i + 1) / 24)} / {total_pages}) • from {resp["sourceName"]}"
             )
-        except SpotifyAPIError:
-            # same as returning nothing
-            return tracks, info, failed
+            embeds.append(new_embed)
 
-        items = spotify_info["tracks"]["items"]
+        embeds[-1].description += f"{line}\n"
 
-        tracks = [
-            _build_spotify_track(
-                item["track"] if "track" in item else item, requester_id
-            )
-            for item in items
-        ]
-
-        info.thumbnail = spotify_info["images"][0]["url"]
-        info.title = playlist_name = spotify_info["name"]
-        info.url = spotify_info["external_urls"]["spotify"]
-    else:
-        # same logic as playlists/albums but searches youtube instead of deferring
-        try:
-            spotify_info = await client.spotify_api.track.get_one(url_id)
-        except SpotifyAPIError:
-            return tracks, info, failed
-
-        title = spotify_info["name"]
-        author = spotify_info["artists"][0]["name"]
-
-        result: LoadResult = await client.lavalink.get_tracks(
-            f"ytsearch:{author} - {title}"
-        )
-
-        if result.load_type not in (LoadType.NO_MATCHES, LoadType.LOAD_FAILED):
-            tracks = [result.tracks[0]]
-
-            info.thumbnail = get_yt_thumbnail(tracks[0].identifier)
-            info.title = tracks[0].title
-            info.url = tracks[0].uri
-
-        failed = result.load_type is LoadType.LOAD_FAILED
-
-    for track in tracks:
-        track.extra["pl_name"] = playlist_name
-
-    return tracks, info, failed
+    return Pages(embeds)
 
 
 def create_music_embed(
@@ -207,14 +133,6 @@ def create_music_embed(
     embed.set_thumbnail(url=thumbnail)
 
     return embed
-
-
-class QueuePages(menus.ListPageSource):
-    def __init__(self, data):
-        super().__init__(data, per_page=1)
-
-    async def format_page(self, _, entries):
-        return entries
 
 
 async def get_queue(player: DefaultPlayer):
@@ -275,4 +193,4 @@ async def get_queue(player: DefaultPlayer):
 
         pages.append(embed)
 
-    return QueuePages(pages)
+    return Pages(pages)

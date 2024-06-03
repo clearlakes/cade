@@ -4,8 +4,6 @@ from datetime import datetime, timedelta
 
 import aiohttp
 import discord
-from async_spotify import SpotifyApiClient
-from async_spotify.authentification.authorization_flows import ClientCredentialsFlow
 from discord.ext import commands, tasks
 from lavalink import Client, DefaultPlayer
 
@@ -61,7 +59,6 @@ class Cade(commands.Bot):
         self.random_activity.start()
         BotEvents(self).add()
 
-        self.spotify_api = None
         self.lavalink = CadeLavalink(self.user.id)
         self.lavalink.add_node(*Keys.lavalink.ordered_keys, name="default-node")
         self.lavalink.add_event_hooks(TrackEvents(self))
@@ -76,25 +73,11 @@ class Cade(commands.Bot):
         act_type, name = bot.STATUS()
         await self.change_presence(activity=discord.Activity(type=act_type, name=name))
 
-    @tasks.loop(hours=1)
-    async def refresh_spotify(self):
-        auth = ClientCredentialsFlow(*Keys.spotify.key_pair)
-        api = SpotifyApiClient(auth)
-
-        await api.get_auth_token_with_client_credentials()
-        await api.create_new_client()
-
-        self.spotify_api = api
-        self.log.info("refreshed spotify api")
-
     @random_activity.before_loop
     async def _before(self):
         await self.wait_until_ready()
 
     async def close(self):
-        if self.spotify_api:
-            await self.spotify_api.close_client()
-
         await self.session.close()
 
     def run(self):
@@ -160,7 +143,7 @@ class LavalinkVoiceClient(discord.VoiceClient):
     async def disconnect(self, *, force: bool) -> None:
         player = self.lavalink.player_manager.get(self.channel.guild.id)
 
-        if not force and not player.is_connected:
+        if not force and not player:
             return
 
         await self.channel.guild.change_voice_state(channel=None)
