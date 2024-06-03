@@ -10,7 +10,14 @@ from lavalink import (
 )
 
 from .base import BaseEmbed, CadeElegy
-from .useful import format_time, strip_pl_name, Pages, get_average_color, read_from_url, get_artwork_url
+from .useful import (
+    format_time,
+    strip_pl_name,
+    Pages,
+    get_average_color,
+    read_from_url,
+    get_artwork_url,
+)
 from .vars import colors, reg
 from .keys import LavalinkKeys
 
@@ -62,19 +69,19 @@ async def get_youtube(client: CadeElegy, query: str, return_all: bool = False):
 
     return tracks, info, failed
 
+
 async def _get_lyrics(track: AudioTrack):
     ll_keys = LavalinkKeys()
 
-    async with ClientSession(
-        headers={"Authorization": ll_keys.secret}
-    ) as session:
+    async with ClientSession(headers={"Authorization": ll_keys.secret}) as session:
         async with session.get(
             f"http://localhost:{ll_keys.port}/v4/lyrics?track={track.raw['encoded']}"
         ) as resp:
             status = resp.status
             resp = await resp.json()
-    
+
     return status, resp
+
 
 async def get_np_lyrics(player: DefaultPlayer):
     track = player.current
@@ -90,12 +97,18 @@ async def get_np_lyrics(player: DefaultPlayer):
 
     for i, line in enumerate(lyrics):
         if i % 24 == 0:
-            _, yt_image_bytes, _ = await read_from_url(get_artwork_url(track), read_bytes=True)
+            _, yt_image_bytes, _ = await read_from_url(
+                get_artwork_url(track), read_bytes=True
+            )
             average_color = get_average_color(yt_image_bytes)
-            
-            new_embed = BaseEmbed(title=track.title, description="", color=discord.Color.from_rgb(*average_color))
+
+            new_embed = BaseEmbed(
+                title=track.title,
+                description="",
+                color=discord.Color.from_rgb(*average_color),
+            )
             new_embed.set_footer(
-                text=f"({math.ceil((i + 1) / 24)} / {total_pages}) • from {resp["sourceName"]}"
+                text=f"({math.ceil((i + 1) / 24)} / {total_pages}) • from {resp['sourceName']}"
             )
             embeds.append(new_embed)
 
