@@ -97,9 +97,7 @@ async def get_np_lyrics(player: DefaultPlayer):
 
     for i, line in enumerate(lyrics):
         if i % 24 == 0:
-            _, yt_image_bytes, _ = await read_from_url(
-                get_artwork_url(track), read_bytes=True
-            )
+            yt_image_bytes = (await read_from_url(get_artwork_url(track)))[1]
             average_color = get_average_color(yt_image_bytes)
 
             new_embed = BaseEmbed(

@@ -37,6 +37,7 @@ class ImageServerKeys(BaseKey):
         super().__init__("image-server")
         self.domain = self.get("domain")
         self.secret = self.get("secret")
+        self.cdn = self.get("cdn")
 
 
 class OtherKeys(BaseKey):

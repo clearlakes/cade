@@ -156,9 +156,10 @@ class Misc(BaseCog):
 
         embed = discord.Embed(title=f"{bot.CADE} cade {bot.CADE}", color=colors.CADE)
 
-        embed.description = f"""cool insane bot made by clearlakes
-        **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[found bug]({gh}/issues/new)**
+        embed.description = f"""cool insane bot made by me lakes
+        **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[found bug]({gh}/issues)**
         use `{pre}help` for help. created <t:1596846209:R>!
+        **[discord](https://discord.gg/yRMsr9Td5c)**
         """
 
         embed.add_field(name="uptime", value=f"`{uptime}`")

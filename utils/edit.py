@@ -63,7 +63,9 @@ class _Base:
                 emoji_padding = -epo[1]
                 epo = (epo[0], int(width // -40))
 
-        font = ImageFont.truetype(font_path, font_size)
+        font = ImageFont.truetype(
+            font_path, font_size, layout_engine=ImageFont.Layout.RAQM
+        )
 
         # get the size of the rendered text
         with Pilmoji(Image.new("RGB", (1, 1))) as pilmoji:
@@ -245,7 +247,7 @@ class EditGif(_Base):
     def _save(self) -> tuple[BytesIO, str, str]:
         """converts the saved images into a gif byte object"""
         with TemporaryDirectory() as temp:
-            cmd = "convert -loop 0 -alpha set -dispose 2 `"
+            cmd = "convert -loop 0 -alpha set -dispose 2 "
 
             # save each frame and add them to the command
             for i, (frame, delay) in enumerate(zip(self.frames, self.durations)):

@@ -47,11 +47,19 @@ def get_media_kind(mime: str):
             return "video"
 
 
-async def read_from_url(url: str, read_bytes: bool = False, read_json: bool = False):
+async def read_from_url(url: str):
+    r_bytes: bytes = None
+    r_json: dict = {}
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as r:
-            r_bytes: bytes = await r.read() if read_bytes else None
-            r_json: dict = await r.json() if read_json else None
+            if get_media_kind(r.content_type) in ["image", "gif", "video"]:
+                r_bytes = await r.read()
+            else:
+                try:
+                    r_json = await r.json()
+                except aiohttp.ContentTypeError:
+                    r_json = {"text": await r.text()}
 
             return r, r_bytes, r_json
 
@@ -65,33 +73,35 @@ async def _link_bytes(
             return None, err.UNSUPPORTED_URL
 
         # get direct gif link through tenor's api
-        *_, res = await read_from_url(
-            f"https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={Keys.tenor}",
-            read_json=True,
-        )
-
         try:
-            link = res["results"][0]["media"][0]["gif"]["url"]
+            link = (
+                await read_from_url(
+                    f"https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={Keys.tenor}"
+                )
+            )[2]["results"][0]["media"][0]["gif"]["url"]
         except IndexError:
             return None, err.INVALID_URL
-
     elif res := reg.GYAZO.search(link):
         if not Keys.gyazo:
             return None, err.UNSUPPORTED_URL
 
         # get direct gif link through gyazo's api
-        *_, res = await read_from_url(
-            f"https://api.gyazo.com/api/images/{res.group(1)}?access_token={Keys.gyazo}",
-            read_json=True,
-        )
-
         try:
-            link = res["url"]
+            link = (
+                await read_from_url(
+                    f"https://api.gyazo.com/api/images/{res.group(1)}?access_token={Keys.gyazo}"
+                )
+            )[2]["url"]
         except IndexError:
             return None, err.INVALID_URL
+    elif res := reg.DISCORD.match(link) and Keys.image.cdn:
+        link = f"{Keys.image.cdn}/{link}"
 
     # try reading bytes from the link
-    r, r_bytes, _ = await read_from_url(link, read_bytes=True)
+    r, r_bytes, r_json = await read_from_url(link)
+
+    if r_json and r_json["text"] == "This content is no longer available.":
+        return None, err.CDN_EXPIRED
 
     if get_media_kind(r.content_type) in media_types:
         return AttObj(BytesIO(r_bytes), "url", r.content_type), None

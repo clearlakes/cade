@@ -37,6 +37,7 @@ class Cade(commands.Bot):
         self.cog_files = ["funny", "general", "media", "music"]
 
         self.before_invoke(self._start_timer)
+        self.after_invoke(self._log_and_increment)
 
     async def _start_timer(self, ctx: commands.Context):
         ctx.command.extras["t"] = datetime.now()

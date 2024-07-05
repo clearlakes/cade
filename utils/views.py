@@ -119,7 +119,7 @@ class TrackSelectView(discord.ui.View):
         return interaction.user == self.ctx.author
 
     async def get_track_embed(self):
-        _, yt_image_bytes, _ = await read_from_url(self.info.thumbnail, read_bytes=True)
+        yt_image_bytes = (await read_from_url(self.info.thumbnail))[1]
         average_color = get_average_color(yt_image_bytes)
 
         duration = format_time(ms=self.track.duration)
@@ -223,7 +223,7 @@ class NowPlayingView(discord.ui.View):
 
         # get average color of thumbnail
         art_url = get_artwork_url(track)
-        _, yt_image_bytes, _ = await read_from_url(art_url, read_bytes=True)
+        yt_image_bytes = (await read_from_url(art_url))[1]
         average_color = get_average_color(yt_image_bytes)
 
         embed = discord.Embed(

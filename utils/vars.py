@@ -105,6 +105,7 @@ class reg:
     TENOR = re.compile(r"https?:\/\/tenor.com\/view\/.*-(\d+)")  # group 1: tenor id
     GYAZO = re.compile(r"https?:\/\/gyazo.com\/(.*)")  # group 1: gyazo id
     COLOR = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    DISCORD = re.compile(r"https:\/\/(cdn|media)\.discordapp\.(com|net)\/.*")
     TRACKNAME = re.compile(r"(?<=\[).*(?=\])")
     PLAYLIST = re.compile(r"(?:\: )|(?: - )")
     DISCORD_EMOJI = re.compile(r"<\:\w*\:\w*>")
@@ -189,6 +190,7 @@ class err:
     INVALID_INDEX = f"{E} invalid index"
     INVALID_SEEK = f"{E} cannot skip that far into the track"
     UNEXPECTED = f"{E} weird response, try again"
+    CDN_EXPIRED = f"{E} that discord cdn(?) link is expired, to refresh it open it in a new tab and copy and paste the link at the top"
     CMD_USAGE = lambda pre, c: (
         f"{E} it's `{pre}{c.name}" + f" {c.usage}`" if c.usage else "`"
     )

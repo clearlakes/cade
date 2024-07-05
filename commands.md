@@ -10,48 +10,50 @@
 -  [**`.play`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L52) - plays a track/playlist from youtube or spotify
    -  how to use: `.play [url/query]`
 
--  [**`.join`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L104) - makes the bot join a voice channel
+-  [**`.join`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L99) - makes the bot join a voice channel
 
--  [**`.disconnect`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L120) - makes the bot leave a voice channel
+-  [**`.disconnect`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L115) - makes the bot leave a voice channel
 
--  [**`.skip`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L135) - skips the current track (or queued tracks)
+-  [**`.skip`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L130) - skips the current track (or queued tracks)
    -  how to use: `.skip *[index]/all`
 
--  [**`.shuffle`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L235) - shuffles the order of the queue
+-  [**`.shuffle`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L230) - shuffles the order of the queue
 
--  [**`.loop`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L253) - begins/stops looping the current track
+-  [**`.loop`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L248) - begins/stops looping the current track
 
--  [**`.loopcount`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L271) - shows how many times the current track has been looped
+-  [**`.loopcount`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L266) - shows how many times the current track has been looped
 
--  [**`.pause`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L285) - pauses/unpauses the current track
+-  [**`.pause`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L280) - pauses/unpauses the current track
 
--  [**`.seek`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L299) - skips to a specific point in the current track
+-  [**`.seek`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L294) - skips to a specific point in the current track
    -  how to use: `.seek [time]`
 
--  [**`.queue`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L349) - lists all of the tracks in the queue
+-  [**`.queue`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L344) - lists all of the tracks in the queue
 
--  [**`.nowplaying`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L363) - shows information about the current track
+-  [**`.nowplaying`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L358) - shows information about the current track
+
+-  [**`.lyrics`**](https://github.com/clearlakes/cade/blob/main/cogs/music.py#L372) - gets the lyrics for the current track
 
 
 ## Misc
 -  [**`.info`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L123) - get information about the bot or a command
    -  how to use: `.info *[command]`
 
--  [**`.help`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L185) - see a list of commands
+-  [**`.help`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L186) - see a list of commands
    -  how to use: `.help *[command]`
 
--  [**`.tag`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L232) - sends/creates a tag containing a given message
+-  [**`.tag`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L233) - sends/creates a tag containing a given message
    -  how to use: `.tag [tag-name] *[message]`
 
--  [**`.tagdelete`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L256) - deletes the specified tag if it exists
+-  [**`.tagdelete`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L257) - deletes the specified tag if it exists
    -  how to use: `.tagdelete [tag-name]`
 
--  [**`.taglist`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L273) - lists every tag in the server
+-  [**`.taglist`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L274) - lists every tag in the server
 
--  [**`.welcome`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L292) - sets the welcome message for the server (admin)
+-  [**`.welcome`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L293) - sets the welcome message for the server (admin)
    -  how to use: `.welcome [channel] *[message]`
 
--  [**`.setprefix`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L315) - sets the bot prefix for the server (admin)
+-  [**`.setprefix`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L316) - sets the bot prefix for the server (admin)
    -  how to use: `.setprefix [prefix]`
 
 
@@ -76,3 +78,6 @@
 
 -  [**`.get`**](https://github.com/clearlakes/cade/blob/main/cogs/media.py#L291) - downloads a youtube video (or a part of it)
    -  how to use: `.get [youtube-url] *[start-time] *[end-time]`
+
+-  [**`.reverse`**](https://github.com/clearlakes/cade/blob/main/cogs/media.py#L373) - reverses a gif
+   -  how to use: `.reverse (gif)`
