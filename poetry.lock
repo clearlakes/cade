@@ -663,12 +663,12 @@ files = [
 
 [[package]]
 name = "lavalink"
-version = "5.0.0"
+version = "5.9.0"
 description = "A Lavalink WebSocket & API wrapper built around coverage, reliability and performance."
 optional = false
 python-versions = "*"
 files = [
-    {file = "lavalink-5.0.0.tar.gz", hash = "sha256:e34405715f75fc505d0f4d5e4d6c1d42036c4ddc07456c5a614ad0cbb7bb901f"},
+    {file = "lavalink-5.9.0.tar.gz", hash = "sha256:a01aff4bdf25a51387d2d7729e110a8ced442c21da558dccdceffbc1e0f3861d"},
 ]
 
 [package.dependencies]
