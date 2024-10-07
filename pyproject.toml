@@ -13,7 +13,7 @@ pilmoji = { git = "https://github.com/clearlakes/pilmoji" }
 discord-ext-menus = { git = "https://github.com/Rapptz/discord-ext-menus" }
 yt-dlp = "*"
 motor = "^3.6.0"
-dnspython = "^2.2.1"
+dnspython = "^2.7.0"
 
 [tool.poetry.dev-dependencies]
 
