@@ -5,7 +5,7 @@ package-mode = false
 aiohttp = "3.10.10"
 python = "^3.10"
 lavalink = "*"
-pillow = "^10.4.0"
+pillow = "^11.0.0"
 numpy = "^2.1.2"
 opencv-python = "^4.6.0.66"
 pilmoji = { git = "https://github.com/clearlakes/pilmoji" }
