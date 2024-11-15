@@ -105,6 +105,8 @@ class BotEvents:
 
         raise error
 
+    async def on_member_update(self, before: discord.Member, after: discord.Member): ...
+
 
 class TrackEvents:
     """contains functions that are used when a track does something"""

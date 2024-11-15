@@ -1,0 +1,26 @@
+[bot]
+token =
+
+[mongo]
+uri =
+database =
+collection =
+
+[lavalink]
+host =
+port =
+secret =
+region =
+
+[spotify]
+key =
+secret =
+
+[other]
+tenor =
+gyazo =
+
+[image-server]
+secret =
+domain =
+cdn =

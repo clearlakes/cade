@@ -1,39 +1,14 @@
-<div align="center">
-
-<p><img src="https://i.imgur.com/VcvrhfV.png" width="400"></p>
-
-### cade
-
-![last commit](https://img.shields.io/github/last-commit/clearlakes/cade)
-![grade](https://img.shields.io/codeclimate/maintainability/source64/cade)
-
-a bot for friends in the funny museum
-
-<img src="https://i.imgur.com/y5mZhbK.png" width="30" title="tod"> &nbsp; [add it](https://discord.com/oauth2/authorize?client_id=709214886969999379) &nbsp; <img src="https://i.imgur.com/y5mZhbK.png" width="30" title="tod">
-
-<img src="https://i.imgur.com/y5mZhbK.png" width="30" title="tod"> &nbsp; [cade support and updates discord](https://discord.gg/yRMsr9Td5c) &nbsp; <img src="https://i.imgur.com/y5mZhbK.png" width="30" title="tod">
-
-### features
+<pre align="center">
+<img src="https://i.imgur.com/y5mZhbK.png" width="50" title="tod" align="left"><img src="https://i.imgur.com/y5mZhbK.png" width="50" title="tod" align="right">
 
 <p>
-• caption/uncaption gifs, images, and videos<br>
-• save messages as tags to use later<br>
-• play music via youtube and spotify<br>
-• download parts of youtube videos<br>
-• resize gifs, images, and videos<br>
-• more i forgot
-</p>
+<img src="https://i.imgur.com/y5mZhbK.png" width="150" title="tod">
+<h2>cade</h2><h4>personal multimedia discord bot fo friends</h4><img src="https://img.shields.io/github/last-commit/clearlakes/cade"></img><img src="https://img.shields.io/codeclimate/maintainability/source64/cade"></img>
 
-<img src="https://i.imgur.com/y5mZhbK.png" width="50" title="tod">
+caption gifs, play music, etc.<h4><a href="https://discord.com/oauth2/authorize?client_id=709214886969999379">add it</a> &bull; <a href="https://discord.gg/yRMsr9Td5c">support</a>
+</h4>
+<pre><h4>(or run via docker):</h4>$ docker compose build
+$ docker compose run
 
-<br>
-
-<pre>
-<a href="commands.md">view commands</a>
 </pre>
-
-<pre>
-<a href="LICENSE">mit license</a>
-</pre>
-
-</div>
+<a href="cade/commands.md">view commands</a> &bull; <a href="LICENSE">mit license</a></p><img src="https://i.imgur.com/y5mZhbK.png" width="50" title="tod" align="right"><img src="https://i.imgur.com/y5mZhbK.png" width="50" title="tod" align="left"></pre>

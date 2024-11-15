@@ -75,10 +75,14 @@ async def _get_lyrics(track: AudioTrack):
 
     async with ClientSession(headers={"Authorization": ll_keys.secret}) as session:
         async with session.get(
-            f"http://localhost:{ll_keys.port}/v4/lyrics?track={track.raw['encoded']}"
+            f"http://{ll_keys.host}:{ll_keys.port}/v4/lyrics?track={track.raw['encoded']}"
         ) as resp:
             status = resp.status
-            resp = await resp.json()
+            try:
+                resp = await resp.json()
+            except:
+                status = 0
+                resp = None
 
     return status, resp
 

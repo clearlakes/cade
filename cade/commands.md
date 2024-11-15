@@ -39,21 +39,21 @@
 -  [**`.info`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L123) - get information about the bot or a command
    -  how to use: `.info *[command]`
 
--  [**`.help`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L186) - see a list of commands
+-  [**`.help`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L187) - see a list of commands
    -  how to use: `.help *[command]`
 
--  [**`.tag`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L233) - sends/creates a tag containing a given message
+-  [**`.tag`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L234) - sends/creates a tag containing a given message
    -  how to use: `.tag [tag-name] *[message]`
 
--  [**`.tagdelete`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L257) - deletes the specified tag if it exists
+-  [**`.tagdelete`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L258) - deletes the specified tag if it exists
    -  how to use: `.tagdelete [tag-name]`
 
--  [**`.taglist`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L274) - lists every tag in the server
+-  [**`.taglist`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L275) - lists every tag in the server
 
--  [**`.welcome`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L293) - sets the welcome message for the server (admin)
+-  [**`.welcome`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L291) - sets the welcome message for the server (admin)
    -  how to use: `.welcome [channel] *[message]`
 
--  [**`.setprefix`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L316) - sets the bot prefix for the server (admin)
+-  [**`.setprefix`**](https://github.com/clearlakes/cade/blob/main/cogs/misc.py#L314) - sets the bot prefix for the server (admin)
    -  how to use: `.setprefix [prefix]`
 
 

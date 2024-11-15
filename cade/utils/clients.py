@@ -6,6 +6,7 @@ import aiohttp
 import discord
 from discord.ext import commands, tasks
 from lavalink import Client, DefaultPlayer
+import os
 
 from cogs import COGS
 
@@ -14,6 +15,7 @@ from .events import BotEvents, TrackEvents
 from .keys import Keys
 from .useful import get_prefix
 from .vars import bot
+from .ext import generate_cmd_list
 
 
 class Cade(commands.Bot):
@@ -64,6 +66,10 @@ class Cade(commands.Bot):
         self.lavalink.add_node(*Keys.lavalink.ordered_keys, name="default-node")
         self.lavalink.add_event_hooks(TrackEvents(self))
         self.log.info("connected to lavalink")
+
+        if os.environ["GENERATE"].lower() == "true":
+            self.log.info("generating commands.md...")
+            generate_cmd_list(self.cogs)
 
     async def on_ready(self):
         self.log.warning("cade ready to rumble")

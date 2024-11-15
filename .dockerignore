@@ -1,0 +1,6 @@
+# exclude folders for other services
+lavalink
+mongo
+
+.venv
+.vscode

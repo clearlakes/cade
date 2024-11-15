@@ -12,6 +12,7 @@ from pilmoji import Pilmoji
 
 from .useful import AttObj, get_media_kind, run_async, run_cmd
 from .vars import ff, reg
+from .image_utils import ImageText
 
 
 def edit(res: AttObj):
@@ -205,13 +206,13 @@ class EditGif(_Base):
         self.file = Image.open(gif.filebyte)
         self.dimensions = self.file.size
         self.last_frame = self.file.convert("RGBA")
-        self.mode = self._analyse()
+        self.mode = self._analyze()
 
         self.frames: list[Image.Image] = []
         self.durations: list[int] = []
         self.i = 0
 
-    def _analyse(self):
+    def _analyze(self):
         """determines if the gif's mode is full (changes whole frame) or partial (changes parts of the frame)"""
         # taken from https://gist.github.com/rockkoca/30357703f42f9d17c6fa121cf4dd1d8e
         try:
@@ -229,6 +230,9 @@ class EditGif(_Base):
 
     def _next_frame(self):
         """seeks to the next frame in the gif"""
+        if self.i % 10 == 0:
+            ...  # update
+
         self.file.seek(self.i)
         self.new_frame = Image.new("RGBA", self.dimensions)
 

@@ -32,38 +32,6 @@ class Misc(BaseCog):
         await processing.delete()
         await ctx.message.add_reaction(bot.OK)
 
-    @commands.command(aliases=["u"], hidden=True)
-    @commands.is_owner()
-    async def update(self, ctx: commands.Context):
-        processing = await ctx.send(f"{bot.PROCESSING()} looking for update...")
-        embed = BaseEmbed()
-
-        link_to = (
-            lambda c_hash, c_num: f"[`#{c_num}`](https://github.com/clearlakes/cade/commit/{c_hash})"
-        )
-
-        # get the previous update's information
-        prev_num = (await run_cmd("git rev-list --count HEAD", decode=True))[0]
-        prev_hash = (await run_cmd("git rev-parse --short HEAD", decode=True))[0]
-
-        # check if on the latest update already
-        if (utd := "Already up to date.") in (await run_cmd("git pull", decode=True))[
-            0
-        ]:
-            embed.description = f"{bot.OK} **{utd.lower().strip('.')}** ({link_to(prev_hash, prev_num)})"
-        else:
-            # reload cogs after update
-            for cog in COGS:
-                await self.client.reload_extension(cog)
-
-            # get the new update's information
-            new_num = (await run_cmd("git rev-list --count HEAD", decode=True))[0]
-            new_hash = (await run_cmd("git rev-parse --short HEAD", decode=True))[0]
-
-            embed.description = f"{bot.OK} **updated from {link_to(prev_hash, prev_num)} to {link_to(new_hash, new_num)}**"
-
-        await processing.edit(content=None, embed=embed)
-
     @commands.command(aliases=["e"], hidden=True)
     @commands.is_owner()
     async def eval(self, ctx: commands.Context, *, code: str | None):
@@ -143,6 +111,7 @@ class Misc(BaseCog):
 
         # get the latest github commit
         number = (await run_cmd("git rev-list --count HEAD", decode=True))[0]
+
         commit_hash, timestamp, message = (
             await run_cmd("git log -1 --pretty=format:%h%n%at%n%s", decode=True)
         )[0].split("\n")
@@ -280,11 +249,8 @@ class Misc(BaseCog):
         if not tags:
             return await ctx.send(err.NO_TAGS_AT_ALL)
 
-        tag_list = ""
-        for tag in tags[:-1]:
-            tag_list += f"**{tag}**, "  # create tag list
-
-        tag_list += f"**{tag[-1]}**"  # add last item without comma
+        # create tag list
+        tag_list = ", ".join([f"**{t}**" for t in list(tags.keys())])
 
         embed = BaseEmbed(title="Tags:", description=tag_list)
         await ctx.send(embed=embed)

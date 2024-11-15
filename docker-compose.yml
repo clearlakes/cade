@@ -1,0 +1,41 @@
+version: '3.8'
+services:
+  lavalink:
+    container_name: lavalink
+    image: ghcr.io/lavalink-devs/lavalink:4-alpine
+    restart: unless-stopped
+    volumes:
+      - ./lavalink/lavalink.yml:/opt/Lavalink/application.yml:z
+      - ./lavalink/plugins/:/opt/Lavalink/plugins/:z
+    expose:
+      - "2333"
+  mongo:
+    container_name: mongo
+    image: mongo:8.0.3-noble
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    command: mongod --quiet --logpath /dev/null
+    volumes:
+      - ./mongo:/data/db
+    expose:
+      - "27017"
+  cdn-script:
+    container_name: cdn-script
+    build:
+      context: .
+      dockerfile: cdn-script.Dockerfile
+    expose:
+      - "80"
+  cade:
+    container_name: cade
+    build: .
+    environment:
+      - GENERATE=false
+    volumes:
+      - ./cade/commands.md:/cade/cade/commands.md:z
+    depends_on:
+      - cdn-script
+      - lavalink
+      - mongo
