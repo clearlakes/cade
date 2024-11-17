@@ -119,7 +119,7 @@ class ff:
     GET_DIMENSIONS = f"{FFPROBE} -select_streams v -show_entries stream=width,height -of csv=p=0:s=x -"
     GET_DURATION = f"{FFPROBE} -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -"
     GET_STREAM = lambda path, url, ext, start, end: (
-        f"{FFMPEG} -http_persistent 0 "
+        f"{FFMPEG} "
         + (f"-ss {start} -to {end} " if start else "")
         + f"-i {url} {path}/output.{ext}"
     )

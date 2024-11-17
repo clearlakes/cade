@@ -16,30 +16,21 @@ from utils.views import ChoiceView
 class Media(BaseCog):
     @run_async
     def video_extract(self, url: str, video_format: str = "audio"):
+        dl_opts = {
+            "format": f"best{video_format}",
+            "quiet": True,
+            "noplaylist": True,
+            "listformats": ("bsky" in url),
+        }
+
         try:
-            with YoutubeDL(
-                {
-                    "format": f"best{video_format}",
-                    "quiet": True,
-                    "noplaylist": True,
-                    "listformats": True,
-                }
-            ) as ydl:
+            with YoutubeDL(dl_opts) as ydl:
                 results = ydl.extract_info(url, download=False)
 
-                for entry in results["formats"]:
-                    if "format_note" in entry and "storyboard" in entry["format_note"]:
-                        continue
-                    else:
-                        stream_url = entry["url"]
-                        break
-
-                if "duration" in results:
-                    duration = results["duration"]
+                if dl_opts["listformats"]:
+                    return results["formats"][0]["url"], results["title"], "??:??"
                 else:
-                    duration = "??:??"
-
-                return stream_url, results["title"], duration
+                    return results["url"], results["title"], results["duration"]
         except DownloadError as e:
             # clean error and include it in the message
             dl_error = f"```{reg.COLOR.sub('', e.msg).split(':')[2].strip()}```"

@@ -36,7 +36,7 @@ services:
     environment:
       - GENERATE=false
     volumes:
-      - ./cade/commands.md:/cade/cade/commands.md:z
+      - ./cade/commands.md:/cade/cade/commands.md
     depends_on:
       - cdn-script
       - lavalink
