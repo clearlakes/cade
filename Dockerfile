@@ -3,11 +3,11 @@ FROM pfeiffermax/python-poetry:1.12.0-poetry1.8.4-python3.12.7-slim-bookworm
 ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    imagemagick \
-    git \
+RUN apt-get update && apt-get install --no-install-recommends -y \
     curl \
+    ffmpeg \
+    git \
+    imagemagick \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /cade

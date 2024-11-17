@@ -119,7 +119,7 @@ class ff:
     GET_DIMENSIONS = f"{FFPROBE} -select_streams v -show_entries stream=width,height -of csv=p=0:s=x -"
     GET_DURATION = f"{FFPROBE} -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -"
     GET_STREAM = lambda path, url, ext, start, end: (
-        f"{FFMPEG} "
+        f"{FFMPEG} -http_persistent 0 "
         + (f"-ss {start} -to {end} " if start else "")
         + f"-i {url} {path}/output.{ext}"
     )
@@ -130,7 +130,7 @@ class ff:
         f"{FFMPEG} -i {path}/input.mp4 -vf scale={width}:{height} {path}/output.mp4"
     )
     IMGAUDIO = lambda path, audio, length: (
-        f"{FFMPEG} -loop 1 -i {path}/input.png -i {audio} -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p {PAD_EVEN} -shortest {path}/output.mp4"
+        f"{FFMPEG} -loop 1 -i {path}/input.png -i {audio} -map 0 -map 1:a -ss 0 -t {length} -c:v libx264 -tune stillimage -c:a aac -pix_fmt yuv420p {PAD_EVEN} -shortest {path}/output.mp4"
     )
     SPEED_UP = lambda path, amount: (
         f"{FFMPEG} -i {path}/input.mp4 -vf 'setpts={1 / amount}*PTS' -af 'atempo={amount}' {path}/output.mp4"
@@ -160,7 +160,8 @@ class err:
     IMAGE_SERVER_ERROR = (
         f"{E} can't find image server (not your fault i need to fix this)"
     )
-    YT_ERROR = lambda e: f"{E} could not get video: {e}"
+    VID_DL_ERROR = lambda e: f"{E} could not get video: {e}"
+    NO_DURATION = f"{E} the video's duration could not be found (specify)"
     NO_LYRICS = f"{E} couldn't find lyrics"
     AUDIO_MAX_LENGTH = f"{E} audio length is too long (max: 30 minutes)"
     FILE_MAX_SIZE = f"{E} size too large (max: 2000px)"

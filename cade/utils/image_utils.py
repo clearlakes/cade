@@ -94,8 +94,6 @@ class ImageText(object):
         line_spacing=1.0,
     ):
         x, y = xy
-        print(box_width)
-        print(line_spacing)
 
         for l in text.splitlines():
             if l == "":

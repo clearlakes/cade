@@ -20,6 +20,7 @@ lavalink/plugins
 config.ini
 lavalink.yml
 .cdn-script.env
+db_password.txt
 
 #other
 .DS_STORE
