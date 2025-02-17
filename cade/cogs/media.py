@@ -17,11 +17,17 @@ class Media(BaseCog):
     @run_async
     def video_extract(self, url: str, video_format: str = "audio"):
         dl_opts = {
-            "format": f"best{video_format}",
+            "format": "best",
             "quiet": True,
             "noplaylist": True,
             "listformats": ("bsky" in url),
         }
+
+        if video_format == "audio":
+            dl_opts["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+            }]
 
         try:
             with YoutubeDL(dl_opts) as ydl:

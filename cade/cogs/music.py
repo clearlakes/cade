@@ -13,41 +13,37 @@ class Music(BaseCog):
 
     async def cog_check(self, ctx: commands.Context):
         player = self.client.lavalink.get_player(ctx)
+        connected_to_vc = (ctx.author.voice and player and ctx.author.voice.channel.id == player.channel_id)
+        currently_playing = False if not player else player.is_playing
 
-        if ctx.command.name == "disconnect" and not player:
+        if not connected_to_vc and ctx.command.name not in ["play", "join"]:
             await ctx.send(err.BOT_NOT_IN_VC)
             return False
 
-        # check if the bot is in vc
-        if ctx.command.name in ["play", "disconnect"]:
-            if not player or not player.is_connected:
-                if ctx.command.name == "play" and ctx.author.voice:
+        match ctx.command.name, currently_playing:
+            case "play", False:
+                if ctx.author.voice and not connected_to_vc:
                     player = self.client.lavalink.create_player(ctx)
                     await ctx.author.voice.channel.connect(
                         cls=self.client.lavalink.voice_client
                     )
                     return True
-                else:
-                    await ctx.send(err.BOT_NOT_IN_VC)
+                elif not ctx.author.voice:
+                    await ctx.send(err.USER_NOT_IN_VC)
                     return False
-
-        # check if the user is in vc
-        if ctx.command.name not in ["loopcount", "queue", "nowplaying", "lyrics"]:
-            if not ctx.author.voice or (
-                ctx.command.name != "join"
-                and player
-                and ctx.author.voice.channel.id != player.channel_id
-            ):
-                await ctx.send(err.USER_NOT_IN_VC)
-                return False
-
-        # check if the bot is playing music
-        if ctx.command.name not in ["play", "join", "disconnect"]:
-            if not player or not player.is_playing:
+                else:
+                    return True
+            case "loopcount" | "queue" | "nowplaying" | "lyrics", True:
+                if not ctx.author.voice or (player and ctx.author.voice.channel.id != player.channel_id):
+                    await ctx.send(err.USER_NOT_IN_VC)
+                    return False
+                else:
+                    return True
+            case "loopcount" | "queue" | "nowplaying" | "lyrics", False:
                 await ctx.send(err.NO_MUSIC_PLAYING)
                 return False
-
-        return True
+            case _:
+                return True
 
     @commands.command(aliases=["p"], usage="[url/query]")
     async def play(self, ctx: commands.Context, *, query: str = ""):
