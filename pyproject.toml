@@ -7,7 +7,7 @@ python = "^3.10"
 lavalink = "*"
 pillow = "^11.0.0"
 numpy = "^2.2.3"
-opencv-python = "^4.6.0.66"
+opencv-python = "^4.11.0.86"
 pilmoji = { git = "https://github.com/clearlakes/pilmoji" }
 "discord.py" = { extras = ["speed"], version = "^2.0.0" }
 discord-ext-menus = { git = "https://github.com/Rapptz/discord-ext-menus" }
