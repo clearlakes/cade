@@ -12,10 +12,6 @@ port =
 secret =
 region =
 
-[spotify]
-key =
-secret =
-
 [other]
 tenor =
 gyazo =

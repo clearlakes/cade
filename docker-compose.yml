@@ -1,8 +1,7 @@
-version: '3.8'
 services:
   lavalink:
     container_name: lavalink
-    image: ghcr.io/lavalink-devs/lavalink:4-alpine
+    image: fredboat/lavalink
     restart: unless-stopped
     volumes:
       - ./lavalink/lavalink.yml:/opt/Lavalink/application.yml

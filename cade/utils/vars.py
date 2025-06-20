@@ -109,7 +109,7 @@ class reg:
     TRACKNAME = re.compile(r"(?<=\[).*(?=\])")
     PLAYLIST = re.compile(r"(?:\: )|(?: - )")
     DISCORD_EMOJI = re.compile(r"<\:\w*\:\w*>")
-    DE_PLACEHOLDER = re.compile(r"\[[0-9]\]")
+    DE_PLACEHOLDER = re.compile(r"\[#[0-9]#\]")
 
 
 @dataclass

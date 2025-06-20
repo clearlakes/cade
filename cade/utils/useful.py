@@ -76,9 +76,9 @@ async def _link_bytes(
         try:
             link = (
                 await read_from_url(
-                    f"https://g.tenor.com/v1/gifs?ids={res.group(1)}&key={Keys.tenor}"
+                    f"https://tenor.googleapis.com/v2/posts?key={Keys.tenor}&client_key=cade&ids={res.group(1)}"
                 )
-            )[2]["results"][0]["media"][0]["gif"]["url"]
+            )[2]["results"][0]["media_formats"]["gif"]["url"]
         except IndexError:
             return None, err.INVALID_URL
     elif res := reg.GYAZO.search(link):
@@ -269,7 +269,7 @@ async def send_media(
     try:
         await ctx.reply(file=discord.File(*media[:2]), mention_author=False)
     except discord.HTTPException:
-        if Keys.image and "video" not in media[2]:
+        if Keys.image.domain and "video" not in media[2]:
             url = await serve_very_big_file(media[0], media[2])
 
             if not url:
@@ -280,7 +280,7 @@ async def send_media(
             embed = BaseEmbed()
             embed.set_image(url=url)
             embed.set_footer(
-                text=f"uploaded to {Keys.image.domain.replace('https://', '')} (larger than 8 mb), deletes in 24h!!"
+                text=f"uploaded to {Keys.image.domain.replace('https://', '')} (larger than 10 mb), deletes in 24h!!"
             )
 
             await ctx.reply(embed=embed)

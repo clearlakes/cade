@@ -1,4 +1,3 @@
-import textwrap
 from io import BytesIO
 from shlex import split
 from subprocess import PIPE, Popen
@@ -12,8 +11,10 @@ from pilmoji import Pilmoji
 
 from .useful import AttObj, get_media_kind, run_async, run_cmd
 from .vars import ff, reg
-from .image_utils import ImageText
 
+FONT_PATH = "fonts/futura.ttf"
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
 
 def edit(res: AttObj):
     """gets the edit class for the given file"""
@@ -29,14 +30,71 @@ def edit(res: AttObj):
 
 
 class _Base:
+    def _wrap_text(self, font: ImageFont.FreeTypeFont, text: str) -> str:
+        """wraps text to fit in a caption"""
+        available_width = self.file.size[0] - (self.file.size[0] // 12)
+        pre_wrap_lines = text.splitlines()
+        wrapped_lines = []
+
+        i = 0
+        while i < len(pre_wrap_lines):
+            line = pre_wrap_lines[i]
+            words = line.split(" ")
+            current_line = ""
+            word_index = 0
+
+            while word_index < len(words):
+                test_line = (current_line + " " + words[word_index]).strip()
+                line_width = font.getlength(test_line)
+
+                # compare rendered width with available width
+                if line_width <= available_width:
+                    current_line = test_line
+                    word_index += 1
+                else:
+                    # splitting long words by character
+                    if current_line == "":
+                        long_word = words[word_index]
+                        split_index = 0
+                        partial = ""
+
+                        for j, char in enumerate(long_word):
+                            test_partial = partial + char
+
+                            if font.getlength(test_partial + "-") > available_width:
+                                break
+
+                            partial = test_partial
+                            split_index = j
+
+                        if split_index == 0:
+                            split_index = 1
+                            partial = long_word[:1]
+
+                        current_line = partial + "-"
+                        words[word_index] = long_word[split_index + 1 :]
+                    else:
+                        break
+
+            wrapped_lines.append(current_line.strip())
+
+            remaining = " ".join(words[word_index:])
+
+            if remaining:
+                pre_wrap_lines.insert(i + 1, remaining)
+
+            i += 1
+
+        return "\n".join(wrapped_lines)
+    
     def create_caption_from_text(self, text: str, width: int):
         """creates the caption image (white background with black text)"""
+        width = self.file.size[0]
+
         spacing = width // 40
-        font_size = width // 12
-        font_path = "fonts/futura.ttf"
-        esf = 1.2  # emoji scale factor
-        epo = (int(width // 180), int(width // -70))  # emoji position offset
-        emoji_padding = 0
+        font_size = width // 10
+        emoji_scale = 1.2
+        emoji_offset = (font_size // 12, -(font_size // 6))
 
         # replace ellipsis characters
         text = text.replace("…", "...")
@@ -44,14 +102,15 @@ class _Base:
         # make discord emoji placeholders (prevents wrap from breaking them)
         discord_emojis = {}
         for i, de in enumerate(reg.DISCORD_EMOJI.findall(text)):
-            text = text.replace(de, f"[{i}]")
+            text = text.replace(de, f"[#{i}#]")
             discord_emojis[i] = de
 
-        # wrap caption text
-        caption_lines = textwrap.wrap(
-            text, 21, replace_whitespace=False, drop_whitespace=False
+        font = ImageFont.truetype(
+            FONT_PATH, font_size, layout_engine=ImageFont.Layout.RAQM
         )
-        caption = "\n".join(caption_lines)
+
+        # wrap caption text
+        caption = self._wrap_text(font, text)
 
         # undo discord emoji placeholders
         for i, dep in enumerate(reg.DE_PLACEHOLDER.findall(caption)):
@@ -59,72 +118,62 @@ class _Base:
 
         if discord_emojis:
             de_string = list(discord_emojis.values())
-            if caption.replace(" ", "") in "".join(de_string):
-                esf = 1.5
-                emoji_padding = -epo[1]
-                epo = (epo[0], int(width // -40))
 
-        font = ImageFont.truetype(
-            font_path, font_size, layout_engine=ImageFont.Layout.RAQM
-        )
+            if caption.replace(" ", "") in "".join(de_string):
+                emoji_scale = 1.5
+                emoji_offset = -emoji_offset[1]
+                emoji_offset = (emoji_offset[0], int(width // -40))
 
         # get the size of the rendered text
-        with Pilmoji(Image.new("RGB", (1, 1))) as pilmoji:
-            text_height = (
-                pilmoji.getsize(
-                    text=caption, font=font, spacing=spacing, emoji_scale_factor=esf
-                )[1]
-                + font_size
-            )
+        with Pilmoji(Image.new("RGB", (1, 1), WHITE)) as pilmoji:
+            rendered_height = pilmoji.getsize(
+                text=caption,
+                font=font,
+                spacing=spacing,
+                emoji_scale_factor=emoji_scale,
+            )[1]
 
-        caption_img = Image.new(
-            "RGB", (width, text_height + emoji_padding), (255, 255, 255)
-        )
+            text_height = rendered_height + font_size
+
+        caption_img = Image.new("RGB", (width, text_height), WHITE)
         x, y = caption_img.width // 2, caption_img.height // 2
 
         with Pilmoji(caption_img) as pilmoji:
             pilmoji.text(
                 (x, y),
                 caption,
-                fill=(0, 0, 0),
+                fill=BLACK,
                 font=font,
                 align="center",
                 anchor="mm",
                 spacing=spacing,
-                emoji_scale_factor=esf,
-                emoji_position_offset=epo,
+                emoji_scale_factor=emoji_scale,
+                emoji_position_offset=emoji_offset,
             )
 
         return caption_img
 
-    def get_content_bounds(self, img: Image.Image | cv2.Mat):
-        """
-        Gets the size of the main part of an image (without the border/caption),
-        mostly using code from [here](https://stackoverflow.com/a/64796067)
-        """
+    def _get_content_bounds(self, frame: Image.Image):
+        """gets the largest congruent part of the frame without the caption"""
+        cv2_image = cv2.cvtColor(numpy.array(frame), cv2.COLOR_RGB2BGR)
 
-        # convert PIL image to cv2 image
-        if isinstance(img, Image.Image):
-            img = cv2.cvtColor(numpy.array(img), cv2.COLOR_RGB2BGR)
+        # invert the frame and convert it to grayscale
+        img_gray = cv2.cvtColor(cv2.bitwise_not(cv2_image), cv2.COLOR_BGR2GRAY)
 
-        # invert the image and convert it to grayscale
-        img_invert = cv2.bitwise_not(img)
-        img_gray = cv2.cvtColor(img_invert, cv2.COLOR_BGR2GRAY)
+        # get morph of grayscale image in order to better separate the caption
+        thresh = cv2.threshold(img_gray, 1, 255, cv2.THRESH_BINARY)[1]
+        morph_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
+        morph = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, morph_rect)
 
-        # create the threshold for contours
-        thresh = cv2.threshold(img_gray, 20, 255, cv2.THRESH_BINARY)[1]
+        # finding the largest contour (actual content of the frame)
+        largest_area = max(
+            cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[0],
+            key=cv2.contourArea,
+        )
+        _, y, _, _ = cv2.boundingRect(largest_area)
 
-        # apply open morphology
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
-        morph = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-
-        # get bounding box coordinates from largest external contour
-        contours = cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if len(contours) == 2 else contours[1]
-        big_contour = max(contours, key=cv2.contourArea)
-        _, y, _, _ = cv2.boundingRect(big_contour)
-
-        bounds = 0, y, img.shape[1], img.shape[0]
+        # part of frame to crop
+        bounds = 0, y, cv2_image.shape[1], cv2_image.shape[0]
 
         return bounds
 
@@ -133,7 +182,6 @@ class EditImage(_Base):
     def __init__(self, image: AttObj):
         self.filename = image.filename
         self.file = Image.open(image.filebyte).convert("RGBA")
-        self.dimensions = self.file.size
 
     def _save(self, img_format: str = "png", quality: int = 95):
         """general function for saving images as byte objects"""
@@ -157,7 +205,7 @@ class EditImage(_Base):
         file_rgba = file_rgba.resize(small)
 
         # create a black background behind the image (useful if it's a transparent png)
-        background = Image.new("RGBA", small, (0, 0, 0))
+        background = Image.new("RGBA", small, BLACK)
         alpha_composite = Image.alpha_composite(background, file_rgba)
         self.file = alpha_composite.convert("RGB")  # converting to RGB for jpeg output
 
@@ -175,7 +223,7 @@ class EditImage(_Base):
     @run_async
     def caption(self, text: str):
         """captions the image"""
-        width, height = self.dimensions
+        width, height = self.file.size
         caption = self.create_caption_from_text(text, width)
 
         # create a new image that contains both the caption and the original image
@@ -202,43 +250,19 @@ class EditImage(_Base):
 
 class EditGif(_Base):
     def __init__(self, gif: AttObj):
-        self.filename = gif.filename
+        self.filename = gif.filename.split(".")[0]
         self.file = Image.open(gif.filebyte)
-        self.dimensions = self.file.size
+
         self.last_frame = self.file.convert("RGBA")
-        self.mode = self._analyze()
 
         self.frames: list[Image.Image] = []
         self.durations: list[int] = []
         self.i = 0
 
-    def _analyze(self):
-        """determines if the gif's mode is full (changes whole frame) or partial (changes parts of the frame)"""
-        # taken from https://gist.github.com/rockkoca/30357703f42f9d17c6fa121cf4dd1d8e
-        try:
-            while True:
-                # check update region dimensions
-                if self.file.tile and self.file.tile[0][1][2:] != self.dimensions:
-                    return "partial"
-
-                # move to next frame
-                self.file.seek(self.file.tell() + 1)
-        except EOFError:
-            pass
-
-        return "full"
-
     def _next_frame(self):
         """seeks to the next frame in the gif"""
-        if self.i % 10 == 0:
-            ...  # update
-
         self.file.seek(self.i)
-        self.new_frame = Image.new("RGBA", self.dimensions)
-
-        if self.mode == "partial":
-            self.new_frame.paste(self.last_frame)
-
+        self.new_frame = Image.new("RGBA", self.file.size)
         self.new_frame.paste(self.file, (0, 0), self.file.convert("RGBA"))
 
     def _append_frame(self, image: Image.Image, delay: int = 0):
@@ -251,7 +275,7 @@ class EditGif(_Base):
     def _save(self) -> tuple[BytesIO, str, str]:
         """converts the saved images into a gif byte object"""
         with TemporaryDirectory() as temp:
-            cmd = "convert -loop 0 -alpha set -dispose 2 "
+            cmd = "magick -loop 0 -dispose 2 "
 
             # save each frame and add them to the command
             for i, (frame, delay) in enumerate(zip(self.frames, self.durations)):
@@ -263,7 +287,11 @@ class EditGif(_Base):
             # read output as bytes
             cmd += " gif:-"
 
-            p = Popen(split(cmd), stdout=PIPE)
+            try:
+                p = Popen(split(cmd), stdout=PIPE)
+            except FileNotFoundError:
+                p = Popen(split(cmd.replace("magick", "convert")), stdout=PIPE)
+
             result = BytesIO(p.communicate()[0])
 
         return (result, f"{self.filename}.gif", "image/gif")
@@ -286,7 +314,7 @@ class EditGif(_Base):
     def caption(self, text: str):
         """captions the gif"""
         # create caption
-        caption = self.create_caption_from_text(text, self.dimensions[0])
+        caption = self.create_caption_from_text(text, self.file.size[0])
 
         for self.i in range(self.file.n_frames):
             self._next_frame()
@@ -356,7 +384,6 @@ class EditVideo(_Base):
     def __init__(self, video: AttObj):
         self.filename = video.filename
         self.video = video.filebyte
-        self.dimensions = (None, None)
 
     async def _get_size(self) -> tuple[int, int]:
         """gets the dimensions of the video"""
