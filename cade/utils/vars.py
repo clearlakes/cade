@@ -58,7 +58,7 @@ class bot:
         ]
     )
 
-    PROCESSING = lambda: random.choice(
+    PROCESSING = lambda: "-# " + random.choice(
         ["<a:bandy:1004177770554859603>", "<a:cadeload:934934660495048716>"]
     )
 
@@ -67,12 +67,12 @@ class bot:
             "processing...",
             "loading...",
             "doing something...",
-            "ummmmmm...",
-            ".............",
-            "un momento...",
-            "ok hang on",
-            "wait...",
-            "i.....",
+            "hi",
+            "i hate my stupid chud life",
+            "HELP ME",
+            "one secs...",
+            "...!!!",
+            "(cade now loading)",
         ]
     )
 
@@ -90,6 +90,7 @@ class bot:
     CADE = "<:cade:1245901352715026463>"
     CADEMAD = "<:cademad:1245901173232242698>"
     CADEHAPPY = "<:cadehappy:1245899329038712943>"
+    CONNECTION = "<:connected2:1125295361859272774>"
 
 
 @dataclass
@@ -156,7 +157,8 @@ class err:
     TAG_DOESNT_EXIST = f"{E} that tag has not been created yet"
     TAG_ALREADY_EXISTS = f"{E} that tag already exists"
     NO_TAGS_AT_ALL = f"{E} no tags have been made yet"
-    CANT_SEND_FILE = f"{E} could not send the file (too large maybe)"
+    CANT_SEND_FILE = f"{E} could not send the file?? (maybe try again)"
+    FILE_TOO_BIG = f"{E} the file was too big (over 10 mb)"
     IMAGE_SERVER_ERROR = (
         f"{E} can't find image server (not your fault i need to fix this)"
     )
@@ -165,6 +167,7 @@ class err:
     NO_LYRICS = f"{E} couldn't find lyrics"
     AUDIO_MAX_LENGTH = f"{E} audio length is too long (max: 30 minutes)"
     FILE_MAX_SIZE = f"{E} size too large (max: 2000px)"
+    FILE_INVALID_SIZE = f"{E} invalid size"
     FFMPEG_ERROR = (
         f"{E} processing the command failed for some reason (maybe not your fault)"
     )

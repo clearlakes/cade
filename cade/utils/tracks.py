@@ -129,24 +129,14 @@ def create_music_embed(
     duration = format_time(ms=sum([track.duration for track in tracks]))
     thumbnail, title, url = info
 
-    embed = discord.Embed(
-        description=f"**[{title}]({url})**", color=colors.QUEUED_TRACK
-    )
+    embed = discord.Embed(color=colors.QUEUED_TRACK)
 
-    if len(tracks) > 1:  # more than 1 track means playlist
-        embed.set_author(name="Queued Playlist", icon_url=requester.display_avatar)
-        embed.description += (
-            f" - `{len(tracks)} tracks`\n`{duration}` • {requester.mention} | "
-        )
-        embed.description += f"**#{len(player.queue) - len(tracks) + 1} to #{len(player.queue)}** in queue"
+    if len(tracks) == 1:
+        embed.description = f"-# Queued track!\n**[{title}]({url})**\n-# `{duration}` • {requester.mention} | **#{len(player.queue)}** in queue"""
     else:
-        embed.set_author(name="Queued Track", icon_url=requester.display_avatar)
-        embed.description += (
-            f"\n`{duration}` • {requester.mention} | **#{len(player.queue)}** in queue"
-        )
+        embed.description = f"-# Queued playlist!\n**[{title}]({url})** | `{len(tracks)} track(s)`\n-# `{duration}` • {requester.mention} | **#{len(player.queue) - len(tracks) + 1}-{len(player.queue)}** in queue"
 
     embed.set_thumbnail(url=thumbnail)
-
     return embed
 
 
@@ -201,9 +191,12 @@ async def get_queue(player: DefaultPlayer):
                 "`" + ("─" * len(current_playlist)) + "`\n"
             )  # add separator on last page
 
-        embed = BaseEmbed(title="Queue", description=queue_list.strip())
+        vc = player.channel_id
+
+        embed = BaseEmbed(description=f"-# Queue | <#{vc}>\n{queue_list.strip()}")
+
         embed.set_footer(
-            text=f"{len(player.queue)} tracks • page {current_page}/{total_pages}"
+            text=f"{len(player.queue)} track(s) • page {current_page}/{total_pages}"
         )
 
         pages.append(embed)

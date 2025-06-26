@@ -21,7 +21,7 @@ class Music(BaseCog):
             return False
 
         match ctx.command.name, currently_playing:
-            case "play", False:
+            case "play" | "join", False:
                 if ctx.author.voice and not connected_to_vc:
                     player = self.client.lavalink.create_player(ctx)
                     await ctx.author.voice.channel.connect(

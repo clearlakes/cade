@@ -130,15 +130,16 @@ class TrackEvents:
 
         duration = format_time(ms=track.duration)
 
+        vc = player.channel_id
+
         playing = discord.Embed(
-            description=f"**[{track.title}]({track.uri})**\n`{duration}` • {requester.mention}",
+            description=f"-# {bot.CONNECTION} Now playing:\n**[{track.title}]({track.uri})**\nby **{track.author}** • `{duration}`\n-# <#{vc}> • {requester.mention}",
             color=colors.PLAYING_TRACK,
         )
 
         if (await _get_lyrics(event.track))[0] == 200:
             playing.description += " • (lyrics available)"
 
-        playing.set_author(name="Now Playing", icon_url=requester.display_avatar)
         playing.set_thumbnail(url=get_artwork_url(track))
 
         player.store("prev_pl_name", player.fetch("pl_name"))
@@ -174,15 +175,8 @@ class TrackEvents:
         duration = format_time(ms=track.duration)
 
         # create "played track" embed
-        played = BaseEmbed(
-            title=track.title,
-            url=track.uri,
-            description=f"was played by <@{requester}> | Duration: `{duration}`",
-        )
-
         track_info = f"[{track.title}]({track.uri}) `{duration}`"
-
-        played = BaseEmbed(description=f"Played {track_info} • <@{requester}>")
+        played = BaseEmbed(description=f"-# Played {track_info} • <@{requester}>")
 
         orig_message: discord.Message = player.fetch("message")
 

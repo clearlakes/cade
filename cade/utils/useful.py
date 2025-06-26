@@ -6,6 +6,7 @@ from os.path import splitext
 from shlex import split
 from subprocess import PIPE, Popen
 from time import gmtime, strftime
+import sys
 
 import aiohttp
 import discord
@@ -262,13 +263,12 @@ async def send_media(
     ctx: commands.Context, orig_msg: discord.Message, media: tuple[BytesIO, str, str]
 ):
     """sends the given media to discord or the image server depending on its size"""
+    await orig_msg.edit(content=f"-# {bot.WAITING} sending...")
+
     if not media[0]:  # if the edited file is missing (could not be made)
         await orig_msg.edit(content=err.MEDIA_EDIT_ERROR)
         return
-
-    try:
-        await ctx.reply(file=discord.File(*media[:2]), mention_author=False)
-    except discord.HTTPException:
+    elif (sys.getsizeof(media[0]) / (10**6)) >= 10:
         if Keys.image.domain and "video" not in media[2]:
             url = await serve_very_big_file(media[0], media[2])
 
@@ -285,8 +285,14 @@ async def send_media(
 
             await ctx.reply(embed=embed)
         else:
-            await orig_msg.edit(content=err.CANT_SEND_FILE)
+            await orig_msg.edit(content=err.FILE_TOO_BIG)
             return
+
+    try:
+        await ctx.reply(file=discord.File(*media[:2]), mention_author=False)
+    except discord.HTTPException:
+        await orig_msg.edit(content=err.CANT_SEND_FILE)
+        return
 
     await orig_msg.delete()
 

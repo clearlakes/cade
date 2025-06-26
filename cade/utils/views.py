@@ -227,13 +227,11 @@ class NowPlayingView(discord.ui.View):
         average_color = get_average_color(yt_image_bytes)
 
         embed = discord.Embed(
-            description=f"**[{track.title}]({track.uri})**\n{progress_bar}\n`{duration}` • by **{track.author}** • {requester.mention}",
+            description=f"-# Currently Playing\n**[{track.title}]({track.uri})**\n{progress_bar}\n-# `{duration}` • by **{track.author}** • {requester.mention}",
             color=discord.Color.from_rgb(*average_color),
         )
 
-        embed.set_author(name="Currently Playing", icon_url=requester.display_avatar)
         embed.set_thumbnail(url=art_url)
-
         return embed
 
     def get_track_progress(self):
@@ -315,7 +313,7 @@ class NowPlayingView(discord.ui.View):
         embed = self.message.embeds[0]
         lines = embed.description.splitlines()
 
-        lines[1] = progress_bar  # only second line needs to be edited
+        lines[2] = progress_bar  # only second line needs to be edited
         embed.description = "\n".join(lines)
 
         await self.message.edit(embed=embed)

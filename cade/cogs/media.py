@@ -1,4 +1,5 @@
 import random
+import asyncio
 from asyncio import TimeoutError
 from tempfile import TemporaryDirectory
 
@@ -12,39 +13,83 @@ from utils.useful import check, format_time, get_media, run_async, run_cmd, send
 from utils.vars import bot, err, ff, reg
 from utils.views import ChoiceView
 
+from io import BytesIO
+from os import listdir
+from os.path import isfile, join
+import mimetypes
+
+from datetime import datetime, timezone
 
 class Media(BaseCog):
     @run_async
-    def video_extract(self, url: str, video_format: str = "audio"):
-        dl_opts = {
-            "format": "best",
-            "quiet": True,
-            "noplaylist": True,
-            "listformats": ("bsky" in url),
-        }
+    def video_download(self, loop, msg, url: str, start, end, video_format: str = "audio"):
+        def _create_yt_hook(progress_msg, loop):
+            class _Hook:
+                def __init__(self):
+                    self.last_edit = datetime.now(timezone.utc)
+                
+                async def _edit_progress(self, percent: str, msg: discord.Message):
+                    await msg.edit(content=f"-# {bot.WAITING} downloading... {percent} complete")
 
-        if video_format == "audio":
-            dl_opts["postprocessors"] = [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-            }]
+                def yt_hook(self, info: dict[str, str]):
+                    if info["status"] == "downloading":
+                        new_status = info['_percent_str'].split(".")[0] + "%"
+                        dt_now = datetime.now(timezone.utc)
 
-        try:
-            with YoutubeDL(dl_opts) as ydl:
-                results = ydl.extract_info(url, download=False)
+                        if (dt_now - self.last_edit).total_seconds() > 1:
+                            self.last_edit = dt_now
+                            asyncio.run_coroutine_threadsafe(
+                                coro=self._edit_progress(new_status, progress_msg), 
+                                loop=loop
+                            )
+        
+            return _Hook().yt_hook
+        
+        hook = _create_yt_hook(msg, loop)
 
-                if dl_opts["listformats"]:
-                    return results["formats"][0]["url"], results["title"], "??:??"
-                else:
-                    return results["url"], results["title"], results["duration"]
-        except DownloadError as e:
-            # clean error and include it in the message
-            dl_error = f"```{reg.COLOR.sub('', e.msg).split(':')[2].strip()}```"
+        with TemporaryDirectory() as tmpdir:
+            dl_opts = {
+                "format": "best",
+                "quiet": True,
+                "noplaylist": True,
+                "listformats": ("bsky" in url),
+                "progress_hooks": [hook],
+                "outtmpl": f"{tmpdir}/%(title)s.%(ext)s"
+            }
 
-            if "requested format is not available" in dl_error.lower():
-                return f"couldn't find a {video_format} format"
+            if video_format == "audio":
+                dl_opts["postprocessors"] = [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                }]
+            
+            if start and end:
+                dl_opts["external_downloader"] = "ffmpeg"
+                dl_opts["external_downloader_args"] = ["-copyts", "-ss", start, "-to", end]
 
-            return f"idk but read this:\n{dl_error}"
+            try:
+                with YoutubeDL(dl_opts) as ydl:
+                    ydl.download(url)
+            except DownloadError as e:
+                # clean error and include it in the message
+                dl_error = f"```{reg.COLOR.sub('', e.msg)}```"
+
+                if "requested format is not available" in dl_error.lower():
+                    return f"couldn't find a(n) {video_format} format"
+
+                return f"\n{dl_error}"
+            
+            result_filename = [f for f in listdir(tmpdir) if isfile(join(tmpdir, f))][0]
+            result_bytes = BytesIO()
+
+            with open(f"{tmpdir}/{result_filename}", "rb") as f:
+                result_bytes.write(f.read())
+
+            result_bytes.seek(0)
+            mime = mimetypes.guess_type(f"{tmpdir}/{result_filename}")[0]
+
+            return (result_bytes, result_filename, mime)
+        
 
     @commands.command(usage="(image)")
     async def jpeg(self, ctx: commands.Context):
@@ -235,6 +280,9 @@ class Media(BaseCog):
         elif not height.isnumeric() or height == "0":
             height = "-2"
 
+        if width == "-2" and height == "0":
+            return await ctx.send(err.FILE_INVALID_SIZE)
+
         processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
 
         # get either an image, gif, or video attachment
@@ -243,7 +291,7 @@ class Media(BaseCog):
             return await processing.edit(content=error)
 
         # calculate "auto" sizes
-        if orig_size := edit(res).dimensions:
+        if orig_size := edit(res).file.size:
             match (width, height):
                 case ("-2", "-2"):  # raise error if both are auto
                     raise commands.MissingRequiredArgument(ctx.command.params["width"])
@@ -361,38 +409,16 @@ class Media(BaseCog):
             return
 
         await msg.edit(
-            content=f"{bot.PROCESSING()} downloading {view.choice}...", view=None
+            content=f"-# {bot.WAITING} downloading...", view=None
         )
 
-        # get the stream url according to the user's choice
-        video = await self.video_extract(url, view.choice)
+        loop = asyncio.get_running_loop()
+        result = await self.video_download(loop, msg, url, start, end, view.choice)
 
-        if type(video) is str:
-            return await msg.edit(content=err.VID_DL_ERROR(video))
-
-        stream_url, video_title, _ = video
-        ext = "mp3" if view.choice == "audio" else "mp4"
-
-        with TemporaryDirectory() as temp:
-            _, returncode = await run_cmd(
-                ff.GET_STREAM(temp, stream_url, ext, start, end)
-            )
-
-            # if the command failed
-            if returncode != 0:
-                await msg.delete()
-                return await ctx.send(err.VID_DL_ERROR("maybe not supported?"))
-
-            # send the downloaded file
-            try:
-                await ctx.send(
-                    ctx.author.mention,
-                    file=discord.File(f"{temp}/output.{ext}", f"{video_title}.{ext}"),
-                )
-            except discord.HTTPException:
-                await ctx.send(err.CANT_SEND_FILE)
-
-            await msg.delete()
+        if type(result) is str:
+            return await msg.edit(content=err.VID_DL_ERROR(result))
+        
+        await send_media(ctx, msg, result)        
 
     @commands.command(usage="(gif)")
     async def reverse(self, ctx: commands.Context):

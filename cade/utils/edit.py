@@ -1,12 +1,10 @@
 from io import BytesIO
-from shlex import split
-from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
 from typing import Callable
 
 import cv2
 import numpy
-from PIL import Image, ImageFont
+from PIL import Image, ImageFont, ImageSequence
 from pilmoji import Pilmoji
 
 from .useful import AttObj, get_media_kind, run_async, run_cmd
@@ -30,9 +28,9 @@ def edit(res: AttObj):
 
 
 class _Base:
-    def _wrap_text(self, font: ImageFont.FreeTypeFont, text: str) -> str:
+    def _wrap_text(self, font: ImageFont.FreeTypeFont, text: str, width: int) -> str:
         """wraps text to fit in a caption"""
-        available_width = self.file.size[0] - (self.file.size[0] // 12)
+        available_width = width - (width // 12)
         pre_wrap_lines = text.splitlines()
         wrapped_lines = []
 
@@ -87,10 +85,8 @@ class _Base:
 
         return "\n".join(wrapped_lines)
     
-    def create_caption_from_text(self, text: str, width: int):
+    def create_caption_header(self, text: str, width: int):
         """creates the caption image (white background with black text)"""
-        width = self.file.size[0]
-
         spacing = width // 40
         font_size = width // 10
         emoji_scale = 1.2
@@ -110,7 +106,7 @@ class _Base:
         )
 
         # wrap caption text
-        caption = self._wrap_text(font, text)
+        caption = self._wrap_text(font, text, width)
 
         # undo discord emoji placeholders
         for i, dep in enumerate(reg.DE_PLACEHOLDER.findall(caption)):
@@ -153,27 +149,29 @@ class _Base:
 
         return caption_img
 
-    def _get_content_bounds(self, frame: Image.Image):
+    def _get_content_bounds(self, frame: Image.Image | cv2.Mat):
         """gets the largest congruent part of the frame without the caption"""
-        cv2_image = cv2.cvtColor(numpy.array(frame), cv2.COLOR_RGB2BGR)
+        # convert PIL image to cv2 image
+        if isinstance(frame, Image.Image):
+            frame = cv2.cvtColor(numpy.array(frame), cv2.COLOR_RGB2BGR)
 
         # invert the frame and convert it to grayscale
-        img_gray = cv2.cvtColor(cv2.bitwise_not(cv2_image), cv2.COLOR_BGR2GRAY)
+        frame = cv2.cvtColor(cv2.bitwise_not(frame), cv2.COLOR_BGR2GRAY)
 
         # get morph of grayscale image in order to better separate the caption
-        thresh = cv2.threshold(img_gray, 1, 255, cv2.THRESH_BINARY)[1]
+        thresh = cv2.threshold(frame, 50, 255, cv2.THRESH_BINARY)[1]
         morph_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
         morph = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, morph_rect)
 
         # finding the largest contour (actual content of the frame)
-        largest_area = max(
-            cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[0],
-            key=cv2.contourArea,
-        )
+        contours = cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = contours[0] if len(contours) == 2 else contours[1]
+
+        largest_area = max(contours, key=cv2.contourArea)
         _, y, _, _ = cv2.boundingRect(largest_area)
 
         # part of frame to crop
-        bounds = 0, y, cv2_image.shape[1], cv2_image.shape[0]
+        bounds = 0, y, frame.shape[1], frame.shape[0]
 
         return bounds
 
@@ -185,10 +183,13 @@ class EditImage(_Base):
 
     def _save(self, img_format: str = "png", quality: int = 95):
         """general function for saving images as byte objects"""
+        result = BytesIO()
+
         # save the image as bytes
-        img_byte_arr = BytesIO()
-        self.file.save(img_byte_arr, img_format, quality=quality)
-        result = BytesIO(img_byte_arr.getvalue())
+        self.file.save(result, img_format, quality=quality)
+
+        result.seek(0)
+        self.file.close()
 
         return (result, f"{self.filename}.{img_format}", f"image/{img_format}")
 
@@ -224,7 +225,7 @@ class EditImage(_Base):
     def caption(self, text: str):
         """captions the image"""
         width, height = self.file.size
-        caption = self.create_caption_from_text(text, width)
+        caption = self.create_caption_header(text, width)
 
         # create a new image that contains both the caption and the original image
         new_img = Image.new("RGBA", (width, height + caption.height))
@@ -240,7 +241,7 @@ class EditImage(_Base):
     @run_async
     def uncaption(self):
         """removes captions from the image"""
-        bounds = self.get_content_bounds(self.file)
+        bounds = self._get_content_bounds(self.file)
 
         self.file = self.file.crop(bounds)
 
@@ -252,131 +253,104 @@ class EditGif(_Base):
     def __init__(self, gif: AttObj):
         self.filename = gif.filename.split(".")[0]
         self.file = Image.open(gif.filebyte)
+        self.file.seek(0)
 
-        self.last_frame = self.file.convert("RGBA")
+        self.frame_duration = self.file.info["duration"]
 
-        self.frames: list[Image.Image] = []
-        self.durations: list[int] = []
-        self.i = 0
+        self.caption_header = None
+        self.uncaption_crop = None
+        self.speed_amount = None
+        self.resize_value = None
 
-    def _next_frame(self):
-        """seeks to the next frame in the gif"""
-        self.file.seek(self.i)
-        self.new_frame = Image.new("RGBA", self.file.size)
-        self.new_frame.paste(self.file, (0, 0), self.file.convert("RGBA"))
-
-    def _append_frame(self, image: Image.Image, delay: int = 0):
-        """appends the given frame to a list (along with its duration"""
-        self.frames.append(image)
-        self.last_frame = self.new_frame
-
-        self.durations.append(delay if delay else self.file.info["duration"])
-
-    def _save(self) -> tuple[BytesIO, str, str]:
+    def _save(self, frames: list[Image.Image]) -> tuple[BytesIO, str, str]:
         """converts the saved images into a gif byte object"""
-        with TemporaryDirectory() as temp:
-            cmd = "magick -loop 0 -dispose 2 "
+        result = BytesIO()
 
-            # save each frame and add them to the command
-            for i, (frame, delay) in enumerate(zip(self.frames, self.durations)):
-                saved_path = f"{temp}/{i}.png"
-                frame.save(saved_path)
+        # save the gif as bytes
+        frames[0].save(
+            result, 
+            format="GIF", 
+            save_all=True, 
+            append_images=frames[1:], 
+            optimize=False, 
+            duration=self.frame_duration, 
+            loop=0
+        )
 
-                cmd += f"-delay {delay // 10} {saved_path} "
-
-            # read output as bytes
-            cmd += " gif:-"
-
-            try:
-                p = Popen(split(cmd), stdout=PIPE)
-            except FileNotFoundError:
-                p = Popen(split(cmd.replace("magick", "convert")), stdout=PIPE)
-
-            result = BytesIO(p.communicate()[0])
+        self.file.close()
+        result.seek(0)
 
         return (result, f"{self.filename}.gif", "image/gif")
+    
+    def _resize_process(self, frame: Image.Image) -> Image.Image:
+        resized_frame = frame.resize(self.resize_value)
+        return resized_frame
+    
+    def _caption_process(self, frame: Image.Image) -> Image.Image:
+        # create image that will contain both caption and original frame
+        captioned_frame = Image.new("RGB", (frame.width, frame.height + self.caption_header.height))
 
+        # add caption and then original frame under it
+        captioned_frame.paste(self.caption_header, (0, 0))
+        captioned_frame.paste(frame, (0, self.caption_header.height))
+
+        return captioned_frame
+    
+    def _uncaption_process(self, frame: Image.Image) -> Image.Image:
+        cropped_frame = frame.crop(self.uncaption_crop)
+        return cropped_frame
+    
+    def _no_process(self, frame: Image.Image) -> Image.Image:
+        return frame
+    
+    def _process_frames(self, function) -> list[Image.Image]:
+        return ImageSequence.all_frames(self.file, function)
+    
     @run_async
     def resize(self, new_size: tuple[int, int]):
         """resizes the gif to a given size"""
-        for self.i in range(self.file.n_frames):
-            self._next_frame()
+        self.resize_value = new_size
 
-            # resize frame
-            resized_frame = self.new_frame.resize(new_size)
-
-            self._append_frame(resized_frame)
-
-        result = self._save()
+        frames = self._process_frames(self._resize_process)
+        result = self._save(frames)
         return result
 
     @run_async
     def caption(self, text: str):
         """captions the gif"""
-        # create caption
-        caption = self.create_caption_from_text(text, self.file.size[0])
+        # create caption header
+        self.caption_header = self.create_caption_header(text, self.file.size[0])
 
-        for self.i in range(self.file.n_frames):
-            self._next_frame()
-
-            # create image that will contain both caption and original frame
-            captioned_frame = Image.new(
-                "RGBA", (self.new_frame.width, self.new_frame.height + caption.height)
-            )
-
-            # add caption and then original frame under it
-            captioned_frame.paste(caption, (0, 0))
-            captioned_frame.paste(self.new_frame, (0, caption.height))
-
-            self._append_frame(captioned_frame)
-
-        result = self._save()
+        frames = self._process_frames(self._caption_process)
+        result = self._save(frames)
         return result
 
     @run_async
     def uncaption(self):
         """removes captions from the gif"""
-        self._next_frame()
-        bounds = self.get_content_bounds(self.new_frame)
+        self.file.seek(1)
+        self.uncaption_crop = self._get_content_bounds(self.file)
 
-        for self.i in range(self.file.n_frames):
-            self._next_frame()
-            cropped_frame = self.new_frame.crop(bounds)
-            self._append_frame(cropped_frame)
-
-        result = self._save()
+        frames = self._process_frames(self._uncaption_process)
+        result = self._save(frames)
         return result
 
     @run_async
     def speed(self, amount: float):
         "speeds up the gif by a specified amount"
-        for self.i in range(self.file.n_frames):
-            self._next_frame()
+        self.frame_duration = int(self.file.info["duration"] // amount)
 
-            # reduce frame duration (divide by amount)
-            new_delay = int(self.file.info["duration"] // amount)
-            self._append_frame(self.new_frame, delay=new_delay)
-
-        # start reducing frames instead if smallest duration (20) is reached
-        if all(x <= 20 for x in self.durations):
-            self.frames = self.frames[::2]
-            self.durations = [20 for _ in range(len(self.frames))]
-
-        result = self._save()
+        frames = self._process_frames(self._no_process)
+        result = self._save(frames)
         return result
 
     @run_async
     def reverse(self):
         """reverses the gif"""
-        frames = []
-        for self.i in range(self.file.n_frames):
-            self._next_frame()
-            frames.append(self.new_frame)
+        frames = self._process_frames(self._no_process)
+        frames.reverse()
 
-        for frame in reversed(frames):
-            self._append_frame(frame)
-
-        result = self._save()
+        result = self._save(frames)
         return result
 
 
@@ -472,7 +446,7 @@ class EditVideo(_Base):
         width, _ = await self._get_size()
 
         # get caption image and convert it into a cv2 image
-        caption = self.create_caption_from_text(text, width)
+        caption = self.create_caption_header(text, width)
         c_img = cv2.cvtColor(numpy.array(caption), cv2.COLOR_RGB2BGR)
 
         with TemporaryDirectory() as temp:
