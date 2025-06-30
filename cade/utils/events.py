@@ -65,11 +65,13 @@ class BotEvents:
 
     async def on_message(self, message: discord.Message):
         match message.content.lower():
+            case str(x) if any(_ in x for _ in ["mold cade", "mold you cade", "moldy cade"]):
+                await message.add_reaction(bot.CADEMOLDY)
             case str(x) if any(_ in x for _ in ["hi cade", "hey cade", "sorry cade"]):
                 await message.add_reaction(bot.CADE)
-            case str(x) if any(_ in x for _ in ["thank you cade", "love you cade"]):
+            case str(x) if any(_ in x for _ in ["thank you cade", "love you cade", "love cade", "thanks cade"]):
                 await message.add_reaction(bot.CADEHAPPY)
-            case str(x) if any(_ in x for _ in ["hate you cade", "i hate cade"]):
+            case str(x) if any(_ in x for _ in ["hate you cade", "hate cade"]):
                 await message.add_reaction(bot.CADEMAD)
 
     async def on_voice_state_update(

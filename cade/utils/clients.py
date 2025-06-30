@@ -1,11 +1,11 @@
 import configparser
 import logging
-from datetime import datetime, timedelta
 
 import aiohttp
 import discord
 from discord.ext import commands, tasks
 from lavalink import Client, DefaultPlayer
+from datetime import datetime, timedelta
 import os
 
 from cogs import COGS
@@ -60,6 +60,7 @@ class Cade(commands.Bot):
             await self.load_extension(cog)
 
         self.random_activity.start()
+        self.clean_largefiles.start()
         BotEvents(self).add()
 
         self.lavalink = CadeLavalink(self.user.id)
@@ -79,8 +80,30 @@ class Cade(commands.Bot):
         # change activity every 10 minutes
         act_type, name = bot.STATUS()
         await self.change_presence(activity=discord.Activity(type=act_type, name=name))
+    
+    @tasks.loop(seconds=120)
+    async def clean_largefiles(self):
+        db = Internal().internal_db
+        largefiles = (await db.get()).largefiles
+        
+        for entry in largefiles:
+            guild_id: int = entry[0]
+            filename: str = entry[1]
+            creation_date: datetime = entry[2]
+
+            if (datetime.now() - creation_date).days > 0:
+                try:
+                    os.remove(f"./largefiles/{guild_id}/{filename}")
+                except:
+                    pass
+
+                await db.pull("largefiles", entry)
 
     @random_activity.before_loop
+    async def _before(self):
+        await self.wait_until_ready()
+
+    @clean_largefiles.before_loop
     async def _before(self):
         await self.wait_until_ready()
 

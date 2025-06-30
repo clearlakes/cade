@@ -14,7 +14,7 @@ import numpy as np
 from discord.ext import commands, menus
 from PIL import Image
 
-from .base import BaseEmbed, CadeElegy
+from .base import CadeElegy
 from .db import GuildDB
 from .ext import serve_very_big_file
 from .keys import Keys
@@ -269,21 +269,10 @@ async def send_media(
         await orig_msg.edit(content=err.MEDIA_EDIT_ERROR)
         return
     elif (sys.getsizeof(media[0]) / (10**6)) >= 10:
-        if Keys.image.domain and "video" not in media[2]:
-            url = await serve_very_big_file(media[0], media[2])
-
-            if not url:
-                # send error if uploading failed
-                await orig_msg.edit(content=err.IMAGE_SERVER_ERROR)
-                return
-
-            embed = BaseEmbed()
-            embed.set_image(url=url)
-            embed.set_footer(
-                text=f"uploaded to {Keys.image.domain.replace('https://', '')} (larger than 10 mb), deletes in 24h!!"
-            )
-
-            await ctx.reply(embed=embed)
+        if Keys.image.domain:
+            url = await serve_very_big_file(ctx.guild.id, media)
+            await ctx.reply(f"-# uploaded to {Keys.image.domain.replace('https://', '')} (larger than 10 mb), deletes in 24 hrs!!\n{url}")
+            return
         else:
             await orig_msg.edit(content=err.FILE_TOO_BIG)
             return

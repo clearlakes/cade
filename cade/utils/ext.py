@@ -1,32 +1,33 @@
 from io import BytesIO
 from typing import Mapping
+from pathlib import Path
+from datetime import datetime
+import random
+import string
 
-import aiohttp
 from discord.ext import commands
 
 from .keys import Keys
+from .db import Internal
 
 
-async def serve_very_big_file(b: BytesIO, mime: str):
+async def serve_very_big_file(guild_id: int, media: tuple[BytesIO, str, str]):
     """uploads media to the image server"""
-    form = aiohttp.FormData()
-    form.add_field("file", b.getvalue(), content_type=mime)
+    file_dir = f"./largefiles/{guild_id}"
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{Keys.image.domain}/upload",
-                data=form,
-                headers={"Authorization": Keys.image.secret},
-            ) as post:
-                res: dict[str, str] = await post.json()
+    Path(file_dir).mkdir(parents=True, exist_ok=True)
 
-        filename = f"{res['file_id'].upper()}.{res['file_ext']}"
-        file_url = f"{Keys.image.domain}/image/{filename}"
-    except (aiohttp.ClientConnectionError, aiohttp.ContentTypeError):
-        file_url = None
+    rand_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    filename = rand_code + "_" + media[1]
 
-    return file_url
+    db = Internal().internal_db
+    await db.push("largefiles", [guild_id, filename, datetime.now()])
+
+    with open(f"{file_dir}/{filename}", "wb") as f:
+        f.write(media[0].read())
+        f.seek(0)
+
+    return f"{Keys.image.domain}/{guild_id}/{filename}"
 
 
 def generate_cmd_list(bot_cogs: Mapping[str, commands.Cog]):

@@ -28,7 +28,15 @@ services:
       context: .
       dockerfile: cdn-script.Dockerfile
     expose:
-      - "80"
+      - "8080"
+  nginx:
+    container_name: image-server
+    image: nginx:mainline-alpine3.22-perl
+    volumes:
+      - ./largefiles:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
   cade:
     container_name: cade
     build: .
@@ -36,6 +44,7 @@ services:
       - GENERATE=false
     volumes:
       - ./cade/commands.md:/cade/cade/commands.md
+      - ./largefiles:/cade/largefiles
     depends_on:
       - cdn-script
       - lavalink

@@ -1,5 +1,5 @@
 import configparser
-from datetime import datetime
+from datetime import datetime, timezone
 
 import discord
 import motor.motor_asyncio
@@ -29,6 +29,15 @@ class Document:
         self.tags: dict[str, str] = get("tags", {})
 
 
+class InternalDoc:
+    def __init__(self, document: dict = {}):
+        self._doc = document
+        get = lambda key, default: self._doc.get(key, default)
+
+        self.count: dict[str, int] = get("count", {})
+        self.largefiles: list = get("largefiles", [])
+
+
 class GuildDB:
     def __init__(self, guild: discord.Guild):
         self.guild = {"guild_id": guild.id}
@@ -42,12 +51,16 @@ class GuildDB:
 
     async def remove(self):
         """removes a guild from the database after 3 days"""
-        await self._update({"$set": {"left": datetime.utcnow()}})
+        await self._update({"$set": {"left": datetime.now(timezone.utc)}})
 
     async def get(self):
         """returns the guild's database entry as a class"""
         _doc = await _db.find_one(self.guild)
-        return Document(_doc) if _doc else Document()
+
+        if self.guild["guild_id"] == 0:
+            return InternalDoc(_doc) if _doc else InternalDoc()
+        else:
+            return Document(_doc) if _doc else Document()
 
     async def set(self, field: str, value):
         """sets a field's value"""
@@ -73,18 +86,18 @@ class GuildDB:
 
 class Internal:
     def __init__(self) -> None:
-        self._internal = GuildDB(discord.Object(id=0))
+        self.internal_db = GuildDB(discord.Object(id=0))
 
     @property
-    async def _db(self) -> dict:
-        return (await self._internal.get())._doc
+    async def _db_doc(self) -> dict:
+        return (await self.internal_db.get())._doc
 
     @property
     async def total_invoke_count(self) -> int:
-        return sum((await self._db).get("count", {}).values())
+        return sum((await self._db_doc).get("count", {}).values())
 
     async def inc_invoke_count(self, cmd: str) -> None:
-        return await self._internal._update({"$inc": {f"count.{cmd}": 1}})
+        return await self.internal_db._update({"$inc": {f"count.{cmd}": 1}})
 
     async def get_invoke_count(self, cmd: str) -> int:
-        return (await self._db).get("count", {}).get(cmd, 0)
+        return (await self._db_doc).get("count", {}).get(cmd, 0)
