@@ -2,7 +2,7 @@ import configparser
 from datetime import datetime, timezone
 
 import discord
-import motor.motor_asyncio
+from pymongo import AsyncMongoClient
 
 # load config file
 _config = configparser.ConfigParser()
@@ -12,7 +12,7 @@ _mongo_uri = str(_config.get("mongo", "uri"))
 _mongo_db_name = str(_config.get("mongo", "database"))
 _mongo_coll_name = str(_config.get("mongo", "collection"))
 
-_mongo_client = motor.motor_asyncio.AsyncIOMotorClient(_mongo_uri)
+_mongo_client = AsyncMongoClient(_mongo_uri)
 _db = _mongo_client[_mongo_db_name][_mongo_coll_name]
 
 

@@ -121,7 +121,7 @@ class Misc(BaseCog):
 
         # get the total number of commands that have been run (and date when counting began)
         invoke_count = await Internal().total_invoke_count
-        began_counting = int((await Internal()._db)["_id"].generation_time.timestamp())
+        began_counting = int((await Internal()._db_doc)["_id"].generation_time.timestamp())
 
         embed = discord.Embed(title=f"{bot.CADE} cade {bot.CADE}", color=colors.CADE)
 

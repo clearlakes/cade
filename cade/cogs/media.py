@@ -65,7 +65,7 @@ class Media(BaseCog):
             
             if start and end:
                 dl_opts["external_downloader"] = "ffmpeg"
-                dl_opts["external_downloader_args"] = ["-copyts", "-ss", start, "-to", end]
+                dl_opts["external_downloader_args"] = ["-c:v", "libx264", "-c:a", "aac", "-copyts", "-ss", start, "-to", end]
 
             try:
                 with YoutubeDL(dl_opts) as ydl:

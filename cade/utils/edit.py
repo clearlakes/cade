@@ -159,8 +159,8 @@ class _Base:
         frame = cv2.cvtColor(cv2.bitwise_not(frame), cv2.COLOR_BGR2GRAY)
 
         # get morph of grayscale image in order to better separate the caption
-        thresh = cv2.threshold(frame, 50, 255, cv2.THRESH_BINARY)[1]
-        morph_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
+        thresh = cv2.threshold(frame, 1, 255, cv2.THRESH_BINARY)[1]
+        morph_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
         morph = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, morph_rect)
 
         # finding the largest contour (actual content of the frame)
@@ -466,7 +466,7 @@ class EditVideo(_Base):
         """removes captions from the video"""
         with TemporaryDirectory() as temp:
             fps, frames = self._get_frames(temp)
-            x, y, w, h = self.get_content_bounds(frames[0])
+            x, y, w, h = self._get_content_bounds(frames[1])
 
             for i, frame in enumerate(frames):
                 # crop each frame down to its content

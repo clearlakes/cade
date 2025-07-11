@@ -272,7 +272,6 @@ async def send_media(
         if Keys.image.domain:
             url = await serve_very_big_file(ctx.guild.id, media)
             await ctx.reply(f"-# uploaded to {Keys.image.domain.replace('https://', '')} (larger than 10 mb), deletes in 24 hrs!!\n{url}")
-            return
         else:
             await orig_msg.edit(content=err.FILE_TOO_BIG)
             return
