@@ -17,6 +17,7 @@ mongo/*
 lavalink/plugins
 largefiles/*
 !largefiles/nick.png
+!largefiles/index.html
 
 # config files
 config.ini
