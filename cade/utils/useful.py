@@ -18,7 +18,7 @@ from .base import CadeElegy
 from .db import GuildDB
 from .ext import serve_very_big_file
 from .keys import Keys
-from .vars import bot, err, reg
+from .vars import v
 
 from lavalink import AudioTrack
 
@@ -69,9 +69,9 @@ async def _link_bytes(
     link: str, media_types: list[str]
 ) -> tuple[AttObj | None, str | None]:
     """reads media from the url as bytes"""
-    if res := reg.TENOR.search(link):
+    if res := v.RE__TENOR.search(link):
         if not Keys.tenor:
-            return None, err.UNSUPPORTED_URL
+            return None, v.ERR__UNSUPPORTED_URL
 
         # get direct gif link through tenor's api
         try:
@@ -81,10 +81,10 @@ async def _link_bytes(
                 )
             )[2]["results"][0]["media_formats"]["gif"]["url"]
         except IndexError:
-            return None, err.INVALID_URL
-    elif res := reg.GYAZO.search(link):
+            return None, v.ERR__INVALID_URL
+    elif res := v.RE__GYAZO.search(link):
         if not Keys.gyazo:
-            return None, err.UNSUPPORTED_URL
+            return None, v.ERR__UNSUPPORTED_URL
 
         # get direct gif link through gyazo's api
         try:
@@ -94,20 +94,20 @@ async def _link_bytes(
                 )
             )[2]["url"]
         except IndexError:
-            return None, err.INVALID_URL
-    elif res := reg.DISCORD.match(link) and Keys.image.cdn:
+            return None, v.ERR__INVALID_URL
+    elif res := v.RE__DISCORD.match(link) and Keys.image.cdn:
         link = f"{Keys.image.cdn}/{link}"
 
     # try reading bytes from the link
     r, r_bytes, r_json = await read_from_url(link)
 
     if r_json and r_json["text"] == "This content is no longer available.":
-        return None, err.CDN_EXPIRED
+        return None, v.ERR__CDN_EXPIRED
 
     if get_media_kind(r.content_type) in media_types:
         return AttObj(BytesIO(r_bytes), "url", r.content_type), None
     else:
-        return None, err.WRONG_ATT_TYPE
+        return None, v.ERR__WRONG_ATT_TYPE
 
 
 async def get_media(
@@ -136,16 +136,16 @@ async def get_media(
                 BytesIO(await att.read()), splitext(att.filename)[0], att.content_type
             )
         else:
-            error = err.WRONG_ATT_TYPE
-    elif match := reg.URL.search(msg.content):  # if link was found
+            error = v.ERR__WRONG_ATT_TYPE
+    elif match := v.RE__URL.search(msg.content):  # if link was found
         link = match.group(0)
 
-        if link.startswith((Keys.image.domain, *bot.SUPPORTED_SITES)):
+        if link.startswith((Keys.image.domain, *v.BOT__SUPPORTED_SITES)):
             att_obj, error = await _link_bytes(link, media_types)
         else:
-            error = err.UNSUPPORTED_URL
+            error = v.ERR__UNSUPPORTED_URL
     else:  # if nothing was found
-        error = err.NO_ATT_OR_URL_FOUND
+        error = v.ERR__NO_ATT_OR_URL_FOUND
 
         if "//imgur.com" in msg.content:
             error += ' (imgur links need to start with "i.")'
@@ -184,7 +184,7 @@ def btn_check(ctx: discord.Interaction, button_id: str):
 def format_time(sec: int = 0, ms: int = 0):
     """formats the given duration (in seconds/milliseconds) into either M:S or H:M:S"""
     # convert milliseconds to seconds
-    sec = ms // 1000 if ms else sec
+    sec = ms // v.MATH__MS_MULTIPLIER if ms else sec
 
     # check if the duration is an hour or more (and switch formats)
     hours = sec // 3600
@@ -204,12 +204,12 @@ def get_average_color(image: bytes):
 
 def strip_pl_name(playlist_name: str, text: str):
     """strips the playlist name from track titles"""
-    track_name = t.group(0) if (t := reg.TRACKNAME.search(text)) else text
+    track_name = t.group(0) if (t := v.RE__TRACKNAME.search(text)) else text
     playlist_name = playlist_name.lower()
 
     if any(
         (short_title := x).lower().strip(" ost") not in playlist_name
-        for x in reg.PLAYLIST.split(track_name, 1)
+        for x in v.RE__PLAYLIST.split(track_name, 1)
     ):
         return text.replace(track_name, short_title.strip())
 
@@ -263,23 +263,23 @@ async def send_media(
     ctx: commands.Context, orig_msg: discord.Message, media: tuple[BytesIO, str, str]
 ):
     """sends the given media to discord or the image server depending on its size"""
-    await orig_msg.edit(content=f"-# {bot.WAITING} sending...")
+    await orig_msg.edit(content=f"-# {v.EMJ__WAITING} sending...")
 
     if not media[0]:  # if the edited file is missing (could not be made)
-        await orig_msg.edit(content=err.MEDIA_EDIT_ERROR)
+        await orig_msg.edit(content=v.ERR__MEDIA_EDIT_ERROR)
         return
-    elif (sys.getsizeof(media[0]) / (10**6)) >= 10:
+    elif (sys.getsizeof(media[0]) / v.DISCORD__MAX_FILESIZE_BYTES) >= v.DISCORD__MAX_FILESIZE_MB:
         if Keys.image.domain:
             url = await serve_very_big_file(ctx.guild.id, media)
             await ctx.reply(f"-# uploaded to {Keys.image.domain.replace('https://', '')} (larger than 10 mb), deletes in 24 hrs!!\n{url}")
         else:
-            await orig_msg.edit(content=err.FILE_TOO_BIG)
+            await orig_msg.edit(content=v.ERR__FILE_TOO_BIG)
             return
 
     try:
         await ctx.reply(file=discord.File(*media[:2]), mention_author=False)
     except discord.HTTPException:
-        await orig_msg.edit(content=err.CANT_SEND_FILE)
+        await orig_msg.edit(content=v.ERR__CANT_SEND_FILE)
         return
 
     await orig_msg.delete()

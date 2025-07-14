@@ -10,7 +10,7 @@ from logging import Logger
 from configparser import ConfigParser
 from lavalink import Client as LavaClient, DefaultPlayer
 
-from .vars import colors
+from .vars import v
 
 
 class CadeElegy(commands.Bot):
@@ -21,7 +21,6 @@ class CadeElegy(commands.Bot):
         self.init_time: datetime = None
         self.log: Logger = None
         self.token: str = None
-        self.cog_files: list[str] = [None]
         self.lavalink: CadeLavalinkElegy = None
 
 
@@ -56,7 +55,7 @@ class BaseEmbed(discord.Embed):
     def __init__(
         self,
         *,
-        color: int | discord.Colour | None = colors.EMBED_BG,
+        color: int | discord.Colour | None = v.BOT__EMBED_BG,
         title: Any | None = None,
         url: Any | None = None,
         description: Any | None = None,

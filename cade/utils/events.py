@@ -12,7 +12,7 @@ from lavalink import (
 from .base import BaseEmbed, CadeElegy
 from .db import GuildDB
 from .useful import format_time, get_artwork_url, strip_pl_name
-from .vars import colors, err, bot
+from .vars import v
 from .views import NowPlayingView
 from .tracks import _get_lyrics
 
@@ -22,8 +22,7 @@ async def _dc(player: DefaultPlayer, guild: discord.Guild):
     await player.stop()
 
     # disconnects the bot's voice client
-    # without this it won't be able to connect again
-
+    # (without this it won't be able to connect again)
     await guild.voice_client.disconnect(force=True)
 
 
@@ -66,13 +65,13 @@ class BotEvents:
     async def on_message(self, message: discord.Message):
         match message.content.lower():
             case str(x) if any(_ in x for _ in ["mold cade", "mold you cade", "moldy cade"]):
-                await message.add_reaction(bot.CADEMOLDY)
+                await message.add_reaction(v.EMJ__CADEMOLDY)
             case str(x) if any(_ in x for _ in ["hi cade", "hey cade", "sorry cade"]):
-                await message.add_reaction(bot.CADE)
+                await message.add_reaction(v.EMJ__CADE)
             case str(x) if any(_ in x for _ in ["thank you cade", "love you cade", "love cade", "thanks cade"]):
-                await message.add_reaction(bot.CADEHAPPY)
+                await message.add_reaction(v.EMJ__CADEHAPPY)
             case str(x) if any(_ in x for _ in ["hate you cade", "hate cade"]):
-                await message.add_reaction(bot.CADEMAD)
+                await message.add_reaction(v.EMJ__CADEMAD)
 
     async def on_voice_state_update(
         self,
@@ -97,7 +96,7 @@ class BotEvents:
     async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
             return await ctx.send(
-                err.CMD_USAGE((await GuildDB(ctx.guild).get()).prefix, ctx.command)
+                v.ERR__CMD_USAGE((await GuildDB(ctx.guild).get()).prefix, ctx.command)
             )  # send command usage
         elif isinstance(
             error,
@@ -135,8 +134,8 @@ class TrackEvents:
         vc = player.channel_id
 
         playing = discord.Embed(
-            description=f"-# {bot.CONNECTION} Now playing:\n**[{track.title}]({track.uri})**\nby **{track.author}** • `{duration}`\n-# <#{vc}> • {requester.mention}",
-            color=colors.PLAYING_TRACK,
+            description=f"-# {v.EMJ__CONNECTION} Now playing:\n**[{track.title}]({track.uri})**\nby **{track.author}** • `{duration}`\n-# <#{vc}> • {requester.mention}",
+            color=v.BOT__PLAYING_TRACK_THEME,
         )
 
         if (await _get_lyrics(event.track))[0] == 200:

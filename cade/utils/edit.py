@@ -8,11 +8,7 @@ from PIL import Image, ImageFont, ImageSequence
 from pilmoji import Pilmoji
 
 from .useful import AttObj, get_media_kind, run_async, run_cmd
-from .vars import ff, reg
-
-FONT_PATH = "fonts/futura.ttf"
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+from .vars import v
 
 def edit(res: AttObj):
     """gets the edit class for the given file"""
@@ -87,41 +83,41 @@ class _Base:
     
     def create_caption_header(self, text: str, width: int):
         """creates the caption image (white background with black text)"""
-        spacing = width // 40
-        font_size = width // 10
-        emoji_scale = 1.2
-        emoji_offset = (font_size // 12, -(font_size // 6))
+        spacing = width // v.CAPTION__SPACING_RATIO
+        font_size = width // v.CAPTION__FONTSIZE_RATIO
+        emoji_scale = v.CAPTION__EMOJI_SCALE
+        emoji_offset = (font_size // v.CAPTION__EMJ_OFFSET_X, -(font_size // v.CAPTION__EMJ_OFFSET_Y))
 
         # replace ellipsis characters
         text = text.replace("…", "...")
 
         # make discord emoji placeholders (prevents wrap from breaking them)
         discord_emojis = {}
-        for i, de in enumerate(reg.DISCORD_EMOJI.findall(text)):
+        for i, de in enumerate(v.RE__DISCORD_EMOJI.findall(text)):
             text = text.replace(de, f"[#{i}#]")
             discord_emojis[i] = de
 
         font = ImageFont.truetype(
-            FONT_PATH, font_size, layout_engine=ImageFont.Layout.RAQM
+            v.PIL__FONT_PATH, font_size, layout_engine=ImageFont.Layout.RAQM
         )
 
         # wrap caption text
         caption = self._wrap_text(font, text, width)
 
         # undo discord emoji placeholders
-        for i, dep in enumerate(reg.DE_PLACEHOLDER.findall(caption)):
+        for i, dep in enumerate(v.RE__DE_PLACEHOLDER.findall(caption)):
             caption = caption.replace(dep, discord_emojis[i])
 
         if discord_emojis:
             de_string = list(discord_emojis.values())
 
             if caption.replace(" ", "") in "".join(de_string):
-                emoji_scale = 1.5
+                emoji_scale = v.CAPTION__EMOJI_SCALE_LRG
                 emoji_offset = -emoji_offset[1]
                 emoji_offset = (emoji_offset[0], int(width // -40))
 
         # get the size of the rendered text
-        with Pilmoji(Image.new("RGB", (1, 1), WHITE)) as pilmoji:
+        with Pilmoji(Image.new("RGB", (1, 1), v.PIL__WHITE)) as pilmoji:
             rendered_height = pilmoji.getsize(
                 text=caption,
                 font=font,
@@ -131,14 +127,14 @@ class _Base:
 
             text_height = rendered_height + font_size
 
-        caption_img = Image.new("RGB", (width, text_height), WHITE)
+        caption_img = Image.new("RGB", (width, text_height), v.PIL__WHITE)
         x, y = caption_img.width // 2, caption_img.height // 2
 
         with Pilmoji(caption_img) as pilmoji:
             pilmoji.text(
                 (x, y),
                 caption,
-                fill=BLACK,
+                fill=v.PIL__BLACK,
                 font=font,
                 align="center",
                 anchor="mm",
@@ -206,7 +202,7 @@ class EditImage(_Base):
         file_rgba = file_rgba.resize(small)
 
         # create a black background behind the image (useful if it's a transparent png)
-        background = Image.new("RGBA", small, BLACK)
+        background = Image.new("RGBA", small, v.PIL__BLACK)
         alpha_composite = Image.alpha_composite(background, file_rgba)
         self.file = alpha_composite.convert("RGB")  # converting to RGB for jpeg output
 
@@ -362,7 +358,7 @@ class EditVideo(_Base):
     async def _get_size(self) -> tuple[int, int]:
         """gets the dimensions of the video"""
         result, returncode = await run_cmd(
-            ff.GET_DIMENSIONS, self.video.getvalue(), decode=True
+            v.FF__GET_DIMENSIONS, self.video.getvalue(), decode=True
         )
 
         if returncode != 0:
@@ -397,7 +393,7 @@ class EditVideo(_Base):
     async def _create_from_frames(self, path, fps):
         """creates a video using all images in a directory"""
         # make new frames into a video and add audio from original file
-        _, returncode = await run_cmd(ff.CREATE_MP4(path, fps))
+        _, returncode = await run_cmd(v.FF__CREATE_MP4(path, fps))
 
         if returncode != 0:
             return
@@ -426,7 +422,7 @@ class EditVideo(_Base):
 
     async def resize(self, new_size: tuple[int, int]):
         """resizes the video to the specified size"""
-        self.video = await self._run_ffmpeg(ff.RESIZE, *new_size)
+        self.video = await self._run_ffmpeg(v.FF__RESIZE, *new_size)
 
         result = self._save()
         return result
@@ -436,7 +432,7 @@ class EditVideo(_Base):
         if amount < 0.5:
             amount = 0.5  # smallest multiplier for videos
 
-        self.video = await self._run_ffmpeg(ff.SPEED_UP, amount)
+        self.video = await self._run_ffmpeg(v.FF__SPEED_UP, amount)
 
         result = self._save()
         return result
@@ -466,7 +462,7 @@ class EditVideo(_Base):
         """removes captions from the video"""
         with TemporaryDirectory() as temp:
             fps, frames = self._get_frames(temp)
-            x, y, w, h = self._get_content_bounds(frames[1])
+            x, y, w, h = self._get_content_bounds(frames[0])
 
             for i, frame in enumerate(frames):
                 # crop each frame down to its content

@@ -18,7 +18,7 @@ from .useful import (
     read_from_url,
     get_artwork_url,
 )
-from .vars import colors, reg
+from .vars import v
 from .keys import LavalinkKeys
 
 import math
@@ -38,9 +38,9 @@ async def get_youtube(client: CadeElegy, query: str, return_all: bool = False):
     """gets tracks from youtube"""
     playlist_name = None
 
-    if (match := reg.YOUTUBE.match(query)) and match.group(1) != "playlist":
+    if (match := v.RE__YOUTUBE.match(query)) and match.group(1) != "playlist":
         query = f"https://youtube.com/watch?v={match.group(2)}"
-    elif not reg.URL.match(query):
+    elif not v.RE__URL.match(query):
         query = f"ytsearch:{query}"
 
     result: LoadResult = await client.lavalink.get_tracks(query)
@@ -91,7 +91,7 @@ async def get_np_lyrics(player: DefaultPlayer):
     track = player.current
     status, resp = await _get_lyrics(track)
 
-    if status != 200:
+    if status != v.HTML__OK_STATUS:
         return
 
     lyrics = [unit["line"] for unit in resp["lines"]]
@@ -100,7 +100,7 @@ async def get_np_lyrics(player: DefaultPlayer):
     total_pages = int(math.ceil(len(lyrics) / 25))
 
     for i, line in enumerate(lyrics):
-        if i % 24 == 0:
+        if i % v.MUSIC__LYRIC_MAX_LINES == 0:
             yt_image_bytes = (await read_from_url(get_artwork_url(track)))[1]
             average_color = get_average_color(yt_image_bytes)
 
@@ -110,7 +110,7 @@ async def get_np_lyrics(player: DefaultPlayer):
                 color=discord.Color.from_rgb(*average_color),
             )
             new_embed.set_footer(
-                text=f"({math.ceil((i + 1) / 24)} / {total_pages}) • from {resp['sourceName']}"
+                text=f"({math.ceil((i + 1) / v.MUSIC__LYRIC_MAX_LINES)} / {total_pages}) • from {resp['sourceName']}"
             )
             embeds.append(new_embed)
 
@@ -129,7 +129,7 @@ def create_music_embed(
     duration = format_time(ms=sum([track.duration for track in tracks]))
     thumbnail, title, url = info
 
-    embed = discord.Embed(color=colors.QUEUED_TRACK)
+    embed = discord.Embed(color=v.BOT__QUEUED_TRACK_THEME)
 
     if len(tracks) == 1:
         embed.description = f"-# Queued track!\n**[{title}]({url})**\n-# `{duration}` • {requester.mention} | **#{len(player.queue)}** in queue"""
@@ -143,13 +143,13 @@ def create_music_embed(
 async def get_queue(player: DefaultPlayer):
     """generates the queue list"""
     total_items = len(player.queue)
-    total_pages = int(total_items / 10) + (total_items % 10 > 0)
+    total_pages = int(total_items / v.MUSIC__QUEUE_MAX_LINES) + (total_items % v.MUSIC__QUEUE_MAX_LINES > 0)
     pages = []
 
     # generate queue pages
     while (current_page := (len(pages) + 1)) <= total_pages:
-        start = (current_page - 1) * 10
-        end = start + 10
+        start = (current_page - 1) * v.MUSIC__QUEUE_MAX_LINES
+        end = start + v.MUSIC__QUEUE_MAX_LINES
 
         queue_list = ""
         current_playlist = None

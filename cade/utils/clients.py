@@ -14,7 +14,7 @@ from .db import Internal
 from .events import BotEvents, TrackEvents
 from .keys import Keys
 from .useful import get_prefix
-from .vars import bot
+from .vars import v
 from .ext import generate_cmd_list
 
 
@@ -36,7 +36,6 @@ class Cade(commands.Bot):
         config.read("config.ini")
 
         self.token = str(config.get("bot", "token"))
-        self.cog_files = ["funny", "general", "media", "music"]
 
         self.before_invoke(self._start_timer)
         self.after_invoke(self._log_and_increment)
@@ -78,7 +77,7 @@ class Cade(commands.Bot):
     @tasks.loop(minutes=10)
     async def random_activity(self):
         # change activity every 10 minutes
-        act_type, name = bot.STATUS()
+        act_type, name = v.BOT__STATUS_MSG()
         await self.change_presence(activity=discord.Activity(type=act_type, name=name))
     
     @tasks.loop(seconds=120)

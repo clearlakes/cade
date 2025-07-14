@@ -1,8 +1,4 @@
-import textwrap
-import traceback
-from contextlib import redirect_stdout
 from datetime import datetime
-from io import StringIO
 
 import discord
 from discord.ext import commands
@@ -10,84 +6,11 @@ from discord.ext import commands
 from utils.base import CadeElegy, BaseCog, BaseEmbed
 from utils.db import GuildDB, Internal
 from utils.useful import get_attachment_obj, run_cmd
-from utils.vars import bot, colors, err
+from utils.vars import v
 from utils.views import HelpView
-
-from . import COGS
 
 
 class Misc(BaseCog):
-    @commands.command(aliases=["re"], hidden=True)
-    @commands.is_owner()
-    async def reload(self, ctx: commands.Context, cog_to_reload: str | None):
-        processing = await ctx.send(bot.PROCESSING())
-        cogs = [cog_to_reload.lower()] if cog_to_reload else COGS
-
-        try:
-            for cog in cogs:
-                await self.client.reload_extension(cog)
-        except commands.ExtensionError as e:
-            return await ctx.send(err.COG_RELOAD_ERROR(e.name))
-
-        await processing.delete()
-        await ctx.message.add_reaction(bot.OK)
-
-    @commands.command(aliases=["e"], hidden=True)
-    @commands.is_owner()
-    async def eval(self, ctx: commands.Context, *, code: str | None):
-        # mostly taken from https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/admin.py#L216-L261
-        if code is None:
-            if (ref := ctx.message.reference) and (content := ref.resolved.content):
-                code = content
-            elif (
-                message := [msg async for msg in ctx.channel.history(limit=2)][1]
-            ).author == ctx.author:
-                code = message.content
-            else:
-                return await ctx.send("huh")
-
-        stdout = StringIO()
-        code = code.removeprefix("```py").removesuffix("```")
-        function = f"async def func():\n{textwrap.indent(code.strip('`'), '  ')}"
-
-        if "last_eval" not in dir(self):
-            self.last_eval = None
-
-        env = {
-            "client": self.client,
-            "ctx": ctx,
-            "channel": ctx.channel,
-            "author": ctx.author,
-            "guild": ctx.guild,
-            "message": ctx.message,
-            "_": self.last_eval,
-        }
-
-        env.update(globals())
-
-        try:
-            exec(function, env)
-            func = env["func"]
-        except Exception as e:
-            return await ctx.send(f"```py\n{e.__class__.__name__}: {e}\n```")
-
-        try:
-            with redirect_stdout(stdout):
-                ret = await func()
-        except Exception as e:
-            value = stdout.getvalue()
-            await ctx.send(f"```py\n{value}{traceback.format_exc()}\n```")
-        else:
-            value = stdout.getvalue()
-            await ctx.message.add_reaction(bot.OK)
-
-            if ret is None:
-                if value:
-                    await ctx.send(f"```py\n{value}\n```")
-            else:
-                self._last_result = ret
-                await ctx.send(f"```py\n{value}{ret}\n```")
-
     @commands.command(usage="*[command]")
     async def info(self, ctx: commands.Context, cmd: str | None):
         """get information about the bot or a command"""
@@ -98,7 +21,7 @@ class Misc(BaseCog):
                     f"**{command.name}** has been run `{count}` time(s)"
                 )
             else:
-                return await ctx.send(err.CMD_NOT_FOUND)
+                return await ctx.send(v.ERR__CMD_NOT_FOUND)
 
         pre = (await GuildDB(ctx.guild).get()).prefix
         gh = "https://github.com/clearlakes/cade"
@@ -107,7 +30,7 @@ class Misc(BaseCog):
         uptime = str(datetime.now() - self.client.init_time).split(".")[0]
 
         # get the ping, which is client.latency times 1000 (for ms)
-        ping = round(self.client.latency * 1000, 3)
+        ping = round(self.client.latency * v.MATH__MS_MULTIPLIER, v.DISCORD__LATENCY_DEC_PLACES)
 
         # get the latest github commit
         number = (await run_cmd("git rev-list --count HEAD", decode=True))[0]
@@ -123,7 +46,7 @@ class Misc(BaseCog):
         invoke_count = await Internal().total_invoke_count
         began_counting = int((await Internal()._db_doc)["_id"].generation_time.timestamp())
 
-        embed = discord.Embed(title=f"{bot.CADE} cade {bot.CADE}", color=colors.CADE)
+        embed = discord.Embed(title=f"{v.EMJ__CADE} cade {v.EMJ__CADE}", color=v.BOT__CADE_THEME)
 
         embed.description = f"""cool insane bot made by me lakes
         **[source]({gh})** • **[commands]({gh}/blob/main/commands.md)** • **[found bug]({gh}/issues)**
@@ -139,7 +62,7 @@ class Misc(BaseCog):
         )
         embed.add_field(name="latest update", value=latest_update, inline=False)
 
-        embed.set_thumbnail(url=bot.CAT())
+        embed.set_thumbnail(url=v.BOT__CAT_PIC())
 
         guilds = len(self.client.guilds)  # get number of guilds
         users = len(
@@ -167,7 +90,7 @@ class Misc(BaseCog):
         command = self.client.get_command(cmd)
 
         if not command or command.hidden:
-            return await ctx.send(err.CMD_NOT_FOUND)
+            return await ctx.send(v.ERR__CMD_NOT_FOUND)
 
         embed = BaseEmbed(description=f"**{pre}{command.name}** - {command.help}")
 
@@ -212,16 +135,16 @@ class Misc(BaseCog):
         if not tag_content:
             # send tag if it exists
             if tag_name not in tags.keys():
-                return await ctx.send(err.TAG_DOESNT_EXIST)
+                return await ctx.send(v.ERR__TAG_DOESNT_EXIST)
 
             return await ctx.send(tags[tag_name])
         else:
             # create tag if it doesn't exist
             if tag_name in tags.keys():
-                return await ctx.send(err.TAG_ALREADY_EXISTS)
+                return await ctx.send(v.ERR__TAG_ALREADY_EXISTS)
 
             await db.add_obj("tags", tag_name, tag_content.strip())
-            return await ctx.send(f"{bot.OK} added tag `{tag_name}`")
+            return await ctx.send(f"{v.EMJ__OK} added tag `{tag_name}`")
 
     @commands.command(aliases=["tagdel", "tdel"], usage="[tag-name]")
     async def tagdelete(self, ctx: commands.Context, tag: str):
@@ -233,12 +156,12 @@ class Misc(BaseCog):
 
         # if the tag is not listed
         if tag not in tags:
-            return await ctx.send(err.TAG_DOESNT_EXIST)
+            return await ctx.send(v.ERR__TAG_DOESNT_EXIST)
 
         # remove the tag
         await db.del_obj("tags", tag)
 
-        await ctx.send(f"{bot.OK} removed tag `{tag}`")
+        await ctx.send(f"{v.EMJ__OK} removed tag `{tag}`")
 
     @commands.command(aliases=["tlist", "tags"])
     async def taglist(self, ctx: commands.Context):
@@ -247,7 +170,7 @@ class Misc(BaseCog):
         tags = (await db.get()).tags
 
         if not tags:
-            return await ctx.send(err.NO_TAGS_AT_ALL)
+            return await ctx.send(v.ERR__NO_TAGS_AT_ALL)
 
         # create tag list
         tag_list = ", ".join([f"**{t}**" for t in list(tags.keys())])
@@ -266,7 +189,7 @@ class Misc(BaseCog):
         # if nothing is given, disable the welcome message by setting it as None
         if not msg and not ctx.message.attachments:
             await db.set("welcome", [])
-            return await ctx.send(f"{bot.OK} disabled welcome message")
+            return await ctx.send(f"{v.EMJ__OK} disabled welcome message")
 
         # get attachment url if there is one
         if ctx.message.attachments:
@@ -276,7 +199,7 @@ class Misc(BaseCog):
         # update "welcome" with the given message and channel id
         await db.set("welcome", [msg, channel.id])
 
-        await ctx.send(f"{bot.OK} set the welcome message and channel")
+        await ctx.send(f"{v.EMJ__OK} set the welcome message and channel")
 
     @commands.command(aliases=["prefix"], usage="[prefix]")
     @commands.has_permissions(administrator=True)
@@ -289,10 +212,10 @@ class Misc(BaseCog):
             return await ctx.send(f"the current prefix is `{pre}` (default is `.`)")
 
         if len(new_prefix) > 3:  # prevent long prefixes
-            return await ctx.send(err.INVALID_PREFIX)
+            return await ctx.send(v.ERR__INVALID_PREFIX)
 
         await db.set("prefix", new_prefix)  # set new prefix
-        await ctx.send(f"{bot.OK} set prefix to `{new_prefix}`")
+        await ctx.send(f"{v.EMJ__OK} set prefix to `{new_prefix}`")
 
 
 async def setup(bot: CadeElegy):

@@ -10,7 +10,7 @@ from yt_dlp import DownloadError, YoutubeDL
 from utils.base import CadeElegy, BaseCog, BaseEmbed
 from utils.edit import edit
 from utils.useful import check, format_time, get_media, run_async, run_cmd, send_media
-from utils.vars import bot, err, ff, reg
+from utils.vars import v
 from utils.views import ChoiceView
 
 from io import BytesIO
@@ -22,14 +22,14 @@ from datetime import datetime, timezone
 
 class Media(BaseCog):
     @run_async
-    def video_download(self, loop, msg, url: str, start, end, video_format: str = "audio"):
+    def video_download(self, loop, msg, url: str, start, end, video_format: str = "audio",   ):
         def _create_yt_hook(progress_msg, loop):
             class _Hook:
                 def __init__(self):
                     self.last_edit = datetime.now(timezone.utc)
                 
                 async def _edit_progress(self, percent: str, msg: discord.Message):
-                    await msg.edit(content=f"-# {bot.WAITING} downloading... {percent} complete")
+                    await msg.edit(content=f"-# {v.EMJ__WAITING} downloading... {percent} complete")
 
                 def yt_hook(self, info: dict[str, str]):
                     if info["status"] == "downloading":
@@ -72,7 +72,7 @@ class Media(BaseCog):
                     ydl.download(url)
             except DownloadError as e:
                 # clean error and include it in the message
-                dl_error = f"```{reg.COLOR.sub('', e.msg)}```"
+                dl_error = f"```{v.RE__COLOR.sub('', e.msg)}```"
 
                 if "requested format is not available" in dl_error.lower():
                     return f"couldn't find a(n) {video_format} format"
@@ -94,7 +94,7 @@ class Media(BaseCog):
     @commands.command(usage="(image)")
     async def jpeg(self, ctx: commands.Context):
         """lowers the quality of the given image"""
-        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        processing = await ctx.send(v.BOT__PROCESSING_MSG())
 
         # get an image from the user's message
         res, error = await get_media(ctx, ["image"])
@@ -129,7 +129,7 @@ class Media(BaseCog):
         )
 
         # embed that will show the progress
-        embed = BaseEmbed(title=f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        embed = BaseEmbed(title=v.BOT__PROCESSING_MSG())
 
         processing = await ctx.send(embed=embed)
 
@@ -141,7 +141,7 @@ class Media(BaseCog):
         if not url:
             # edit the embed to ask for audio
             embed.title = (
-                f"{bot.WAITING} send a video url or an mp3 file to use as the audio"
+                f"{v.EMJ__WAITING} send a video url or an mp3 file to use as the audio"
             )
             embed.set_footer(text="or reply to any message that contains one")
             await processing.edit(embed=embed)
@@ -152,7 +152,7 @@ class Media(BaseCog):
                     "message", check=check(ctx), timeout=600
                 )
             except TimeoutError:
-                return await processing.edit(content=err.TIMED_OUT, embed=None)
+                return await processing.edit(content=v.ERR__TIMED_OUT, embed=None)
 
             msg = (
                 response.reference.resolved
@@ -168,16 +168,16 @@ class Media(BaseCog):
             ):
                 audio_type = "file"
                 audio = att
-            elif match := reg.URL.match(msg.content):
+            elif match := v.RE__URL.match(msg.content):
                 url = match.group(0)
                 audio_type = "url"
                 audio = url
             else:
                 # cancel if nothing was found
-                return await processing.edit(content=err.NO_AUDIO_FOUND, embed=None)
+                return await processing.edit(content=v.ERR__NO_AUDIO_FOUND, embed=None)
 
         # edit the embed to show that it's in step 1
-        embed.title = f"{bot.PROCESSING()} getting {audio_type} information..."
+        embed.title = f"{v.EMJ__PROCESSING()} getting {audio_type} information..."
         embed.set_footer()
 
         await processing.edit(embed=embed)
@@ -187,10 +187,10 @@ class Media(BaseCog):
             audio_bytes = None
 
             # get video information
-            video = await self.video_extract(audio)
+            video = await self.video_download(audio)
 
             if type(video) is str:
-                return await ctx.send(err.VID_DL_ERROR(video))
+                return await ctx.send(v.ERR__VID_DL_ERROR(video))
 
             stream_url, video_title, duration = video
             audio_source = video_title
@@ -202,11 +202,11 @@ class Media(BaseCog):
 
             # get mp3 duration
             duration, returncode = await run_cmd(
-                ff.GET_DURATION, audio_bytes, decode=True
+                v.FF__GET_DURATION, audio_bytes, decode=True
             )
 
             if returncode != 0:
-                return await ctx.send(err.FFMPEG_ERROR)
+                return await ctx.send(v.ERR__FFMPEG_ERROR)
 
             duration = int(float(duration))
             audio_source = audio.filename
@@ -217,21 +217,21 @@ class Media(BaseCog):
                 # if the audio source's length is longer than 30 minutes, send an error
                 if duration >= 1800:
                     return await processing.edit(
-                        embed=None, content=err.AUDIO_MAX_LENGTH
+                        embed=None, content=v.ERR__AUDIO_MAX_LENGTH
                     )
                 else:
                     length_given = duration
 
             duration = format_time(sec=duration)
         elif length_given is None:
-            return await processing.edit(embed=None, content=err.NO_DURATION)
+            return await processing.edit(embed=None, content=v.ERR__NO_DURATION)
 
         audio_str = (
             f"[{audio_source}]({audio})" if audio_type == "url" else audio_source
         )
 
         # edit the embed to show that it's in step 2
-        embed.title = f"{bot.PROCESSING()} making video..."
+        embed.title = f"{v.EMJ__PROCESSING()} making video..."
         embed.description = (
             f"- Audio: **{audio_str}** `{duration}`\n- Length: `{length_given} seconds`"
         )
@@ -245,13 +245,13 @@ class Media(BaseCog):
             source = "-" if audio_type == "file" else stream_url
 
             _, returncode = await run_cmd(
-                ff.IMGAUDIO(temp, source, length_given), audio_bytes
+                v.FF__IMGAUDIO(temp, source, length_given), audio_bytes
             )
 
             if returncode != 0:
-                return await processing.edit(embed=None, content=err.FFMPEG_ERROR)
+                return await processing.edit(embed=None, content=v.ERR__FFMPEG_ERROR)
 
-            embed.title = f"{bot.PROCESSING()} sending video..."
+            embed.title = f"{v.BOT__PROCESSING_MSG} sending video..."
             await processing.edit(embed=embed)
 
             # send the completed video
@@ -261,29 +261,29 @@ class Media(BaseCog):
                     file=discord.File(f"{temp}/output.mp4", f"{res.filename}.mp4"),
                 )
 
-                embed.title = f"{bot.OK} finish"
+                embed.title = f"{v.EMJ__OK} finish"
                 embed.color = discord.Color.brand_green()
                 await processing.edit(embed=embed)
             except discord.HTTPException:
-                await processing.edit(content=err.CANT_SEND_FILE, embed=None)
+                await processing.edit(content=v.ERR__CANT_SEND_FILE, embed=None)
 
     @commands.command(usage="[width]/auto *[height]/auto (gif/image/video)")
-    async def resize(self, ctx: commands.Context, width: str, height: str = "-2"):
+    async def resize(self, ctx: commands.Context, width: str, height: str = v.RESIZE__AUTO_SIZE):
         """resizes the given attachment"""
         # send error if width/height is over max size in pixels
         if any(x.isnumeric() and int(x) > 2000 for x in (width, height)):
-            return await ctx.send(err.FILE_MAX_SIZE)
+            return await ctx.send(v.ERR__FILE_MAX_SIZE)
 
         # set variables to -2 (auto) if a number isn't given
         if not width.isnumeric() or width == "0":
-            width = "-2"
+            width = v.RESIZE__AUTO_SIZE
         elif not height.isnumeric() or height == "0":
-            height = "-2"
+            height = v.RESIZE__AUTO_SIZE
 
-        if width == "-2" and height == "0":
-            return await ctx.send(err.FILE_INVALID_SIZE)
+        if width == v.RESIZE__AUTO_SIZE and height == "0":
+            return await ctx.send(v.ERR__FILE_INVALID_SIZE)
 
-        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        processing = await ctx.send(v.BOT__PROCESSING_MSG())
 
         # get either an image, gif, or video attachment
         res, error = await get_media(ctx, ["image", "video", "gif"])
@@ -293,13 +293,13 @@ class Media(BaseCog):
         # calculate "auto" sizes
         if orig_size := edit(res).file.size:
             match (width, height):
-                case ("-2", "-2"):  # raise error if both are auto
+                case (v.RESIZE__AUTO_SIZE, v.RESIZE__AUTO_SIZE):  # raise error if both are auto
                     raise commands.MissingRequiredArgument(ctx.command.params["width"])
-                case ("-2", _):  # needs width
+                case (v.RESIZE__AUTO_SIZE, _):  # needs width
                     new_height = int(height)
                     hpercent = new_height / orig_size[1]
                     new_width = round(orig_size[0] * hpercent)
-                case (_, "-2"):  # needs height
+                case (_, v.RESIZE__AUTO_SIZE):  # needs height
                     new_width = int(width)
                     wpercent = new_width / orig_size[0]
                     new_height = round(orig_size[1] * wpercent)
@@ -315,7 +315,7 @@ class Media(BaseCog):
     @commands.command(usage="[text] (gif/image/video)")
     async def caption(self, ctx: commands.Context, *, text: str):
         """captions the specified gif or image in the style of iFunny's captions"""
-        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        processing = await ctx.send(v.BOT__PROCESSING_MSG())
 
         res, error = await get_media(ctx, ["image", "video", "gif"])
         if error:
@@ -328,7 +328,7 @@ class Media(BaseCog):
     @commands.command(usage="(gif/image/video)")
     async def uncaption(self, ctx: commands.Context):
         """removes the caption from the given attachment"""
-        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        processing = await ctx.send(v.BOT__PROCESSING_MSG())
 
         res, error = await get_media(ctx, ["image", "video", "gif"])
         if error:
@@ -345,14 +345,14 @@ class Media(BaseCog):
             # get valid multiplier
             amount = float(amount.strip("x"))
         except ValueError:
-            error = err.INVALID_MULTIPLIER
+            error = v.ERR__INVALID_MULTIPLIER
 
             if bool(random.getrandbits(1)):
                 error = error.replace("mult", "mark")
 
             return await ctx.send(error)
 
-        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        processing = await ctx.send(v.BOT__PROCESSING_MSG())
 
         res, error = await get_media(ctx, ["video", "gif"])
         if error:
@@ -374,8 +374,8 @@ class Media(BaseCog):
                 "`.get` [list of supported sites](<https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md>) (via yt-dlp)"
             )
 
-        if not reg.URL.match(url):
-            return await ctx.send(err.INVALID_URL)
+        if not v.RE__URL.match(url):
+            return await ctx.send(v.ERR__INVALID_URL)
 
         if start and not end:
             # send error if an end time is not given
@@ -393,10 +393,10 @@ class Media(BaseCog):
                     e_seconds = e_seconds * 60 + int(y)
 
             except ValueError:
-                return await ctx.send(err.INVALID_TIMESTAMP)
+                return await ctx.send(v.ERR__INVALID_TIMESTAMP)
 
             if (s_seconds - e_seconds) > 0:
-                return await ctx.send(err.WEIRD_TIMESTAMPS)
+                return await ctx.send(v.ERR__WEIRD_TIMESTAMPS)
 
         # send a message with ChoiceView buttons
         view = ChoiceView(ctx.author, ["video", "audio", "nvm"])
@@ -409,21 +409,21 @@ class Media(BaseCog):
             return
 
         await msg.edit(
-            content=f"-# {bot.WAITING} downloading...", view=None
+            content=f"-# {v.EMJ__WAITING} downloading...", view=None
         )
 
         loop = asyncio.get_running_loop()
         result = await self.video_download(loop, msg, url, start, end, view.choice)
 
         if type(result) is str:
-            return await msg.edit(content=err.VID_DL_ERROR(result))
+            return await msg.edit(content=v.ERR__VID_DL_ERROR(result))
         
         await send_media(ctx, msg, result)        
 
     @commands.command(usage="(gif)")
     async def reverse(self, ctx: commands.Context):
         """reverses a gif"""
-        processing = await ctx.send(f"{bot.PROCESSING()} {bot.PROCESSING_MSG()}")
+        processing = await ctx.send(v.BOT__PROCESSING_MSG())
 
         res, error = await get_media(ctx, ["gif"])
         if error:

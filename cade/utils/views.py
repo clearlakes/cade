@@ -14,7 +14,7 @@ from .useful import (
     get_artwork_url,
     read_from_url,
 )
-from .vars import err
+from .vars import v
 
 
 class ChoiceView(discord.ui.View):
@@ -275,7 +275,7 @@ class NowPlayingView(discord.ui.View):
         if not self.ctx.author.voice or (
             self.ctx.author.voice.channel.id != int(self.player.channel_id)
         ):
-            await interaction.response.send_message(err.USER_NOT_IN_VC, ephemeral=True)
+            await interaction.response.send_message(v.ERR__USER_NOT_IN_VC, ephemeral=True)
             return False
 
         await interaction.response.defer()

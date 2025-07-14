@@ -3,7 +3,7 @@ from discord.ext import commands, menus
 from utils.base import CadeElegy, BaseCog
 from utils.tracks import create_music_embed, get_youtube, get_queue, get_np_lyrics
 from utils.useful import format_time
-from utils.vars import bot, err
+from utils.vars import v
 from utils.views import NowPlayingView, TrackSelectView
 
 
@@ -17,7 +17,7 @@ class Music(BaseCog):
         currently_playing = False if not player else player.is_playing
 
         if not connected_to_vc and ctx.command.name not in ["play", "join"]:
-            await ctx.send(err.BOT_NOT_IN_VC)
+            await ctx.send(v.ERR__BOT_NOT_IN_VC)
             return False
 
         match ctx.command.name, currently_playing:
@@ -29,18 +29,18 @@ class Music(BaseCog):
                     )
                     return True
                 elif not ctx.author.voice:
-                    await ctx.send(err.USER_NOT_IN_VC)
+                    await ctx.send(v.ERR__USER_NOT_IN_VC)
                     return False
                 else:
                     return True
             case "loopcount" | "queue" | "nowplaying" | "lyrics", True:
                 if not ctx.author.voice or (player and ctx.author.voice.channel.id != player.channel_id):
-                    await ctx.send(err.USER_NOT_IN_VC)
+                    await ctx.send(v.ERR__USER_NOT_IN_VC)
                     return False
                 else:
                     return True
             case "loopcount" | "queue" | "nowplaying" | "lyrics", False:
-                await ctx.send(err.NO_MUSIC_PLAYING)
+                await ctx.send(v.ERR__NO_MUSIC_PLAYING)
                 return False
             case _:
                 return True
@@ -65,7 +65,7 @@ class Music(BaseCog):
         tracks, info, failed = await get_youtube(self.client, query, track_selection)
 
         if not tracks:
-            error = err.CANT_LOAD_MUSIC if failed else err.NO_MUSIC_RESULTS
+            error = v.ERR__CANT_LOAD_MUSIC if failed else v.ERR__NO_MUSIC_RESULTS
             return await ctx.send(error)
 
         if track_selection:
@@ -102,11 +102,11 @@ class Music(BaseCog):
         if player.is_connected:
             if ctx.author.voice.channel.id != int(player.channel_id):
                 await ctx.guild.voice_client.move_to(ctx.author.voice.channel)
-                return await ctx.message.add_reaction(bot.OK)
-            return await ctx.send(err.BOT_IN_VC)
+                return await ctx.message.add_reaction(v.EMJ__OK)
+            return await ctx.send(v.ERR__BOT_IN_VC)
 
         await ctx.author.voice.channel.connect(cls=self.client.lavalink.voice_client)
-        await ctx.message.add_reaction(bot.OK)
+        await ctx.message.add_reaction(v.EMJ__OK)
 
     @commands.command(aliases=["dc", "leave"])
     async def disconnect(self, ctx: commands.Context):
@@ -121,7 +121,7 @@ class Music(BaseCog):
 
         # leave the vc
         await ctx.voice_client.disconnect(force=True)
-        await ctx.message.add_reaction(bot.OK)
+        await ctx.message.add_reaction(v.EMJ__OK)
 
     @commands.command(aliases=["s"], usage="*[index]/all")
     async def skip(self, ctx: commands.Context, *, index: int | str | None):
@@ -139,7 +139,7 @@ class Music(BaseCog):
 
             player.set_loop(0)
             await player.skip()
-            await ctx.message.add_reaction(bot.OK)
+            await ctx.message.add_reaction(v.EMJ__OK)
 
         if index is None:
             return await _skip()
@@ -148,7 +148,7 @@ class Music(BaseCog):
             if cache := player.fetch("queue_cache"):
                 player.queue = cache  # revert back to saved version of queue
                 player.store("queue_cache", None)
-                return await ctx.message.add_reaction(bot.OK)
+                return await ctx.message.add_reaction(v.EMJ__OK)
             else:
                 return await ctx.message.add_reaction("❓")
 
@@ -167,7 +167,7 @@ class Music(BaseCog):
                         removed = player.queue.pop(index - 1).title
                         break
                     else:
-                        return await ctx.send(err.NOT_IN_QUEUE)
+                        return await ctx.send(v.ERR__NOT_IN_QUEUE)
                 case str():
                     match list(index):
                         case [*_, "^"]:
@@ -180,7 +180,7 @@ class Music(BaseCog):
 
                             if index == "all":
                                 player.queue.clear()
-                                return await ctx.send(f"{bot.OK} cleared the queue")
+                                return await ctx.send(f"{v.EMJ__OK} cleared the queue")
 
                             # remove by playlist name
                             if pl_tracks := [
@@ -219,9 +219,9 @@ class Music(BaseCog):
                                 removed = track.title
                                 break
 
-                            return await ctx.send(err.NOT_IN_QUEUE)
+                            return await ctx.send(v.ERR__NOT_IN_QUEUE)
 
-        await ctx.send(f"{bot.OK} skipped **{removed}**")
+        await ctx.send(f"{v.EMJ__OK} skipped **{removed}**")
 
     @commands.command()
     async def shuffle(self, ctx: commands.Context):
@@ -237,9 +237,9 @@ class Music(BaseCog):
 
         # success message according to what it was set to
         if player.shuffle:
-            await ctx.send(f"{bot.OK} picking a random song from now on")
+            await ctx.send(f"{v.EMJ__OK} picking a random song from now on")
         else:
-            await ctx.send(f"{bot.OK} playing the queue in order from now on")
+            await ctx.send(f"{v.EMJ__OK} playing the queue in order from now on")
 
     @commands.command(aliases=["l"])
     async def loop(self, ctx: commands.Context):
@@ -251,13 +251,13 @@ class Music(BaseCog):
 
         # success message according to what it was set to
         if player.loop:
-            await ctx.send(f"{bot.OK} looping **{player.current.title}**")
+            await ctx.send(f"{v.EMJ__OK} looping **{player.current.title}**")
         else:
             # get and reset loopcount
             loopcount = player.fetch("loopcount")
             player.store("loopcount", 0)
 
-            await ctx.send(f"{bot.OK} stopped loop at **{loopcount}** loop(s)")
+            await ctx.send(f"{v.EMJ__OK} stopped loop at **{loopcount}** loop(s)")
 
     @commands.command(aliases=["lc"])
     async def loopcount(self, ctx: commands.Context):
@@ -266,7 +266,7 @@ class Music(BaseCog):
 
         # check if the current track is being looped
         if not player.loop:
-            return await ctx.send(err.MUSIC_NOT_LOOPED)
+            return await ctx.send(v.ERR__MUSIC_NOT_LOOPED)
 
         loopcount = player.fetch("loopcount")
         await ctx.send(
@@ -283,9 +283,9 @@ class Music(BaseCog):
 
         # success message depending on if the track is now paused or unpaused
         if player.paused:
-            await ctx.send(f"{bot.OK} paused")
+            await ctx.send(f"{v.EMJ__OK} paused")
         else:
-            await ctx.send(f"{bot.OK} unpaused")
+            await ctx.send(f"{v.EMJ__OK} unpaused")
 
     @commands.command(usage="[time]")
     async def seek(self, ctx: commands.Context, time_input: str):
@@ -304,9 +304,9 @@ class Music(BaseCog):
                 new_time = sum(int(x) * 60**i for i, x in enumerate(reversed(values)))
 
             # multiply by 1000 to get milliseconds
-            new_time = int(new_time) * 1000
+            new_time = int(new_time) * v.MATH__MS_MULTIPLIER
         except ValueError:
-            return await ctx.send(err.INVALID_TIMESTAMP)
+            return await ctx.send(v.ERR__INVALID_TIMESTAMP)
 
         # if + or - was in front of the given time
         if not time_input[0].isnumeric():
@@ -316,7 +316,7 @@ class Music(BaseCog):
 
                 # if the given time is further than the track's end time
                 if new_time >= player.current.duration:
-                    return await ctx.send(err.INVALID_SEEK)
+                    return await ctx.send(v.ERR__INVALID_SEEK)
 
                 action = "skipped"
             elif time_input[0] == "-":
@@ -335,7 +335,7 @@ class Music(BaseCog):
         formatted_time = format_time(ms=new_time)
 
         await player.seek(new_time)
-        return await ctx.send(f"{bot.OK} {action} to `{formatted_time}`")
+        return await ctx.send(f"{v.EMJ__OK} {action} to `{formatted_time}`")
 
     @commands.command(aliases=["q"])
     async def queue(self, ctx: commands.Context):
@@ -373,7 +373,7 @@ class Music(BaseCog):
         lyric_pages = await get_np_lyrics(player)
 
         if lyric_pages is None:
-            return await ctx.send(err.NO_LYRICS)
+            return await ctx.send(v.ERR__NO_LYRICS)
 
         paginator = menus.MenuPages(source=lyric_pages, clear_reactions_after=True)
 
