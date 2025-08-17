@@ -36,8 +36,8 @@ services:
     build:
       context: .
       dockerfile: cdn-script.Dockerfile
-    expose:
-      - "8081"
+    ports:
+      - 8081:8081
   nginx:
     container_name: image-server
     image: nginx:mainline-alpine3.22-perl
