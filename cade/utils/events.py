@@ -11,7 +11,7 @@ from lavalink import (
 
 from .base import BaseEmbed, CadeElegy
 from .db import GuildDB
-from .useful import format_time, get_artwork_url, strip_pl_name
+from .useful import format_time, get_artwork_url
 from .vars import v
 from .views import NowPlayingView
 from .tracks import _get_lyrics
@@ -197,13 +197,12 @@ class TrackEvents:
             ):
                 # add the playlist name if it's not there
                 if "Played tracks from" not in desc:
-                    desc = strip_pl_name(pl, desc).strip(f" • <@{requester}>")
-                    desc = desc.replace(
+                    desc = desc.strip(f" • <@{requester}>").replace(
                         "Played", f"<@{requester}> • Played tracks from **{pl}**:\n- "
                     )
 
                 # add the track's information
-                desc += f"\n- {strip_pl_name(pl, track_info)}"
+                desc += f"\n- {track_info}"
                 new_embed = message.embeds[0].copy()
                 new_embed.description = desc
 

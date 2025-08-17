@@ -12,7 +12,6 @@ from lavalink import (
 from .base import BaseEmbed, CadeElegy
 from .useful import (
     format_time,
-    strip_pl_name,
     Pages,
     get_average_color,
     read_from_url,
@@ -134,7 +133,7 @@ def create_music_embed(
     if len(tracks) == 1:
         embed.description = f"-# Queued track!\n**[{title}]({url})**\n-# `{duration}` • {requester.mention} | **#{len(player.queue)}** in queue"""
     else:
-        embed.description = f"-# Queued playlist!\n**[{title}]({url})** | `{len(tracks)} track(s)`\n-# `{duration}` • {requester.mention} | **#{len(player.queue) - len(tracks) + 1}-{len(player.queue)}** in queue"
+        embed.description = f"-# Queued playlist!\n**[{title}]({url})** • `{len(tracks)} track(s)`\n-# `{duration}` • {requester.mention} | **#{len(player.queue) - len(tracks) + 1}-{len(player.queue)}** in queue"
 
     embed.set_thumbnail(url=thumbnail)
     return embed
@@ -163,7 +162,7 @@ async def get_queue(player: DefaultPlayer):
                     queue_list += f"**`{pl}`** • <@{track.requester}>\n`|` "
                     current_playlist = pl
 
-                title = strip_pl_name(pl, track.title)
+                title = track.title
             else:
                 if current_playlist:  # add separator if there was a playlist
                     queue_list += "`" + ("─" * len(current_playlist)) + "`\n"
@@ -172,7 +171,7 @@ async def get_queue(player: DefaultPlayer):
                 title = track.title
 
             duration = format_time(ms=track.duration)
-            queue_list += f"**{index + 1}. [{title}]({track.uri})** `{duration}`"
+            queue_list += f"**{index + 1}. [{title.strip()}]({track.uri})** `{duration}`"
 
             if not current_playlist:
                 queue_list += f" • <@{track.requester}>"

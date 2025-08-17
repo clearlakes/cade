@@ -67,9 +67,10 @@ class Cade(commands.Bot):
         self.lavalink.add_event_hooks(TrackEvents(self))
         self.log.info("connected to lavalink")
 
-        if os.environ["GENERATE"].lower() == "true":
-            self.log.info("generating commands.md...")
-            generate_cmd_list(self.cogs)
+        if "GENERATE" in os.environ.keys():
+            if os.environ["GENERATE"].lower() == "true":
+                self.log.info("generating commands.md...")
+                generate_cmd_list(self.cogs)
 
     async def on_ready(self):
         self.log.warning("cade ready to rumble")

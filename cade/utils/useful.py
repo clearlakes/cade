@@ -201,21 +201,6 @@ def get_average_color(image: bytes):
     average_color = [round(x) for x in np_img.mean(axis=0).mean(axis=0)]
     return average_color
 
-
-def strip_pl_name(playlist_name: str, text: str):
-    """strips the playlist name from track titles"""
-    track_name = t.group(0) if (t := v.RE__TRACKNAME.search(text)) else text
-    playlist_name = playlist_name.lower()
-
-    if any(
-        (short_title := x).lower().strip(" ost") not in playlist_name
-        for x in v.RE__PLAYLIST.split(track_name, 1)
-    ):
-        return text.replace(track_name, short_title.strip())
-
-    return text
-
-
 def get_attachment_obj(ctx: commands.Context):
     """gets the attachment object from a message"""
     # switch to the message being replied to if it's there

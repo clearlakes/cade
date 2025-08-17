@@ -8,6 +8,15 @@ services:
       - ./lavalink/plugins/:/opt/Lavalink/plugins/
     expose:
       - "2333"
+  spotify-tokener:
+    image: ghcr.io/topi314/spotify-tokener:master
+    container_name: spotify-tokener
+    restart: unless-stopped
+    environment:
+      - SPOTIFY_TOKENER_ADDR=0.0.0.0:8080
+      - SPOTIFY_TOKENER_LOG_LEVEL=INFO
+    ports:
+      - 8080:8080
   mongo:
     container_name: mongo
     image: mongo:8.0.3
@@ -28,7 +37,7 @@ services:
       context: .
       dockerfile: cdn-script.Dockerfile
     expose:
-      - "8080"
+      - "8081"
   nginx:
     container_name: image-server
     image: nginx:mainline-alpine3.22-perl
