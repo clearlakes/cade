@@ -171,7 +171,7 @@ async def get_queue(player: DefaultPlayer):
                 title = track.title
 
             duration = format_time(ms=track.duration)
-            queue_list += f"**{index + 1}. [{title.strip()}]({track.uri})** `{duration}`"
+            queue_list += f"**{index + 1}. [{title}]({track.uri})** `{duration}`"
 
             if not current_playlist:
                 queue_list += f" • <@{track.requester}>"
