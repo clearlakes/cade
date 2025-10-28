@@ -11,7 +11,7 @@ opencv-python = "^4.6.0.66"
 pilmoji = { git = "https://github.com/clearlakes/pilmoji" }
 "discord.py" = { extras = ["speed"], version = "^2.0.0" }
 discord-ext-menus = { git = "https://github.com/Rapptz/discord-ext-menus" }
-yt-dlp = "*"
+yt-dlp = { extras = ["default"], version = "*" }
 motor = "^3.5.1"
 dnspython = "^2.2.1"
 

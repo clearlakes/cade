@@ -52,6 +52,7 @@ class Media(BaseCog):
                 "format": "best",
                 "quiet": True,
                 "noplaylist": True,
+                "restrictfilenames": True,
                 "listformats": ("bsky" in url),
                 "progress_hooks": [hook],
                 "outtmpl": f"{tmpdir}/%(title)s.%(ext)s"
